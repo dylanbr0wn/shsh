@@ -1,16 +1,16 @@
 import { useAtomValue, useAtom } from 'jotai'
-import { useRef, useState, useEffect, useCallback } from 'react'
-import { PanelRight } from 'lucide-react'
-import type { SearchAddon } from '@xterm/addon-search'
-import { sessionsAtom, activeSessionIdAtom, sftpStateAtom } from '../../store/atoms'
+import { useState, useEffect, useCallback } from 'react'
+import { PanelRight, Network } from 'lucide-react'
+import { sessionsAtom, activeSessionIdAtom, sftpStateAtom, portForwardsAtom } from '../../store/atoms'
 import { TerminalInstance } from './TerminalInstance'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSettings } from './TerminalSettings'
 import { SFTPPanel } from '../sftp/SFTPPanel'
+import { PortForwardsPanel } from '../portforward/PortForwardsPanel'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import type { SFTPState } from '../../types'
+import type { SFTPState, PortForwardPanelState } from '../../types'
 
 const DEFAULT_SFTP_STATE: SFTPState = {
   isOpen: false,
@@ -20,21 +20,19 @@ const DEFAULT_SFTP_STATE: SFTPState = {
   error: null,
 }
 
+const DEFAULT_PF_STATE: PortForwardPanelState = {
+  isOpen: false,
+  forwards: [],
+  isAdding: false,
+  error: null,
+}
+
 export function TerminalPane() {
   const sessions = useAtomValue(sessionsAtom)
   const activeSessionId = useAtomValue(activeSessionIdAtom)
   const [sftpState, setSftpState] = useAtom(sftpStateAtom)
+  const [pfState, setPfState] = useAtom(portForwardsAtom)
   const [searchOpen, setSearchOpen] = useState(false)
-
-  // One searchAddonRef per mounted session — keyed by sessionId
-  const searchAddonRefs = useRef<Record<string, React.RefObject<SearchAddon | null>>>({})
-
-  function getSearchRef(sessionId: string) {
-    if (!searchAddonRefs.current[sessionId]) {
-      searchAddonRefs.current[sessionId] = { current: null }
-    }
-    return searchAddonRefs.current[sessionId]
-  }
 
   // Ctrl+F to open search
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -56,97 +54,89 @@ export function TerminalPane() {
     })
   }
 
+  function togglePortForwards(sessionId: string) {
+    setPfState((prev) => {
+      const cur = prev[sessionId] ?? DEFAULT_PF_STATE
+      return { ...prev, [sessionId]: { ...cur, isOpen: !cur.isOpen } }
+    })
+  }
+
   return (
     <div className="relative h-full w-full">
-      {/* eslint-disable react-hooks/refs -- searchAddonRefs is a stable mutable map keyed by session, not used for rendering */}
       {sessions.map((session) => {
         const sftp = sftpState[session.id] ?? DEFAULT_SFTP_STATE
+        const pf = pfState[session.id] ?? DEFAULT_PF_STATE
         const isActive = session.id === activeSessionId
-        const searchRef = getSearchRef(session.id)
 
         return (
           <div
             key={session.id}
             className="absolute inset-0"
-            style={{ display: isActive ? 'flex' : 'none' }}
+            style={isActive
+              ? { visibility: 'visible', pointerEvents: 'auto' }
+              : { visibility: 'hidden', pointerEvents: 'none' }
+            }
           >
-            {sftp.isOpen ? (
-              <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
-                <ResizablePanel defaultSize={60} minSize={30} className="flex min-w-0 flex-col">
-                  <div className="relative min-h-0 flex-1">
-                    <TerminalInstance
-                      session={session}
-                      isActive={isActive}
-                      searchAddonRef={searchRef}
-                    />
-                    {isActive && searchOpen && (
-                      <TerminalSearch
-                        searchAddonRef={searchRef}
-                        onClose={() => setSearchOpen(false)}
-                      />
-                    )}
-                    <div className="group pointer-events-none absolute inset-0">
-                      <div className="pointer-events-auto absolute top-1 right-1 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                        <TerminalSettings />
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground size-6"
-                              onClick={() => toggleSFTP(session.id)}
-                            >
-                              <PanelRight />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="left">Open file browser</TooltipContent>
-                        </Tooltip>
-                      </div>
+            <ResizablePanelGroup orientation="horizontal" className="h-full w-full">
+              <ResizablePanel defaultSize={60} minSize={30} className="flex min-w-0 flex-col h-full overflow-hidden!">
+                <div className="relative min-h-0 flex-1 py-3 pl-3 h-full">
+                  <TerminalInstance session={session} isActive={isActive} />
+                  {isActive && searchOpen && (
+                    <TerminalSearch sessionId={session.id} onClose={() => setSearchOpen(false)} />
+                  )}
+                  <div className="group pointer-events-none absolute inset-0">
+                    <div className="pointer-events-auto absolute top-1 right-1 z-10 flex gap-1 opacity-20 transition-opacity group-hover:opacity-100 has-data-[state=open]:opacity-100">
+                      <TerminalSettings />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground size-6"
+                            onClick={() => togglePortForwards(session.id)}
+                          >
+                            <Network />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">Port forwards</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-muted-foreground size-6"
+                            onClick={() => toggleSFTP(session.id)}
+                          >
+                            <PanelRight />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="left">Open file browser</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-                <ResizablePanel defaultSize={40} minSize={20} className="flex min-w-0 flex-col">
-                  <SFTPPanel sessionId={session.id} onClose={() => toggleSFTP(session.id)} />
-                </ResizablePanel>
-              </ResizablePanelGroup>
-            ) : (
-              <div className="group relative flex min-w-0 flex-1 flex-col">
-                <div className="relative min-h-0 flex-1">
-                  <TerminalInstance
-                    session={session}
-                    isActive={isActive}
-                    searchAddonRef={searchRef}
-                  />
-                  {isActive && searchOpen && (
-                    <TerminalSearch
-                      searchAddonRef={searchRef}
-                      onClose={() => setSearchOpen(false)}
-                    />
-                  )}
                 </div>
-                <div className="absolute top-1 right-1 z-10 flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                  <TerminalSettings />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground size-6"
-                        onClick={() => toggleSFTP(session.id)}
-                      >
-                        <PanelRight />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="left">Open file browser</TooltipContent>
-                  </Tooltip>
-                </div>
-              </div>
-            )}
+              </ResizablePanel>
+              {pf.isOpen && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize={30} minSize={20} className="flex min-w-0 flex-col">
+                    <PortForwardsPanel sessionId={session.id} onClose={() => togglePortForwards(session.id)} />
+                  </ResizablePanel>
+                </>
+              )}
+              {sftp.isOpen && (
+                <>
+                  <ResizableHandle withHandle />
+                  <ResizablePanel defaultSize={40} minSize={20} className="flex min-w-0 flex-col">
+                    <SFTPPanel sessionId={session.id} onClose={() => toggleSFTP(session.id)} />
+                  </ResizablePanel>
+                </>
+              )}
+            </ResizablePanelGroup>
           </div>
         )
       })}
-      {/* eslint-enable react-hooks/refs */}
 
       {/* Global search overlay hint (no active sessions) */}
       {sessions.length === 0 && null}

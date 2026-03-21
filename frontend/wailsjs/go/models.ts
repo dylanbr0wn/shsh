@@ -1,51 +1,40 @@
 export namespace main {
 	
-	export class CreateHostInput {
-	    label: string;
-	    hostname: string;
-	    port: number;
-	    username: string;
-	    authMethod: string;
-	    password?: string;
+	export class BulkConnectResult {
+	    sessionId: string;
+	    hostId: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new CreateHostInput(source);
+	        return new BulkConnectResult(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.label = source["label"];
-	        this.hostname = source["hostname"];
-	        this.port = source["port"];
-	        this.username = source["username"];
-	        this.authMethod = source["authMethod"];
-	        this.password = source["password"];
+	        this.sessionId = source["sessionId"];
+	        this.hostId = source["hostId"];
 	    }
 	}
-	export class Host {
+
+}
+
+export namespace session {
+	
+	export class PortForwardInfo {
 	    id: string;
-	    label: string;
-	    hostname: string;
-	    port: number;
-	    username: string;
-	    authMethod: string;
-	    createdAt: string;
-	    lastConnectedAt?: string;
+	    localPort: number;
+	    remoteHost: string;
+	    remotePort: number;
 	
 	    static createFrom(source: any = {}) {
-	        return new Host(source);
+	        return new PortForwardInfo(source);
 	    }
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.id = source["id"];
-	        this.label = source["label"];
-	        this.hostname = source["hostname"];
-	        this.port = source["port"];
-	        this.username = source["username"];
-	        this.authMethod = source["authMethod"];
-	        this.createdAt = source["createdAt"];
-	        this.lastConnectedAt = source["lastConnectedAt"];
+	        this.localPort = source["localPort"];
+	        this.remoteHost = source["remoteHost"];
+	        this.remotePort = source["remotePort"];
 	    }
 	}
 	export class SFTPEntry {
@@ -70,14 +59,19 @@ export namespace main {
 	        this.mode = source["mode"];
 	    }
 	}
-	export class SSHConfigEntry {
+
+}
+
+export namespace sshconfig {
+	
+	export class Entry {
 	    alias: string;
 	    hostname: string;
 	    port: number;
 	    user: string;
 	
 	    static createFrom(source: any = {}) {
-	        return new SSHConfigEntry(source);
+	        return new Entry(source);
 	    }
 	
 	    constructor(source: any = {}) {
@@ -88,6 +82,117 @@ export namespace main {
 	        this.user = source["user"];
 	    }
 	}
+
+}
+
+export namespace store {
+	
+	export class CreateGroupInput {
+	    name: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateGroupInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	    }
+	}
+	export class CreateHostInput {
+	    label: string;
+	    hostname: string;
+	    port: number;
+	    username: string;
+	    authMethod: string;
+	    password?: string;
+	    groupId?: string;
+	    color?: string;
+	    tags?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateHostInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.label = source["label"];
+	        this.hostname = source["hostname"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.authMethod = source["authMethod"];
+	        this.password = source["password"];
+	        this.groupId = source["groupId"];
+	        this.color = source["color"];
+	        this.tags = source["tags"];
+	    }
+	}
+	export class Group {
+	    id: string;
+	    name: string;
+	    sortOrder: number;
+	    createdAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new Group(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.sortOrder = source["sortOrder"];
+	        this.createdAt = source["createdAt"];
+	    }
+	}
+	export class Host {
+	    id: string;
+	    label: string;
+	    hostname: string;
+	    port: number;
+	    username: string;
+	    authMethod: string;
+	    createdAt: string;
+	    lastConnectedAt?: string;
+	    groupId?: string;
+	    color?: string;
+	    tags?: string[];
+	
+	    static createFrom(source: any = {}) {
+	        return new Host(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.label = source["label"];
+	        this.hostname = source["hostname"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.authMethod = source["authMethod"];
+	        this.createdAt = source["createdAt"];
+	        this.lastConnectedAt = source["lastConnectedAt"];
+	        this.groupId = source["groupId"];
+	        this.color = source["color"];
+	        this.tags = source["tags"];
+	    }
+	}
+	export class UpdateGroupInput {
+	    id: string;
+	    name: string;
+	    sortOrder: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateGroupInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.sortOrder = source["sortOrder"];
+	    }
+	}
 	export class UpdateHostInput {
 	    id: string;
 	    label: string;
@@ -96,6 +201,9 @@ export namespace main {
 	    username: string;
 	    authMethod: string;
 	    password?: string;
+	    groupId?: string;
+	    color?: string;
+	    tags?: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateHostInput(source);
@@ -110,6 +218,9 @@ export namespace main {
 	        this.username = source["username"];
 	        this.authMethod = source["authMethod"];
 	        this.password = source["password"];
+	        this.groupId = source["groupId"];
+	        this.color = source["color"];
+	        this.tags = source["tags"];
 	    }
 	}
 

@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { isEditHostOpenAtom, editingHostAtom, hostsAtom } from '../../store/atoms'
+import { isEditHostOpenAtom, editingHostAtom, hostsAtom, groupsAtom } from '../../store/atoms'
 import type { UpdateHostInput, Host } from '../../types'
 import { UpdateHost } from '../../../wailsjs/go/main/App'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
 import { Button } from '../ui/button'
+import { Badge } from '../ui/badge'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../ui/select'
+import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
+import { cn } from '../../lib/utils'
 
 interface FieldError {
   label?: string
@@ -32,6 +42,7 @@ export function EditHostModal() {
   const [isOpen, setIsOpen] = useAtom(isEditHostOpenAtom)
   const editingHost = useAtomValue(editingHostAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const groups = useAtomValue(groupsAtom)
 
   const [form, setForm] = useState<UpdateHostInput>({
     id: '',
@@ -44,6 +55,7 @@ export function EditHostModal() {
   })
   const [errors, setErrors] = useState<FieldError>({})
   const [submitting, setSubmitting] = useState(false)
+  const [tagInput, setTagInput] = useState('')
 
   useEffect(() => {
     if (editingHost) {
@@ -55,14 +67,27 @@ export function EditHostModal() {
         username: editingHost.username,
         authMethod: editingHost.authMethod,
         password: '',
+        groupId: editingHost.groupId,
+        color: editingHost.color,
+        tags: editingHost.tags,
       })
       setErrors({})
+      setTagInput('')
     }
   }, [editingHost])
 
   function close() {
     setIsOpen(false)
     setErrors({})
+  }
+
+  function addTag(t: string) {
+    if (t && !(form.tags ?? []).includes(t))
+      setForm((f) => ({ ...f, tags: [...(f.tags ?? []), t] }))
+  }
+
+  function removeTag(t: string) {
+    setForm((f) => ({ ...f, tags: (f.tags ?? []).filter((x) => x !== t) }))
   }
 
   function validate(): FieldError {
@@ -80,6 +105,7 @@ export function EditHostModal() {
       setErrors(errs)
       return
     }
+    if (tagInput.trim()) addTag(tagInput.trim())
     setSubmitting(true)
     try {
       const updated = await UpdateHost({ ...form, port: Number(form.port) || 22 })
@@ -179,6 +205,81 @@ export function EditHostModal() {
               value={form.password ?? ''}
               onChange={field('password')}
             />
+          </div>
+
+          {groups.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="eh-group">Group</Label>
+              <Select
+                value={form.groupId ?? '__none__'}
+                onValueChange={(val) =>
+                  setForm((f) => ({ ...f, groupId: val === '__none__' ? undefined : val }))
+                }
+              >
+                <SelectTrigger id="eh-group" className="h-9">
+                  <SelectValue placeholder="No Group" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No Group</SelectItem>
+                  {groups.map((g) => (
+                    <SelectItem key={g.id} value={g.id}>
+                      {g.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Color</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={cn(
+                  'size-6 rounded-full border-2 bg-muted',
+                  !form.color && 'ring-2 ring-ring ring-offset-1'
+                )}
+                onClick={() => setForm((f) => ({ ...f, color: undefined }))}
+              />
+              {HOST_COLOR_PALETTE.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  style={{ background: c }}
+                  className={cn(
+                    'size-6 rounded-full',
+                    form.color === c && 'ring-2 ring-ring ring-offset-1'
+                  )}
+                  onClick={() => setForm((f) => ({ ...f, color: c }))}
+                />
+              ))}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-1">
+              {(form.tags ?? []).map((t) => (
+                <Badge key={t} variant="secondary" className="gap-1 text-xs">
+                  {t}
+                  <X className="size-3 cursor-pointer" onClick={() => removeTag(t)} />
+                </Badge>
+              ))}
+              <Input
+                placeholder="Add tag…"
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+                    e.preventDefault()
+                    addTag(tagInput.trim().replace(/,$/, ''))
+                    setTagInput('')
+                  }
+                }}
+                className="h-6 w-24 text-xs"
+              />
+            </div>
           </div>
 
           <DialogFooter>

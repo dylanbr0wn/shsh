@@ -1,3 +1,4 @@
+import { useTheme } from 'next-themes'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import { useAppInit } from './store/useAppInit'
@@ -13,13 +14,14 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './componen
 
 export default function App() {
   useAppInit()
+  const { resolvedTheme } = useTheme()
 
   return (
     <TooltipProvider delayDuration={400}>
       <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
         <TitleBar />
         <ResizablePanelGroup orientation="horizontal" className="flex-1">
-          <ResizablePanel defaultSize="18%" minSize="180px" maxSize="35%" className="flex flex-col">
+          <ResizablePanel defaultSize="18%" minSize="276px" maxSize="35%" className="flex flex-col">
             <Sidebar />
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -33,7 +35,7 @@ export default function App() {
         <HostKeyDialog />
         <ImportSSHConfigModal />
       </div>
-      <Toaster position="bottom-right" />
+      <Toaster position="bottom-right" theme={resolvedTheme as 'light' | 'dark'} />
     </TooltipProvider>
   )
 }

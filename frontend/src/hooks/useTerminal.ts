@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { RefObject } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
@@ -11,18 +11,19 @@ import { SearchAddon } from '@xterm/addon-search'
 import { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'
 import { WriteToSession, ResizeSession } from '../../wailsjs/go/main/App'
 import { terminalSettingsAtom } from '../atoms/terminalSettings'
+import { searchAddonsAtom } from '../store/atoms'
 import { darkTheme, lightTheme } from '../lib/terminalThemes'
 
 export function useTerminal(
   containerRef: RefObject<HTMLDivElement | null>,
   sessionId: string,
   isActive: boolean,
-  searchAddonRef?: RefObject<SearchAddon | null>
 ) {
   const fitRef = useRef<FitAddon | null>(null)
   const termRef = useRef<Terminal | null>(null)
 
   const settings = useAtomValue(terminalSettingsAtom)
+  const setSearchAddons = useSetAtom(searchAddonsAtom)
   const { resolvedTheme } = useTheme()
 
   // Mount once per sessionId
@@ -33,6 +34,7 @@ export function useTerminal(
     const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme
 
     const term = new Terminal({
+      allowTransparency: true,
       allowProposedApi: true,
       cursorBlink: settings.cursorBlink,
       cursorStyle: settings.cursorStyle,
@@ -68,10 +70,7 @@ export function useTerminal(
 
     termRef.current = term
     fitRef.current = fitAddon
-    if (searchAddonRef) {
-      // eslint-disable-next-line react-hooks/immutability -- intentionally writing addon into caller-provided ref
-      ;(searchAddonRef as React.MutableRefObject<SearchAddon | null>).current = searchAddon
-    }
+    setSearchAddons((prev) => ({ ...prev, [sessionId]: searchAddon }))
 
     // Pipe Go → terminal
     const cancelOutput = EventsOn(`session:output:${sessionId}`, (data: string) => {
@@ -101,11 +100,13 @@ export function useTerminal(
       term.dispose()
       termRef.current = null
       fitRef.current = null
-      if (searchAddonRef) {
-        ;(searchAddonRef as React.MutableRefObject<SearchAddon | null>).current = null
-      }
+      setSearchAddons((prev) => {
+        const next = { ...prev }
+        delete next[sessionId]
+        return next
+      })
     }
-  }, [sessionId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [containerRef, resolvedTheme, sessionId, setSearchAddons, settings.cursorBlink, settings.cursorStyle, settings.fontSize, settings.scrollback])
 
   // Apply settings changes at runtime (no remount needed)
   useEffect(() => {

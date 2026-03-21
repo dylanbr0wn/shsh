@@ -65,8 +65,11 @@ export function TabItem({
               tabIndex={0}
               className={cn(
                 'focus-visible:ring-ring/50 flex h-full shrink-0 cursor-pointer items-center gap-1.5 border-b-2 px-3 transition-colors select-none focus-visible:ring-2 focus-visible:outline-none',
-                isActive ? 'bg-background border-primary' : 'hover:bg-muted/60 border-transparent'
+                isActive
+                  ? cn('bg-background', !host?.color && 'border-primary')
+                  : 'hover:bg-muted/60 border-transparent'
               )}
+              style={isActive && host?.color ? { borderBottomColor: host.color } : undefined}
               onClick={onActivate}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') onActivate()

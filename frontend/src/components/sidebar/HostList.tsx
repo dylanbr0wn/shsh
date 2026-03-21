@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
+  groupsAtom,
   sessionsAtom,
   connectingHostIdsAtom,
   isEditHostOpenAtom,
@@ -10,38 +11,106 @@ import {
   isAddHostOpenAtom,
 } from '../../store/atoms'
 import { pendingConnects } from '../../store/useAppInit'
-import { DeleteHost, ConnectHost } from '../../../wailsjs/go/main/App'
+import { DeleteHost, ConnectHost, UpdateHost, AddGroup, ListHosts } from '../../../wailsjs/go/main/App'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
-import { X, Server, Plus } from 'lucide-react'
+import { ScrollArea } from '../ui/scroll-area'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
+import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, FolderPlus } from 'lucide-react'
 import { HostListItem } from './HostListItem'
-import type { Host } from '../../types'
+import { HostGroupSection } from './HostGroupSection'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import type { Group, Host } from '../../types'
+
+type SortMode = 'az' | 'za' | 'recent'
+
+function comparator(sortMode: SortMode) {
+  return (a: Host, b: Host) => {
+    if (sortMode === 'az') return a.label.toLowerCase().localeCompare(b.label.toLowerCase())
+    if (sortMode === 'za') return b.label.toLowerCase().localeCompare(a.label.toLowerCase())
+    const aTime = a.lastConnectedAt ?? a.createdAt
+    const bTime = b.lastConnectedAt ?? b.createdAt
+    return bTime.localeCompare(aTime)
+  }
+}
 
 export function HostList() {
   const hosts = useAtomValue(hostsAtom)
+  const groups = useAtomValue(groupsAtom)
   const sessions = useAtomValue(sessionsAtom)
   const connectingHostIds = useAtomValue(connectingHostIdsAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const setGroups = useSetAtom(groupsAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
   const setIsEditOpen = useSetAtom(isEditHostOpenAtom)
   const setEditingHost = useSetAtom(editingHostAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>('az')
+  const [newGroupOpen, setNewGroupOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const newGroupInputRef = useRef<HTMLInputElement>(null)
 
-  const connectedHostIds = new Set(sessions.map((s) => s.hostId))
+  const connectedHostIds = useMemo(() => new Set(sessions.map((s) => s.hostId)), [sessions])
 
-  const filteredHosts = searchQuery.trim()
-    ? hosts.filter((h) => {
-        const q = searchQuery.toLowerCase()
-        return (
+  // Grouped data (no search)
+  const { groupMap, ungrouped } = useMemo(() => {
+    const cmp = comparator(sortMode)
+    const sorted = [...hosts].sort(cmp)
+    const map = new Map<string, Host[]>()
+    const ungrouped: Host[] = []
+    for (const host of sorted) {
+      if (host.groupId) {
+        if (!map.has(host.groupId)) map.set(host.groupId, [])
+        map.get(host.groupId)!.push(host)
+      } else {
+        ungrouped.push(host)
+      }
+    }
+    return { groupMap: map, ungrouped }
+  }, [hosts, sortMode])
+
+  // Flat filtered list (search active)
+  const filteredHosts = useMemo(() => {
+    if (!searchQuery.trim()) return []
+    const q = searchQuery.toLowerCase()
+    return [...hosts]
+      .filter(
+        (h) =>
           h.label.toLowerCase().includes(q) ||
           h.hostname.toLowerCase().includes(q) ||
-          h.username.toLowerCase().includes(q)
-        )
-      })
-    : hosts
+          h.username.toLowerCase().includes(q) ||
+          h.tags?.some((t) => t.toLowerCase().includes(q))
+      )
+      .sort(comparator(sortMode))
+  }, [hosts, searchQuery, sortMode])
+
+  const sortedGroups = useMemo(
+    () => [...groups].sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)),
+    [groups]
+  )
+
+  function cycleSortMode() {
+    setSortMode((prev) => (prev === 'az' ? 'za' : prev === 'za' ? 'recent' : 'az'))
+  }
+
+  const sortIcon =
+    sortMode === 'az' ? (
+      <ArrowUpAZ className="size-3.5" />
+    ) : sortMode === 'za' ? (
+      <ArrowDownAZ className="size-3.5" />
+    ) : (
+      <Clock className="size-3.5" />
+    )
+
+  const sortTooltip =
+    sortMode === 'az'
+      ? 'A–Z (click for Z–A)'
+      : sortMode === 'za'
+        ? 'Z–A (click for Recent)'
+        : 'Recent (click for A–Z)'
 
   async function handleConnect(hostId: string, hostLabel: string) {
     setConnectingIds((prev) => new Set([...prev, hostId]))
@@ -72,6 +141,51 @@ export function HostList() {
     setIsEditOpen(true)
   }
 
+  async function handleMoveToGroup(hostId: string, groupId: string | null) {
+    const host = hosts.find((h) => h.id === hostId)
+    if (!host) return
+    try {
+      const updated = await UpdateHost({
+        id: host.id,
+        label: host.label,
+        hostname: host.hostname,
+        port: host.port,
+        username: host.username,
+        authMethod: host.authMethod,
+        groupId: groupId ?? undefined,
+      })
+      setHosts((prev) => prev.map((h) => (h.id === hostId ? (updated as unknown as Host) : h)))
+    } catch (err) {
+      toast.error('Failed to move host', { description: String(err) })
+    }
+  }
+
+  async function handleCreateGroup() {
+    const name = newGroupName.trim()
+    if (!name) return
+    setCreatingGroup(true)
+    try {
+      const group = await AddGroup({ name })
+      setGroups((prev) => [...prev, group as unknown as Group])
+      setNewGroupName('')
+      setNewGroupOpen(false)
+    } catch (err) {
+      toast.error('Failed to create group', { description: String(err) })
+    } finally {
+      setCreatingGroup(false)
+    }
+  }
+
+  // Re-sync hosts from DB after group deletion to reflect nulled group_ids
+  async function handleGroupDeleted() {
+    try {
+      const fresh = await ListHosts()
+      setHosts(fresh as unknown as Host[])
+    } catch {
+      // best-effort
+    }
+  }
+
   if (hosts.length === 0) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
@@ -84,55 +198,172 @@ export function HostList() {
     )
   }
 
+  const isSearching = searchQuery.trim().length > 0
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center justify-between px-3 pt-2 pb-1">
-        <span className="text-muted-foreground text-xs font-medium tracking-wider uppercase">
+      {/* Header */}
+      <div className="border-border/50 flex shrink-0 items-center justify-between border-b px-3 pt-2 pb-1.5">
+        <span className="text-muted-foreground/70 text-[10px] font-semibold tracking-widest uppercase">
           Hosts
         </span>
-        <Badge variant="secondary" className="h-4 px-1.5 text-xs font-normal">
-          {hosts.length}
-        </Badge>
-      </div>
-      {hosts.length >= 4 && (
-        <div className="relative shrink-0 px-2 pb-1">
-          <Input
-            placeholder="Search hosts…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="h-7 pr-6 text-xs"
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground absolute top-1/2 right-4 size-5 -translate-y-1/2"
-              onClick={() => setSearchQuery('')}
-            >
-              <X />
-            </Button>
-          )}
+        <div className="flex items-center gap-0.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground size-6"
+                onClick={cycleSortMode}
+              >
+                {sortIcon}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
+          </Tooltip>
+
+          <Popover
+            open={newGroupOpen}
+            onOpenChange={(open) => {
+              setNewGroupOpen(open)
+              if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
+            }}
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-muted-foreground hover:text-foreground size-6"
+                  >
+                    <FolderPlus className="size-3.5" />
+                  </Button>
+                </PopoverTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">New Group</TooltipContent>
+            </Tooltip>
+            <PopoverContent className="w-56 p-3" side="bottom" align="end">
+              <p className="mb-2 text-xs font-medium">New Group</p>
+              <div className="flex gap-2">
+                <Input
+                  ref={newGroupInputRef}
+                  placeholder="Group name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateGroup()
+                    if (e.key === 'Escape') setNewGroupOpen(false)
+                  }}
+                  className="h-7 flex-1 text-xs"
+                />
+                <Button
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={handleCreateGroup}
+                  disabled={creatingGroup || !newGroupName.trim()}
+                >
+                  Create
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
-      )}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      </div>
+
+      {/* Search */}
+      <div className="relative shrink-0 px-2 pt-1.5 pb-1">
+        <Input
+          placeholder="Search hosts…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="h-7 pr-6 text-xs"
+        />
+        {searchQuery && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground absolute top-1/2 right-4 size-5 -translate-y-1/2"
+            onClick={() => setSearchQuery('')}
+          >
+            <X />
+          </Button>
+        )}
+      </div>
+
+      <ScrollArea className="min-h-0 flex-1">
         <div className="flex flex-col gap-0.5 px-2 py-1">
-          {filteredHosts.length === 0 ? (
-            <p className="text-muted-foreground py-4 text-center text-xs">No matching hosts</p>
+          {isSearching ? (
+            // Flat filtered list with optional group badge
+            filteredHosts.length === 0 ? (
+              <p className="text-muted-foreground py-4 text-center text-xs">No matching hosts</p>
+            ) : (
+              filteredHosts.map((host) => {
+                const group = host.groupId ? groups.find((g) => g.id === host.groupId) : undefined
+                return (
+                  <div key={host.id} className="flex flex-col">
+                    {group && (
+                      <span className="text-muted-foreground/50 px-3 pt-0.5 text-[10px]">
+                        · {group.name}
+                      </span>
+                    )}
+                    <HostListItem
+                      host={host}
+                      isConnected={connectedHostIds.has(host.id)}
+                      isConnecting={connectingHostIds.has(host.id)}
+                      onConnect={() => handleConnect(host.id, host.label)}
+                      onDelete={() => handleDelete(host.id)}
+                      onEdit={() => handleEdit(host)}
+                      onMoveToGroup={handleMoveToGroup}
+                    />
+                  </div>
+                )
+              })
+            )
           ) : (
-            filteredHosts.map((host) => (
-              <HostListItem
-                key={host.id}
-                host={host}
-                isConnected={connectedHostIds.has(host.id)}
-                isConnecting={connectingHostIds.has(host.id)}
-                onConnect={() => handleConnect(host.id, host.label)}
-                onDelete={() => handleDelete(host.id)}
-                onEdit={() => handleEdit(host)}
-              />
-            ))
+            // Grouped view
+            <>
+              {sortedGroups.map((group) => (
+                <HostGroupSection
+                  key={group.id}
+                  group={group}
+                  hosts={groupMap.get(group.id) ?? []}
+                  connectedHostIds={connectedHostIds}
+                  connectingHostIds={connectingHostIds}
+                  onConnect={handleConnect}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                  onMoveToGroup={handleMoveToGroup}
+                  onGroupDeleted={handleGroupDeleted}
+                />
+              ))}
+
+              {/* Ungrouped hosts */}
+              {ungrouped.length > 0 && (
+                <div className="flex flex-col gap-0.5">
+                  {sortedGroups.length > 0 && (
+                    <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                      Ungrouped
+                    </span>
+                  )}
+                  {ungrouped.map((host) => (
+                    <HostListItem
+                      key={host.id}
+                      host={host}
+                      isConnected={connectedHostIds.has(host.id)}
+                      isConnecting={connectingHostIds.has(host.id)}
+                      onConnect={() => handleConnect(host.id, host.label)}
+                      onDelete={() => handleDelete(host.id)}
+                      onEdit={() => handleEdit(host)}
+                      onMoveToGroup={handleMoveToGroup}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
-      </div>
+      </ScrollArea>
     </div>
   )
 }

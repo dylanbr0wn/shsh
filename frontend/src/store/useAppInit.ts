@@ -1,11 +1,12 @@
 import { useEffect } from 'react'
 import { useSetAtom } from 'jotai'
 import { toast } from 'sonner'
-import type { SessionStatus, Host } from '../types'
-import { ListHosts } from '../../wailsjs/go/main/App'
+import type { SessionStatus, Host, Group } from '../types'
+import { ListHosts, ListGroups } from '../../wailsjs/go/main/App'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   hostsAtom,
+  groupsAtom,
   sessionsAtom,
   activeSessionIdAtom,
   connectingHostIdsAtom,
@@ -13,6 +14,7 @@ import {
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
   isSettingsOpenAtom,
+  portForwardsAtom,
   type PendingHostKey,
 } from './atoms'
 
@@ -22,6 +24,7 @@ export const pendingConnects = new Map<string, { hostId: string; hostLabel: stri
 
 export function useAppInit() {
   const setHosts = useSetAtom(hostsAtom)
+  const setGroups = useSetAtom(groupsAtom)
   const setSessions = useSetAtom(sessionsAtom)
   const setActiveSessionId = useSetAtom(activeSessionIdAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
@@ -29,13 +32,16 @@ export function useAppInit() {
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
+  const setPortForwards = useSetAtom(portForwardsAtom)
 
   useEffect(() => {
     ListHosts()
       .then((hosts) => setHosts(hosts as unknown as Host[]))
       .catch((err) => toast.error('Failed to load hosts', { description: String(err) }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Jotai setters are referentially stable
-  }, [])
+    ListGroups()
+      .then((groups) => setGroups(groups as unknown as Group[]))
+      .catch((err) => toast.error('Failed to load groups', { description: String(err) }))
+  }, [setHosts, setGroups])
 
   useEffect(() => {
     const cancel = EventsOn(
@@ -95,20 +101,23 @@ export function useAppInit() {
               s.id === sessionId ? { ...s, status: 'disconnected' as SessionStatus } : s
             )
           )
+          setPortForwards((prev) => {
+            const next = { ...prev }
+            delete next[sessionId]
+            return next
+          })
         }
       }
     )
     return () => cancel()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Jotai setters are referentially stable
-  }, [])
+  }, [setActiveSessionId, setConnectingIds, setSessions, setPortForwards])
 
   useEffect(() => {
     const cancelHK = EventsOn('session:hostkey', (event: PendingHostKey) => {
       setPendingHostKey(event)
     })
     return () => cancelHK()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Jotai setters are referentially stable
-  }, [])
+  }, [setPendingHostKey])
 
   useEffect(() => {
     const c1 = EventsOn('menu:new-connection', () => setIsAddHostOpen(true))
@@ -119,6 +128,5 @@ export function useAppInit() {
       c2()
       c3()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Jotai setters are referentially stable
-  }, [])
+  }, [setIsAddHostOpen, setIsImportSSHConfigOpen, setIsSettingsOpen])
 }

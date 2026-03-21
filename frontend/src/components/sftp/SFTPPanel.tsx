@@ -61,10 +61,10 @@ type Modal =
 
 export function SFTPPanel({ sessionId, onClose }: Props) {
   const [sftpState, setSftpState] = useAtom(sftpStateAtom)
-  const state = sftpState[sessionId]
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
 
+  const state = sftpState[sessionId]
   const setState = useCallback(
     (patch: Partial<typeof state>) => {
       setSftpState((prev) => ({
@@ -93,7 +93,7 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
     let cancelled = false
 
     async function init() {
-      setState({ isLoading: true, error: null })
+      setState({ isLoading: true, error: null, entries: [], currentPath: '' })
       try {
         await OpenSFTP(sessionId)
         if (!cancelled) await listDir('~')
@@ -136,6 +136,8 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
   if (!state) return null
 
   const { currentPath, entries, isLoading, error } = state
+
+  if (!currentPath) return null
 
   // Build breadcrumb segments
   const segments = currentPath.split('/').filter(Boolean)
@@ -314,7 +316,7 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
       </div>
 
       {/* File list */}
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="@container min-h-0 flex-1 w-full">
         {isLoading && (
           <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
             <Loader2 className="size-4 animate-spin" />
@@ -332,30 +334,30 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
             <span>Empty directory</span>
           </div>
         )}
-        {!isLoading &&
-          !error &&
-          entries.map((entry) => (
+        {!isLoading && !error && (
+          <>
+            {entries.map((entry) => (
             <ContextMenu key={entry.path}>
               <ContextMenuTrigger asChild>
                 <button
                   className={cn(
                     'flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-left transition-colors select-none',
-                    'hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none',
-                    selected === entry.path && 'bg-muted'
+                    'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none focus-visible:ring-1',
+                    selected === entry.path && 'bg-accent text-accent-foreground'
                   )}
                   onClick={() => setSelected(entry.path)}
                   onDoubleClick={() => handleRowDoubleClick(entry)}
                 >
                   {entry.isDir ? (
-                    <Folder className="text-primary/70 size-4 shrink-0" />
+                    <Folder className="text-primary/70 size-4 shrink-0" aria-hidden="true" />
                   ) : (
-                    <File className="text-muted-foreground size-4 shrink-0" />
+                    <File className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
                   )}
                   <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                  <span className="text-muted-foreground w-16 shrink-0 text-right text-xs tabular-nums">
+                  <span className="text-muted-foreground hidden w-16 shrink-0 text-right text-xs tabular-nums @sm:block">
                     {formatSize(entry.size, entry.isDir)}
                   </span>
-                  <span className="text-muted-foreground hidden w-24 shrink-0 text-right text-xs tabular-nums md:block">
+                  <span className="text-muted-foreground hidden w-24 shrink-0 text-right text-xs tabular-nums @md:block">
                     {formatDate(entry.modTime)}
                   </span>
                 </button>
@@ -384,6 +386,8 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
               </ContextMenuContent>
             </ContextMenu>
           ))}
+          </>
+        )}
       </ScrollArea>
 
       {/* Modals */}

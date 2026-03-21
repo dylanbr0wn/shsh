@@ -26,11 +26,11 @@ export function HostKeyDialog() {
   }
 
   return (
-    <Dialog open onOpenChange={() => {}}>
+    <Dialog open onOpenChange={() => respond(false)}>
       <DialogContent
         className="sm:max-w-lg"
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={() => respond(false)}
+        onEscapeKeyDown={() => respond(false)}
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -85,11 +85,14 @@ export function HostKeyDialog() {
 
         <DialogFooter>
           <Button type="button" variant="ghost" onClick={() => respond(false)}>
+            Cancel
+          </Button>
+          <Button type="button" variant="outline" onClick={() => respond(false)}>
             Reject
           </Button>
           <Button
             type="button"
-            variant={pending.hasChanged ? 'destructive' : 'default'}
+            variant="default"
             onClick={() => respond(true)}
           >
             Accept &amp; Connect

@@ -1,22 +1,24 @@
 import { useState } from 'react'
-import type { RefObject } from 'react'
-import type { SearchAddon } from '@xterm/addon-search'
+import { useAtomValue } from 'jotai'
 import { X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { searchAddonsAtom } from '../../store/atoms'
 
 interface Props {
-  searchAddonRef: RefObject<SearchAddon | null>
+  sessionId: string
   onClose: () => void
 }
 
-export function TerminalSearch({ searchAddonRef, onClose }: Props) {
+export function TerminalSearch({ sessionId, onClose }: Props) {
   const [query, setQuery] = useState('')
+  const searchAddons = useAtomValue(searchAddonsAtom)
+  const addon = searchAddons[sessionId]
 
   function findNext() {
     if (!query) return
-    searchAddonRef.current?.findNext(query, {
+    addon?.findNext(query, {
       incremental: false,
       regex: false,
       caseSensitive: false,
@@ -25,7 +27,7 @@ export function TerminalSearch({ searchAddonRef, onClose }: Props) {
 
   function findPrev() {
     if (!query) return
-    searchAddonRef.current?.findPrevious(query, {
+    addon?.findPrevious(query, {
       incremental: false,
       regex: false,
       caseSensitive: false,
@@ -47,7 +49,7 @@ export function TerminalSearch({ searchAddonRef, onClose }: Props) {
   function handleChange(value: string) {
     setQuery(value)
     if (value) {
-      searchAddonRef.current?.findNext(value, {
+      addon?.findNext(value, {
         incremental: true,
         regex: false,
         caseSensitive: false,

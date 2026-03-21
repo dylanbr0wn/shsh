@@ -1,6 +1,8 @@
 import { cn } from '../../lib/utils'
-import { Loader2, MoreHorizontal, Pencil, Plug, SquareTerminal, Trash2 } from 'lucide-react'
-import type { Host } from '../../types'
+import { ChevronRight, Loader2, MoreHorizontal, Pencil, Plug, SquareTerminal, Trash2 } from 'lucide-react'
+import type { Group, Host } from '../../types'
+import { useAtomValue } from 'jotai'
+import { groupsAtom } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import {
@@ -8,6 +10,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 
@@ -18,6 +23,7 @@ interface Props {
   onConnect: () => void
   onDelete: () => void
   onEdit: () => void
+  onMoveToGroup?: (hostId: string, groupId: string | null) => void
 }
 
 function relativeTime(iso: string): string {
@@ -39,13 +45,16 @@ export function HostListItem({
   onConnect,
   onDelete,
   onEdit,
+  onMoveToGroup,
 }: Props) {
+  const groups = useAtomValue(groupsAtom)
   return (
     <div
       className={cn(
         'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
         isConnected ? 'bg-sidebar-accent hover:bg-sidebar-accent/80' : 'hover:bg-accent/50'
       )}
+      style={host.color ? { borderLeft: `3px solid ${host.color}`, paddingLeft: 9 } : undefined}
     >
       <span
         className={cn(
@@ -65,6 +74,18 @@ export function HostListItem({
             </span>
           )}
         </div>
+        {host.tags && host.tags.length > 0 && (
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {host.tags.map((t) => (
+              <span
+                key={t}
+                className="bg-muted text-muted-foreground rounded px-1 py-0 text-[10px] leading-4"
+              >
+                {t}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
@@ -109,6 +130,28 @@ export function HostListItem({
               <Pencil className="size-3.5" />
               Edit
             </DropdownMenuItem>
+            {onMoveToGroup && groups.length > 0 && (
+              <DropdownMenuSub>
+                <DropdownMenuSubTrigger>
+                  <ChevronRight className="size-3.5" />
+                  Move to Group
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent>
+                  {host.groupId && (
+                    <DropdownMenuItem onClick={() => onMoveToGroup(host.id, null)}>
+                      No Group
+                    </DropdownMenuItem>
+                  )}
+                  {groups
+                    .filter((g: Group) => g.id !== host.groupId)
+                    .map((g: Group) => (
+                      <DropdownMenuItem key={g.id} onClick={() => onMoveToGroup(host.id, g.id)}>
+                        {g.name}
+                      </DropdownMenuItem>
+                    ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem variant="destructive" onClick={onDelete}>
               <Trash2 className="size-3.5" />

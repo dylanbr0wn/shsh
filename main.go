@@ -9,6 +9,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -50,7 +51,7 @@ func main() {
 		Title:     "shsh",
 		Width:     1280,
 		Height:    800,
-		Frameless: true,
+		Frameless: goruntime.GOOS != "darwin",
 		Menu:      buildMenu(app),
 		AssetServer: &assetserver.Options{
 			Assets: assets,
@@ -60,6 +61,9 @@ func main() {
 		OnShutdown:       app.shutdown,
 		Bind: []any{
 			app,
+		},
+		Mac: &mac.Options{
+			TitleBar: mac.TitleBarHidden(),
 		},
 	})
 
