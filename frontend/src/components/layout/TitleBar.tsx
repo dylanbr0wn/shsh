@@ -19,6 +19,7 @@ export function TitleBar() {
     <div
       className="bg-sidebar border-border flex h-9 shrink-0 items-center border-b select-none"
       style={{ '--wails-draggable': 'drag' } as React.CSSProperties}
+      onDoubleClick={WindowToggleMaximise}
     >
       {isMac && (
         <div

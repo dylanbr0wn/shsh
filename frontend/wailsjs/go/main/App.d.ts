@@ -11,6 +11,10 @@ export function AddHost(arg1:store.CreateHostInput):Promise<store.Host>;
 
 export function AddPortForward(arg1:string,arg2:number,arg3:string,arg4:number):Promise<session.PortForwardInfo>;
 
+export function AddTerminalProfile(arg1:store.CreateProfileInput):Promise<store.TerminalProfile>;
+
+export function BrowseKeyFile():Promise<string>;
+
 export function BulkConnectGroup(arg1:string):Promise<Array<main.BulkConnectResult>>;
 
 export function CloseSFTP(arg1:string):Promise<void>;
@@ -21,7 +25,15 @@ export function DeleteGroup(arg1:string):Promise<void>;
 
 export function DeleteHost(arg1:string):Promise<void>;
 
+export function DeleteSessionLog(arg1:string):Promise<void>;
+
+export function DeleteTerminalProfile(arg1:string):Promise<void>;
+
 export function DisconnectSession(arg1:string):Promise<void>;
+
+export function GenerateSSHKey(arg1:main.GenerateKeyInput):Promise<main.GenerateKeyResult>;
+
+export function GetSessionLogPath(arg1:string):Promise<string>;
 
 export function ImportSSHConfigHosts(arg1:Array<string>):Promise<Array<store.Host>>;
 
@@ -33,7 +45,19 @@ export function ListPortForwards(arg1:string):Promise<Array<session.PortForwardI
 
 export function ListSSHConfigHosts():Promise<Array<sshconfig.Entry>>;
 
+export function ListSessionLogs():Promise<Array<main.LogFileInfo>>;
+
+export function ListTerminalProfiles():Promise<Array<store.TerminalProfile>>;
+
+export function OpenLogsDirectory():Promise<void>;
+
 export function OpenSFTP(arg1:string):Promise<void>;
+
+export function PingHosts(arg1:Array<string>):Promise<Array<main.PingResult>>;
+
+export function QuickConnect(arg1:main.QuickConnectInput):Promise<string>;
+
+export function ReadSessionLog(arg1:string):Promise<string>;
 
 export function RemovePortForward(arg1:string,arg2:string):Promise<void>;
 
@@ -55,8 +79,14 @@ export function SFTPRename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
+export function StartSessionLog(arg1:string):Promise<string>;
+
+export function StopSessionLog(arg1:string):Promise<void>;
+
 export function UpdateGroup(arg1:store.UpdateGroupInput):Promise<store.Group>;
 
 export function UpdateHost(arg1:store.UpdateHostInput):Promise<store.Host>;
+
+export function UpdateTerminalProfile(arg1:store.UpdateProfileInput):Promise<store.TerminalProfile>;
 
 export function WriteToSession(arg1:string,arg2:string):Promise<void>;

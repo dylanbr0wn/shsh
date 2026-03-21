@@ -1,11 +1,24 @@
 export type AuthMethod = 'password' | 'key' | 'agent'
 export type SessionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+export type CursorStyle = 'block' | 'underline' | 'bar'
+
+export interface TerminalProfile {
+  id: string
+  name: string
+  fontSize: number
+  cursorStyle: CursorStyle
+  cursorBlink: boolean
+  scrollback: number
+  colorTheme: string
+  createdAt: string
+}
 
 export interface Group {
   id: string
   name: string
   sortOrder: number
   createdAt: string
+  terminalProfileId?: string
 }
 
 export interface CreateGroupInput {
@@ -16,6 +29,7 @@ export interface UpdateGroupInput {
   id: string
   name: string
   sortOrder: number
+  terminalProfileId?: string
 }
 
 export interface Host {
@@ -30,6 +44,8 @@ export interface Host {
   groupId?: string
   color?: string
   tags?: string[]
+  terminalProfileId?: string
+  keyPath?: string
 }
 
 export interface Session {
@@ -47,9 +63,12 @@ export interface CreateHostInput {
   username: string
   authMethod: AuthMethod
   password?: string
+  keyPath?: string
+  keyPassphrase?: string
   groupId?: string
   color?: string
   tags?: string[]
+  terminalProfileId?: string
 }
 
 export interface UpdateHostInput {
@@ -60,9 +79,12 @@ export interface UpdateHostInput {
   username: string
   authMethod: AuthMethod
   password?: string
+  keyPath?: string
+  keyPassphrase?: string
   groupId?: string
   color?: string
   tags?: string[]
+  terminalProfileId?: string
 }
 
 export interface SFTPEntry {
@@ -92,6 +114,12 @@ export interface PortForward {
 export interface PortForwardPanelState {
   isOpen: boolean
   forwards: PortForward[]
-  isAdding: boolean
-  error: string | null
+}
+
+export interface LogFileInfo {
+  path: string
+  filename: string
+  hostLabel: string
+  createdAt: string
+  sizeBytes: number
 }

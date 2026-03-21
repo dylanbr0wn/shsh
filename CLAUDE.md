@@ -50,6 +50,9 @@ The Wails runtime (`frontend/wailsjs/runtime/`) provides window management, even
 
 **Key constraint:** `frontend/wailsjs/` is auto-generated — do not edit these files manually. Re-run `wails dev` or `wails build` to regenerate after changing Go method signatures.
 
-## Tips
+## Frontend Development Guidelines
 
-Whenever you are doing frontend tasks, building UI use the shadcn skill
+When making any frontend/React changes:
+- Always use the `shadcn` skill for component work and UI building
+- Always use the `web-design-guidelines` skill when reviewing or auditing UI
+- Apply `vercel-react-best-practices` for performance-sensitive work

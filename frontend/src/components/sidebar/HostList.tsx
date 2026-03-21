@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   groupsAtom,
@@ -9,14 +9,17 @@ import {
   isEditHostOpenAtom,
   editingHostAtom,
   isAddHostOpenAtom,
+  isQuickConnectOpenAtom,
+  isNewGroupOpenAtom,
 } from '../../store/atoms'
 import { pendingConnects } from '../../store/useAppInit'
+import { useHostHealth } from '../../store/useHostHealth'
 import { DeleteHost, ConnectHost, UpdateHost, AddGroup, ListHosts } from '../../../wailsjs/go/main/App'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
-import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, FolderPlus } from 'lucide-react'
+import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, FolderPlus, Zap } from 'lucide-react'
 import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -45,15 +48,18 @@ export function HostList() {
   const setIsEditOpen = useSetAtom(isEditHostOpenAtom)
   const setEditingHost = useSetAtom(editingHostAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
+  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('az')
-  const [newGroupOpen, setNewGroupOpen] = useState(false)
+  const [newGroupOpen, setNewGroupOpen] = useAtom(isNewGroupOpenAtom)
   const [newGroupName, setNewGroupName] = useState('')
   const [creatingGroup, setCreatingGroup] = useState(false)
   const newGroupInputRef = useRef<HTMLInputElement>(null)
 
   const connectedHostIds = useMemo(() => new Set(sessions.map((s) => s.hostId)), [sessions])
+
+  useHostHealth(hosts)
 
   // Grouped data (no search)
   const { groupMap, ungrouped } = useMemo(() => {
@@ -98,11 +104,11 @@ export function HostList() {
 
   const sortIcon =
     sortMode === 'az' ? (
-      <ArrowUpAZ className="size-3.5" />
+      <ArrowUpAZ />
     ) : sortMode === 'za' ? (
-      <ArrowDownAZ className="size-3.5" />
+      <ArrowDownAZ />
     ) : (
-      <Clock className="size-3.5" />
+      <Clock />
     )
 
   const sortTooltip =
@@ -204,7 +210,7 @@ export function HostList() {
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Header */}
       <div className="border-border/50 flex shrink-0 items-center justify-between border-b px-3 pt-2 pb-1.5">
-        <span className="text-muted-foreground/70 text-[10px] font-semibold tracking-widest uppercase">
+        <span className="text-muted-foreground/70 text-[10px] font-semibold tracking-widest uppercase select-none">
           Hosts
         </span>
         <div className="flex items-center gap-0.5">
@@ -212,14 +218,28 @@ export function HostList() {
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground size-6"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground"
                 onClick={cycleSortMode}
               >
                 {sortIcon}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-foreground"
+                onClick={() => setIsQuickConnectOpen(true)}
+              >
+                <Zap />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Quick Connect</TooltipContent>
           </Tooltip>
 
           <Popover
@@ -234,10 +254,10 @@ export function HostList() {
                 <PopoverTrigger asChild>
                   <Button
                     variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-foreground size-6"
+                    size="icon-sm"
+                    className="text-muted-foreground hover:text-foreground"
                   >
-                    <FolderPlus className="size-3.5" />
+                    <FolderPlus />
                   </Button>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -272,7 +292,7 @@ export function HostList() {
       </div>
 
       {/* Search */}
-      <div className="relative shrink-0 px-2 pt-1.5 pb-1">
+      <div className="relative shrink-0 px-2 pt-1.5 pb-1 select-none">
         <Input
           placeholder="Search hosts…"
           value={searchQuery}
@@ -282,8 +302,8 @@ export function HostList() {
         {searchQuery && (
           <Button
             variant="ghost"
-            size="icon"
-            className="text-muted-foreground absolute top-1/2 right-4 size-5 -translate-y-1/2"
+            size="icon-xs"
+            className="text-muted-foreground absolute top-1/2 right-4 -translate-y-1/2"
             onClick={() => setSearchQuery('')}
           >
             <X />
@@ -291,7 +311,7 @@ export function HostList() {
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
+      <ScrollArea className="min-h-0 flex-1 select-none">
         <div className="flex flex-col gap-0.5 px-2 py-1">
           {isSearching ? (
             // Flat filtered list with optional group badge
@@ -340,7 +360,7 @@ export function HostList() {
 
               {/* Ungrouped hosts */}
               {ungrouped.length > 0 && (
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-col gap-0.5 pl-2">
                   {sortedGroups.length > 0 && (
                     <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider">
                       Ungrouped

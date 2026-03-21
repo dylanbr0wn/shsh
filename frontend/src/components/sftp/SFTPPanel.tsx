@@ -1,5 +1,4 @@
 import { useEffect, useCallback, useState } from 'react'
-import { useAtom } from 'jotai'
 import {
   Folder,
   File,
@@ -9,11 +8,11 @@ import {
   ChevronRight,
   Home,
   Loader2,
-  PanelRightClose,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
-import type { SFTPEntry } from '../../types'
+import { useSessionPanelState } from '../../store/useSessionPanelState'
+import type { SFTPEntry, SFTPState } from '../../types'
 import {
   OpenSFTP,
   CloseSFTP,
@@ -47,10 +46,18 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from '../ui/context-menu'
+import { PanelHeader } from '../terminal/PanelHeader'
+
+const DEFAULT_SFTP_STATE: SFTPState = {
+  isOpen: false,
+  currentPath: '~',
+  entries: [],
+  isLoading: false,
+  error: null,
+}
 
 interface Props {
   sessionId: string
-  onClose?: () => void
 }
 
 type Modal =
@@ -59,21 +66,10 @@ type Modal =
   | { type: 'rename'; entry: SFTPEntry; value: string }
   | { type: 'delete'; entry: SFTPEntry }
 
-export function SFTPPanel({ sessionId, onClose }: Props) {
-  const [sftpState, setSftpState] = useAtom(sftpStateAtom)
+export function SFTPPanel({ sessionId }: Props) {
+  const [state, setState] = useSessionPanelState(sftpStateAtom, sessionId, DEFAULT_SFTP_STATE)
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
-
-  const state = sftpState[sessionId]
-  const setState = useCallback(
-    (patch: Partial<typeof state>) => {
-      setSftpState((prev) => ({
-        ...prev,
-        [sessionId]: { ...prev[sessionId], ...patch },
-      }))
-    },
-    [setSftpState, sessionId]
-  )
 
   const listDir = useCallback(
     async (path: string) => {
@@ -132,8 +128,6 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
-
-  if (!state) return null
 
   const { currentPath, entries, isLoading, error } = state
 
@@ -220,18 +214,16 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
 
   return (
     <div className="border-border bg-background flex h-full flex-col overflow-hidden border-l text-sm">
-      {/* Toolbar */}
-      <div className="border-border bg-muted/30 flex shrink-0 items-center gap-1 border-b px-2 py-1">
+      <PanelHeader title="Files">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="size-6"
+              size="icon-sm"
               aria-label="Refresh"
               onClick={() => listDir(currentPath)}
             >
-              <RefreshCw />
+              <RefreshCw aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Refresh</TooltipContent>
@@ -240,12 +232,11 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="size-6"
+              size="icon-sm"
               aria-label="Upload file"
               onClick={handleUpload}
             >
-              <Upload />
+              <Upload aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Upload file</TooltipContent>
@@ -254,59 +245,40 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="size-6"
+              size="icon-sm"
               aria-label="New folder"
               onClick={() => setModal({ type: 'mkdir', value: '' })}
             >
-              <FolderPlus />
+              <FolderPlus aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>New folder</TooltipContent>
         </Tooltip>
-        {onClose && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="ml-auto size-6"
-                aria-label="Close file browser"
-                onClick={onClose}
-              >
-                <PanelRightClose />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">Close file browser</TooltipContent>
-          </Tooltip>
-        )}
-      </div>
+      </PanelHeader>
 
       {/* Breadcrumb */}
-      <div className="border-border flex shrink-0 items-center gap-0.5 overflow-x-auto border-b px-1.5 py-1">
+      <div className="border-border flex shrink-0 items-center gap-1 overflow-x-auto border-b px-1.5 py-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="text-muted-foreground size-5 shrink-0"
+              size="icon-sm"
+              className="text-muted-foreground shrink-0"
               aria-label="Go to root"
               onClick={() => listDir('/')}
             >
-              <Home />
+              <Home aria-hidden="true" />
             </Button>
           </TooltipTrigger>
           <TooltipContent>Root</TooltipContent>
         </Tooltip>
         {segments.map((seg, idx) => (
-          <span key={idx} className="flex shrink-0 items-center gap-0.5">
-            <ChevronRight className="text-muted-foreground/50 size-3" />
+          <span key={idx} className="flex shrink-0 items-center gap-1">
+            <ChevronRight className="text-muted-foreground/50 size-3" aria-hidden="true" />
             <Button
               variant="ghost"
-              className={cn(
-                'h-5 px-1.5 text-xs',
-                idx === segments.length - 1 ? 'text-foreground' : 'text-muted-foreground'
-              )}
+              size="xs"
+              className={cn(idx === segments.length - 1 ? 'text-foreground' : 'text-muted-foreground')}
               onClick={() => navigateTo(idx)}
             >
               {seg}
@@ -319,7 +291,7 @@ export function SFTPPanel({ sessionId, onClose }: Props) {
       <ScrollArea className="@container min-h-0 flex-1 w-full">
         {isLoading && (
           <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
-            <Loader2 className="size-4 animate-spin" />
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
             <span>Loading…</span>
           </div>
         )}

@@ -11,8 +11,8 @@ import { SearchAddon } from '@xterm/addon-search'
 import { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'
 import { WriteToSession, ResizeSession } from '../../wailsjs/go/main/App'
 import { terminalSettingsAtom } from '../atoms/terminalSettings'
-import { searchAddonsAtom } from '../store/atoms'
-import { darkTheme, lightTheme } from '../lib/terminalThemes'
+import { searchAddonsAtom, sessionsAtom, hostsAtom, groupsAtom, terminalProfilesAtom, sessionProfileOverridesAtom } from '../store/atoms'
+import { resolveTheme } from '../lib/terminalThemes'
 
 export function useTerminal(
   containerRef: RefObject<HTMLDivElement | null>,
@@ -22,16 +22,30 @@ export function useTerminal(
   const fitRef = useRef<FitAddon | null>(null)
   const termRef = useRef<Terminal | null>(null)
 
-  const settings = useAtomValue(terminalSettingsAtom)
+  const globalSettings = useAtomValue(terminalSettingsAtom)
+  const sessions = useAtomValue(sessionsAtom)
+  const hosts = useAtomValue(hostsAtom)
+  const groups = useAtomValue(groupsAtom)
+  const profiles = useAtomValue(terminalProfilesAtom)
+  const sessionOverrides = useAtomValue(sessionProfileOverridesAtom)
   const setSearchAddons = useSetAtom(searchAddonsAtom)
   const { resolvedTheme } = useTheme()
+
+  // Resolve: session override → host profile → group profile → global settings
+  const session = sessions.find(s => s.id === sessionId)
+  const host = hosts.find(h => h.id === session?.hostId)
+  const group = groups.find(g => g.id === host?.groupId)
+  const profileId = sessionOverrides[sessionId] ?? host?.terminalProfileId ?? group?.terminalProfileId
+  const profile = profiles.find(p => p.id === profileId)
+  const settings = profile ?? globalSettings
+  const colorTheme = profile?.colorTheme ?? 'auto'
 
   // Mount once per sessionId
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const theme = resolvedTheme === 'dark' ? darkTheme : lightTheme
+    const theme = resolveTheme(colorTheme, resolvedTheme ?? 'dark')
 
     const term = new Terminal({
       allowTransparency: true,
@@ -106,7 +120,8 @@ export function useTerminal(
         return next
       })
     }
-  }, [containerRef, resolvedTheme, sessionId, setSearchAddons, settings.cursorBlink, settings.cursorStyle, settings.fontSize, settings.scrollback])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [containerRef, resolvedTheme, sessionId, setSearchAddons, colorTheme, settings.cursorBlink, settings.cursorStyle, settings.fontSize, settings.scrollback])
 
   // Apply settings changes at runtime (no remount needed)
   useEffect(() => {
@@ -127,8 +142,8 @@ export function useTerminal(
   useEffect(() => {
     const term = termRef.current
     if (!term) return
-    term.options.theme = resolvedTheme === 'dark' ? darkTheme : lightTheme
-  }, [resolvedTheme])
+    term.options.theme = resolveTheme(colorTheme, resolvedTheme ?? 'dark')
+  }, [resolvedTheme, colorTheme])
 
   // Refit + focus when this tab becomes active
   useEffect(() => {

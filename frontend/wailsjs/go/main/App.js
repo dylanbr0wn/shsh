@@ -14,6 +14,14 @@ export function AddPortForward(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['AddPortForward'](arg1, arg2, arg3, arg4);
 }
 
+export function AddTerminalProfile(arg1) {
+  return window['go']['main']['App']['AddTerminalProfile'](arg1);
+}
+
+export function BrowseKeyFile() {
+  return window['go']['main']['App']['BrowseKeyFile']();
+}
+
 export function BulkConnectGroup(arg1) {
   return window['go']['main']['App']['BulkConnectGroup'](arg1);
 }
@@ -34,8 +42,24 @@ export function DeleteHost(arg1) {
   return window['go']['main']['App']['DeleteHost'](arg1);
 }
 
+export function DeleteSessionLog(arg1) {
+  return window['go']['main']['App']['DeleteSessionLog'](arg1);
+}
+
+export function DeleteTerminalProfile(arg1) {
+  return window['go']['main']['App']['DeleteTerminalProfile'](arg1);
+}
+
 export function DisconnectSession(arg1) {
   return window['go']['main']['App']['DisconnectSession'](arg1);
+}
+
+export function GenerateSSHKey(arg1) {
+  return window['go']['main']['App']['GenerateSSHKey'](arg1);
+}
+
+export function GetSessionLogPath(arg1) {
+  return window['go']['main']['App']['GetSessionLogPath'](arg1);
 }
 
 export function ImportSSHConfigHosts(arg1) {
@@ -58,8 +82,32 @@ export function ListSSHConfigHosts() {
   return window['go']['main']['App']['ListSSHConfigHosts']();
 }
 
+export function ListSessionLogs() {
+  return window['go']['main']['App']['ListSessionLogs']();
+}
+
+export function ListTerminalProfiles() {
+  return window['go']['main']['App']['ListTerminalProfiles']();
+}
+
+export function OpenLogsDirectory() {
+  return window['go']['main']['App']['OpenLogsDirectory']();
+}
+
 export function OpenSFTP(arg1) {
   return window['go']['main']['App']['OpenSFTP'](arg1);
+}
+
+export function PingHosts(arg1) {
+  return window['go']['main']['App']['PingHosts'](arg1);
+}
+
+export function QuickConnect(arg1) {
+  return window['go']['main']['App']['QuickConnect'](arg1);
+}
+
+export function ReadSessionLog(arg1) {
+  return window['go']['main']['App']['ReadSessionLog'](arg1);
 }
 
 export function RemovePortForward(arg1, arg2) {
@@ -102,12 +150,24 @@ export function SFTPUpload(arg1, arg2) {
   return window['go']['main']['App']['SFTPUpload'](arg1, arg2);
 }
 
+export function StartSessionLog(arg1) {
+  return window['go']['main']['App']['StartSessionLog'](arg1);
+}
+
+export function StopSessionLog(arg1) {
+  return window['go']['main']['App']['StopSessionLog'](arg1);
+}
+
 export function UpdateGroup(arg1) {
   return window['go']['main']['App']['UpdateGroup'](arg1);
 }
 
 export function UpdateHost(arg1) {
   return window['go']['main']['App']['UpdateHost'](arg1);
+}
+
+export function UpdateTerminalProfile(arg1) {
+  return window['go']['main']['App']['UpdateTerminalProfile'](arg1);
 }
 
 export function WriteToSession(arg1, arg2) {

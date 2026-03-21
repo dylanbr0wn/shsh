@@ -8,6 +8,8 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +22,9 @@ import (
 	"golang.org/x/crypto/ssh/knownhosts"
 	"myproject/internal/store"
 )
+
+// ansiRe strips ANSI/VT escape sequences from terminal output for log files.
+var ansiRe = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*\x07|.)`)
 
 // Status represents the state of an SSH session.
 type Status string
@@ -85,6 +90,9 @@ type sshSession struct {
 	sftpMu       sync.Mutex
 	portForwards map[string]*portForward
 	pfMu         sync.Mutex
+	logFile      *os.File
+	logMu        sync.Mutex
+	logPath      string
 }
 
 func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
@@ -93,13 +101,28 @@ func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
 		for {
 			n, err := stdout.Read(buf)
 			if n > 0 {
-				runtime.EventsEmit(appCtx, "session:output:"+s.id, string(buf[:n]))
+				chunk := string(buf[:n])
+				runtime.EventsEmit(appCtx, "session:output:"+s.id, chunk)
+				s.logMu.Lock()
+				if s.logFile != nil {
+					s.logFile.WriteString(ansiRe.ReplaceAllString(chunk, "")) //nolint:errcheck
+				}
+				s.logMu.Unlock()
 			}
 			if err != nil {
 				break
 			}
 		}
 		s.cancel()
+		// Close log file on disconnect if still open.
+		s.logMu.Lock()
+		if s.logFile != nil {
+			fmt.Fprintf(s.logFile, "\n# Ended: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+			s.logFile.Close()
+			s.logFile = nil
+			s.logPath = ""
+		}
+		s.logMu.Unlock()
 		runtime.EventsEmit(appCtx, "session:status", StatusEvent{
 			SessionID: s.id,
 			Status:    StatusDisconnected,
@@ -140,6 +163,26 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 		switch host.AuthMethod {
 		case store.AuthPassword:
 			auth = goph.Password(password)
+		case store.AuthKey:
+			if host.KeyPath == nil || *host.KeyPath == "" {
+				runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+					SessionID: sessionID,
+					Status:    StatusError,
+					Error:     "no key file configured for this host",
+				})
+				return
+			}
+			var err error
+			auth, err = goph.Key(*host.KeyPath, password) // password param = passphrase
+			if err != nil {
+				log.Error().Err(err).Str("keyPath", *host.KeyPath).Msg("Failed to load SSH key")
+				runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+					SessionID: sessionID,
+					Status:    StatusError,
+					Error:     "failed to load SSH key: " + err.Error(),
+				})
+				return
+			}
 		case store.AuthAgent:
 			var err error
 			auth, err = goph.UseAgent()
@@ -333,6 +376,102 @@ func (m *Manager) Shutdown() {
 	}
 	m.mu.Unlock()
 	m.wg.Wait()
+}
+
+// StartSessionLog begins writing terminal output for the given session to a timestamped log file.
+// Returns the path of the created log file.
+func (m *Manager) StartSessionLog(sessionID string) (string, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[sessionID]
+	m.mu.Unlock()
+	if !ok {
+		return "", fmt.Errorf("session %s not found", sessionID)
+	}
+
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		configDir = os.TempDir()
+	}
+	logsDir := filepath.Join(configDir, "shsh", "logs")
+	if err := os.MkdirAll(logsDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
+	safeName := safeFilename(sess.hostLabel)
+	ts := time.Now().Format("20060102_150405")
+	filename := fmt.Sprintf("%s_%s_%s.log", safeName, ts, sessionID[:8])
+	logPath := filepath.Join(logsDir, filename)
+
+	f, err := os.Create(logPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create log file: %w", err)
+	}
+	fmt.Fprintf(f, "# shsh session log\n# Host: %s\n# Started: %s\n#\n",
+		sess.hostLabel, time.Now().Format("2006-01-02 15:04:05"))
+
+	sess.logMu.Lock()
+	if sess.logFile != nil {
+		sess.logFile.Close()
+	}
+	sess.logFile = f
+	sess.logPath = logPath
+	sess.logMu.Unlock()
+
+	return logPath, nil
+}
+
+// StopSessionLog stops writing to the current log file for the given session.
+func (m *Manager) StopSessionLog(sessionID string) error {
+	m.mu.Lock()
+	sess, ok := m.sessions[sessionID]
+	m.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("session %s not found", sessionID)
+	}
+
+	sess.logMu.Lock()
+	defer sess.logMu.Unlock()
+	if sess.logFile == nil {
+		return nil
+	}
+	fmt.Fprintf(sess.logFile, "\n# Ended: %s\n", time.Now().Format("2006-01-02 15:04:05"))
+	err := sess.logFile.Close()
+	sess.logFile = nil
+	sess.logPath = ""
+	return err
+}
+
+// GetSessionLogPath returns the current log file path for a session, or empty string if not logging.
+func (m *Manager) GetSessionLogPath(sessionID string) (string, error) {
+	m.mu.Lock()
+	sess, ok := m.sessions[sessionID]
+	m.mu.Unlock()
+	if !ok {
+		return "", fmt.Errorf("session %s not found", sessionID)
+	}
+	sess.logMu.Lock()
+	defer sess.logMu.Unlock()
+	return sess.logPath, nil
+}
+
+// safeFilename converts a string to a safe filename component (alphanumeric + dash only).
+func safeFilename(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteRune('_')
+		}
+	}
+	result := b.String()
+	if result == "" {
+		return "session"
+	}
+	if len(result) > 40 {
+		return result[:40]
+	}
+	return result
 }
 
 // hostKeyCallback returns an ssh.HostKeyCallback implementing TOFU via ~/.ssh/known_hosts.

@@ -10,6 +10,10 @@ import { EditHostModal } from './components/modals/EditHostModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { HostKeyDialog } from './components/modals/HostKeyDialog'
 import { ImportSSHConfigModal } from './components/modals/ImportSSHConfigModal'
+import { QuickConnectModal } from './components/modals/QuickConnectModal'
+import { LogViewerModal } from './components/modals/LogViewerModal'
+import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
+import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
 
 export default function App() {
@@ -21,7 +25,7 @@ export default function App() {
       <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
         <TitleBar />
         <ResizablePanelGroup orientation="horizontal" className="flex-1">
-          <ResizablePanel defaultSize="18%" minSize="276px" maxSize="35%" className="flex flex-col">
+          <ResizablePanel defaultSize="20%" minSize="320px" maxSize="40%" className="flex flex-col">
             <Sidebar />
           </ResizablePanel>
           <ResizableHandle withHandle />
@@ -34,6 +38,10 @@ export default function App() {
         <SettingsModal />
         <HostKeyDialog />
         <ImportSSHConfigModal />
+        <QuickConnectModal />
+        <LogViewerModal />
+        <AddPortForwardModal />
+        <TerminalProfilesModal />
       </div>
       <Toaster position="bottom-right" theme={resolvedTheme as 'light' | 'dark'} />
     </TooltipProvider>

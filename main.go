@@ -21,21 +21,58 @@ func buildMenu(app *App) *menu.Menu {
 	if goruntime.GOOS == "darwin" {
 		m.Append(menu.AppMenu())
 	}
+
 	file := m.AddSubmenu("File")
-	file.AddText("New Connection", keys.CmdOrCtrl("n"), func(_ *menu.CallbackData) {
+	file.AddText("Quick Connect...", keys.CmdOrCtrl("n"), func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.ctx, "menu:new-connection")
 	})
-	file.AddText("Import SSH Config", nil, func(_ *menu.CallbackData) {
+	file.AddText("Add Saved Host...", keys.Combo("n", keys.CmdOrCtrlKey, keys.ShiftKey), func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:add-host")
+	})
+	file.AddText("Import SSH Config...", nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.ctx, "menu:import-ssh-config")
 	})
 	file.AddSeparator()
-	file.AddText("Settings", keys.CmdOrCtrl(","), func(_ *menu.CallbackData) {
+	file.AddText("New Group...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:new-group")
+	})
+	file.AddText("Terminal Profiles...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:terminal-profiles")
+	})
+	file.AddSeparator()
+	file.AddText("Settings...", keys.CmdOrCtrl(","), func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.ctx, "menu:settings")
 	})
 	file.AddSeparator()
 	file.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		runtime.Quit(app.ctx)
 	})
+
+	session := m.AddSubmenu("Session")
+	session.AddText("Disconnect", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:disconnect")
+	})
+	session.AddText("Disconnect All", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:disconnect-all")
+	})
+	session.AddSeparator()
+	session.AddText("Add Port Forward...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:add-port-forward")
+	})
+	session.AddSeparator()
+	session.AddText("Start Logging", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:start-log")
+	})
+	session.AddText("Stop Logging", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:stop-log")
+	})
+	session.AddText("View Logs...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:view-logs")
+	})
+	session.AddText("Open Logs Folder", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:session:open-logs-folder")
+	})
+
 	if goruntime.GOOS == "darwin" {
 		m.Append(menu.EditMenu())
 	}

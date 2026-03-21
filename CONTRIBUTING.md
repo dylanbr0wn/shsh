@@ -7,21 +7,10 @@ idk just do it
   ---
   High-Impact / Table-Stakes
 
-  Port Forwarding
-  - Local port forwarding (e.g., tunnel a remote DB to localhost)
-  - Remote port forwarding
-  - Dynamic SOCKS5 proxy
-  - Manage/view active tunnels per session
-
   Jump Hosts / Bastion
   - ProxyJump support (connect through an intermediate host)
   - Chain multiple hops
   - Reference saved hosts as jump hosts
-
-  Session Logging
-  - Write terminal output to a file (timestamped)
-  - Toggle logging on/off per session
-  - Log viewer
 
   Snippets / Quick Commands
   - Save frequently used commands
@@ -32,20 +21,9 @@ idk just do it
   ---
   Organization & Workflow
 
-  Host Groups / Folders
-  - Nest hosts into collapsible groups (dev, staging, prod)
-  - Bulk connect all hosts in a group
-
-  Tags & Color Coding
-  - Tag hosts with labels (e.g., "production", "personal")
-  - Color-code the terminal tab or sidebar entry per host
-
   Notes per Host
   - Free-text notes attached to a saved host
   - Shown in sidebar or connection modal
-
-  Quick Connect
-  - Connect without saving (ad-hoc user@host:port)
 
   ---
   Credentials & Keys
@@ -57,9 +35,6 @@ idk just do it
   Key Management UI
   - List, inspect, and delete SSH keys
   - Associate a key with a saved host
-
-  macOS Keychain / OS Credential Store
-  - Store passwords in the native keychain instead of plaintext DB
 
   ---
   Terminal UX
@@ -75,9 +50,6 @@ idk just do it
   Auto-Reconnect
   - Detect dropped connections and attempt to reconnect automatically
   - Configurable retry delay/limit
-
-  Terminal Profiles
-  - Different font/color/behavior configs per host or group
 
   ---
   SFTP Enhancements
@@ -104,9 +76,6 @@ idk just do it
 
   Connection Status Dashboard
   - Overview panel showing all host statuses (online/offline ping)
-
-  Host Health / Ping
-  - Periodic ping to show latency or reachability in the sidebar
 
   Environment Variables per Host
   - Set ENV=value pairs that get sent on connect

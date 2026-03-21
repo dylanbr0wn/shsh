@@ -14,6 +14,96 @@ export namespace main {
 	        this.hostId = source["hostId"];
 	    }
 	}
+	export class GenerateKeyInput {
+	    keyType: string;
+	    rsaBits: number;
+	    savePath: string;
+	    passphrase: string;
+	    comment: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GenerateKeyInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.keyType = source["keyType"];
+	        this.rsaBits = source["rsaBits"];
+	        this.savePath = source["savePath"];
+	        this.passphrase = source["passphrase"];
+	        this.comment = source["comment"];
+	    }
+	}
+	export class GenerateKeyResult {
+	    privateKeyPath: string;
+	    publicKeyPath: string;
+	    publicKeyText: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new GenerateKeyResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.privateKeyPath = source["privateKeyPath"];
+	        this.publicKeyPath = source["publicKeyPath"];
+	        this.publicKeyText = source["publicKeyText"];
+	    }
+	}
+	export class LogFileInfo {
+	    path: string;
+	    filename: string;
+	    hostLabel: string;
+	    createdAt: string;
+	    sizeBytes: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogFileInfo(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.filename = source["filename"];
+	        this.hostLabel = source["hostLabel"];
+	        this.createdAt = source["createdAt"];
+	        this.sizeBytes = source["sizeBytes"];
+	    }
+	}
+	export class PingResult {
+	    hostId: string;
+	    latencyMs: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new PingResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hostId = source["hostId"];
+	        this.latencyMs = source["latencyMs"];
+	    }
+	}
+	export class QuickConnectInput {
+	    hostname: string;
+	    port: number;
+	    username: string;
+	    password?: string;
+	    authMethod: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new QuickConnectInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.hostname = source["hostname"];
+	        this.port = source["port"];
+	        this.username = source["username"];
+	        this.password = source["password"];
+	        this.authMethod = source["authMethod"];
+	    }
+	}
 
 }
 
@@ -106,9 +196,12 @@ export namespace store {
 	    username: string;
 	    authMethod: string;
 	    password?: string;
+	    keyPath?: string;
+	    keyPassphrase?: string;
 	    groupId?: string;
 	    color?: string;
 	    tags?: string[];
+	    terminalProfileId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateHostInput(source);
@@ -122,9 +215,34 @@ export namespace store {
 	        this.username = source["username"];
 	        this.authMethod = source["authMethod"];
 	        this.password = source["password"];
+	        this.keyPath = source["keyPath"];
+	        this.keyPassphrase = source["keyPassphrase"];
 	        this.groupId = source["groupId"];
 	        this.color = source["color"];
 	        this.tags = source["tags"];
+	        this.terminalProfileId = source["terminalProfileId"];
+	    }
+	}
+	export class CreateProfileInput {
+	    name: string;
+	    fontSize: number;
+	    cursorStyle: string;
+	    cursorBlink: boolean;
+	    scrollback: number;
+	    colorTheme: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateProfileInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.name = source["name"];
+	        this.fontSize = source["fontSize"];
+	        this.cursorStyle = source["cursorStyle"];
+	        this.cursorBlink = source["cursorBlink"];
+	        this.scrollback = source["scrollback"];
+	        this.colorTheme = source["colorTheme"];
 	    }
 	}
 	export class Group {
@@ -132,6 +250,7 @@ export namespace store {
 	    name: string;
 	    sortOrder: number;
 	    createdAt: string;
+	    terminalProfileId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Group(source);
@@ -143,6 +262,7 @@ export namespace store {
 	        this.name = source["name"];
 	        this.sortOrder = source["sortOrder"];
 	        this.createdAt = source["createdAt"];
+	        this.terminalProfileId = source["terminalProfileId"];
 	    }
 	}
 	export class Host {
@@ -157,6 +277,8 @@ export namespace store {
 	    groupId?: string;
 	    color?: string;
 	    tags?: string[];
+	    terminalProfileId?: string;
+	    keyPath?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Host(source);
@@ -175,12 +297,41 @@ export namespace store {
 	        this.groupId = source["groupId"];
 	        this.color = source["color"];
 	        this.tags = source["tags"];
+	        this.terminalProfileId = source["terminalProfileId"];
+	        this.keyPath = source["keyPath"];
+	    }
+	}
+	export class TerminalProfile {
+	    id: string;
+	    name: string;
+	    fontSize: number;
+	    cursorStyle: string;
+	    cursorBlink: boolean;
+	    scrollback: number;
+	    colorTheme: string;
+	    createdAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new TerminalProfile(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.fontSize = source["fontSize"];
+	        this.cursorStyle = source["cursorStyle"];
+	        this.cursorBlink = source["cursorBlink"];
+	        this.scrollback = source["scrollback"];
+	        this.colorTheme = source["colorTheme"];
+	        this.createdAt = source["createdAt"];
 	    }
 	}
 	export class UpdateGroupInput {
 	    id: string;
 	    name: string;
 	    sortOrder: number;
+	    terminalProfileId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateGroupInput(source);
@@ -191,6 +342,7 @@ export namespace store {
 	        this.id = source["id"];
 	        this.name = source["name"];
 	        this.sortOrder = source["sortOrder"];
+	        this.terminalProfileId = source["terminalProfileId"];
 	    }
 	}
 	export class UpdateHostInput {
@@ -201,9 +353,12 @@ export namespace store {
 	    username: string;
 	    authMethod: string;
 	    password?: string;
+	    keyPath?: string;
+	    keyPassphrase?: string;
 	    groupId?: string;
 	    color?: string;
 	    tags?: string[];
+	    terminalProfileId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateHostInput(source);
@@ -218,9 +373,36 @@ export namespace store {
 	        this.username = source["username"];
 	        this.authMethod = source["authMethod"];
 	        this.password = source["password"];
+	        this.keyPath = source["keyPath"];
+	        this.keyPassphrase = source["keyPassphrase"];
 	        this.groupId = source["groupId"];
 	        this.color = source["color"];
 	        this.tags = source["tags"];
+	        this.terminalProfileId = source["terminalProfileId"];
+	    }
+	}
+	export class UpdateProfileInput {
+	    id: string;
+	    name: string;
+	    fontSize: number;
+	    cursorStyle: string;
+	    cursorBlink: boolean;
+	    scrollback: number;
+	    colorTheme: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateProfileInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.fontSize = source["fontSize"];
+	        this.cursorStyle = source["cursorStyle"];
+	        this.cursorBlink = source["cursorBlink"];
+	        this.scrollback = source["scrollback"];
+	        this.colorTheme = source["colorTheme"];
 	    }
 	}
 

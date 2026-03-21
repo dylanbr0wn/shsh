@@ -1,25 +1,27 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, X } from 'lucide-react'
+import { Info, FolderOpen, KeyRound } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { isEditHostOpenAtom, editingHostAtom, hostsAtom, groupsAtom } from '../../store/atoms'
-import type { UpdateHostInput, Host } from '../../types'
-import { UpdateHost } from '../../../wailsjs/go/main/App'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
-import { Input } from '../ui/input'
-import { Label } from '../ui/label'
-import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+  isEditHostOpenAtom,
+  editingHostAtom,
+  hostsAtom,
+  groupsAtom,
+  terminalProfilesAtom,
+  isTerminalProfilesOpenAtom,
+} from '../../store/atoms'
+import type { UpdateHostInput, Host } from '../../types'
+import { UpdateHost, BrowseKeyFile } from '../../../wailsjs/go/main/App'
+import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog'
+import { Input } from '../ui/input'
+import { Button } from '../ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { TagInput } from '../ui/tag-input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
+import { Field, FieldError, FieldGroup, FieldLabel } from '../ui/field'
+import { GenerateKeyModal } from './GenerateKeyModal'
 
 interface FieldError {
   label?: string
@@ -27,13 +29,21 @@ interface FieldError {
   username?: string
 }
 
-function FieldHint({ children }: { children: React.ReactNode }) {
+function FieldHint({
+  children,
+  side = 'right',
+}: {
+  children: React.ReactNode
+  side?: 'top' | 'right' | 'bottom' | 'left'
+}) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Info className="text-muted-foreground/60 size-3 shrink-0 cursor-help" />
       </TooltipTrigger>
-      <TooltipContent className="max-w-56">{children}</TooltipContent>
+      <TooltipContent className="max-w-56" side={side}>
+        {children}
+      </TooltipContent>
     </Tooltip>
   )
 }
@@ -43,6 +53,8 @@ export function EditHostModal() {
   const editingHost = useAtomValue(editingHostAtom)
   const setHosts = useSetAtom(hostsAtom)
   const groups = useAtomValue(groupsAtom)
+  const profiles = useAtomValue(terminalProfilesAtom)
+  const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
 
   const [form, setForm] = useState<UpdateHostInput>({
     id: '',
@@ -55,7 +67,8 @@ export function EditHostModal() {
   })
   const [errors, setErrors] = useState<FieldError>({})
   const [submitting, setSubmitting] = useState(false)
-  const [tagInput, setTagInput] = useState('')
+  const [browsingKey, setBrowsingKey] = useState(false)
+  const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
 
   useEffect(() => {
     if (editingHost) {
@@ -67,27 +80,20 @@ export function EditHostModal() {
         username: editingHost.username,
         authMethod: editingHost.authMethod,
         password: '',
+        keyPath: editingHost.keyPath,
+        keyPassphrase: '',
         groupId: editingHost.groupId,
         color: editingHost.color,
         tags: editingHost.tags,
+        terminalProfileId: editingHost.terminalProfileId,
       })
       setErrors({})
-      setTagInput('')
     }
   }, [editingHost])
 
   function close() {
     setIsOpen(false)
     setErrors({})
-  }
-
-  function addTag(t: string) {
-    if (t && !(form.tags ?? []).includes(t))
-      setForm((f) => ({ ...f, tags: [...(f.tags ?? []), t] }))
-  }
-
-  function removeTag(t: string) {
-    setForm((f) => ({ ...f, tags: (f.tags ?? []).filter((x) => x !== t) }))
   }
 
   function validate(): FieldError {
@@ -105,7 +111,6 @@ export function EditHostModal() {
       setErrors(errs)
       return
     }
-    if (tagInput.trim()) addTag(tagInput.trim())
     setSubmitting(true)
     try {
       const updated = await UpdateHost({ ...form, port: Number(form.port) || 22 })
@@ -128,46 +133,48 @@ export function EditHostModal() {
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Edit SSH Host</DialogTitle>
+          <DialogDescription>Update the details of your SSH host.</DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="eh-label">Label</Label>
+        <DialogBody>
+        <form id="eh-form" onSubmit={handleSubmit}>
+          <FieldGroup>
+          <Field>
+            <FieldLabel htmlFor="eh-label">Label</FieldLabel>
             <Input
               id="eh-label"
               placeholder="My Server"
               value={form.label}
               onChange={field('label')}
             />
-            {errors.label && <p className="text-destructive text-xs">{errors.label}</p>}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="eh-hostname" className="flex items-center gap-1">
-              Hostname
-              <FieldHint>
-                IP address or domain name of the remote server — e.g. 192.168.1.10 or
-                myserver.example.com
-              </FieldHint>
-            </Label>
-            <Input
-              id="eh-hostname"
-              placeholder="192.168.1.1"
-              value={form.hostname}
-              onChange={field('hostname')}
-            />
-            {errors.hostname && <p className="text-destructive text-xs">{errors.hostname}</p>}
-          </div>
+            {errors.label && <FieldError>{errors.label}</FieldError>}
+          </Field>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eh-port" className="flex items-center gap-1">
+            <Field>
+              <FieldLabel htmlFor="eh-hostname">
+                Hostname
+                <FieldHint>
+                  IP address or domain name of the remote server — e.g. 192.168.1.10 or
+                  myserver.example.com
+                </FieldHint>
+              </FieldLabel>
+              <Input
+                id="eh-hostname"
+                placeholder="192.168.1.1"
+                value={form.hostname}
+                onChange={field('hostname')}
+              />
+              {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
+            </Field>
+            <Field >
+              <FieldLabel htmlFor="eh-port" >
                 Port
                 <FieldHint>
                   SSH normally runs on port 22. Your server admin may have configured a different
                   port.
                 </FieldHint>
-              </Label>
+              </FieldLabel>
               <Input
                 id="eh-port"
                 type="number"
@@ -176,40 +183,134 @@ export function EditHostModal() {
                 value={form.port}
                 onChange={field('port')}
               />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eh-username" className="flex items-center gap-1">
-                Username
-                <FieldHint>The account to log in as — e.g. ubuntu, ec2-user, or root</FieldHint>
-              </Label>
-              <Input
-                id="eh-username"
-                placeholder="root"
-                value={form.username}
-                onChange={field('username')}
-              />
-              {errors.username && <p className="text-destructive text-xs">{errors.username}</p>}
-            </div>
+            </Field>
           </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="eh-password" className="flex items-center gap-1">
-              Password
-              <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
-            </Label>
+          <Field>
+            <FieldLabel htmlFor="eh-username">
+              Username
+              <FieldHint>The account to log in as — e.g. ubuntu, ec2-user, or root</FieldHint>
+            </FieldLabel>
             <Input
-              id="eh-password"
-              type="password"
-              placeholder="Leave blank to keep unchanged"
-              value={form.password ?? ''}
-              onChange={field('password')}
+              id="eh-username"
+              placeholder="root"
+              value={form.username}
+              onChange={field('username')}
             />
-          </div>
+            {errors.username && <FieldError>{errors.username}</FieldError>}
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="eh-auth-method">Auth Method</FieldLabel>
+            <Select
+              value={form.authMethod}
+              onValueChange={(val) =>
+                setForm((f) => ({ ...f, authMethod: val as typeof f.authMethod, password: '', keyPath: undefined, keyPassphrase: '' }))
+              }
+            >
+              <SelectTrigger id="eh-auth-method" className="h-9">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="password">Password</SelectItem>
+                <SelectItem value="key">SSH Key</SelectItem>
+                <SelectItem value="agent">SSH Agent</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          {form.authMethod === 'password' && (
+            <Field>
+              <FieldLabel htmlFor="eh-password">
+                Password
+                <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
+              </FieldLabel>
+              <Input
+                id="eh-password"
+                type="password"
+                placeholder="Leave blank to keep unchanged"
+                value={form.password ?? ''}
+                onChange={field('password')}
+              />
+            </Field>
+          )}
+
+          {form.authMethod === 'key' && (
+            <>
+              <Field>
+                <FieldLabel htmlFor="eh-key-path">
+                  Private Key File
+                  <FieldHint>Path to your private key, e.g. ~/.ssh/id_ed25519</FieldHint>
+                </FieldLabel>
+                <div className="flex gap-2">
+                  <Input
+                    id="eh-key-path"
+                    placeholder="~/.ssh/id_ed25519"
+                    value={form.keyPath ?? ''}
+                    onChange={(e) => setForm((f) => ({ ...f, keyPath: e.target.value || undefined }))}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={browsingKey}
+                    onClick={async () => {
+                      setBrowsingKey(true)
+                      try {
+                        const path = await BrowseKeyFile()
+                        if (path) setForm((f) => ({ ...f, keyPath: path }))
+                      } catch {
+                        // user cancelled or error
+                      } finally {
+                        setBrowsingKey(false)
+                      }
+                    }}
+                  >
+                    <FolderOpen className="size-3.5" />
+                    Browse
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setGenerateKeyOpen(true)}
+                  >
+                    <KeyRound className="size-3.5" />
+                    Generate…
+                  </Button>
+                </div>
+              </Field>
+              <GenerateKeyModal
+                open={generateKeyOpen}
+                onClose={() => setGenerateKeyOpen(false)}
+                onGenerated={(path) => {
+                  setForm((f) => ({ ...f, keyPath: path }))
+                  setGenerateKeyOpen(false)
+                }}
+              />
+              <Field>
+                <FieldLabel htmlFor="eh-passphrase">
+                  Passphrase
+                  <FieldHint>Leave blank to keep unchanged, or enter a new passphrase.</FieldHint>
+                </FieldLabel>
+                <Input
+                  id="eh-passphrase"
+                  type="password"
+                  placeholder="Leave blank to keep unchanged"
+                  value={form.keyPassphrase ?? ''}
+                  onChange={field('keyPassphrase')}
+                />
+              </Field>
+            </>
+          )}
+
+          {form.authMethod === 'agent' && (
+            <p className="text-muted-foreground text-xs">
+              Will authenticate using your running SSH agent (e.g. ssh-agent or 1Password).
+            </p>
+          )}
 
           {groups.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="eh-group">Group</Label>
+            <Field>
+              <FieldLabel htmlFor="eh-group">Group</FieldLabel>
               <Select
                 value={form.groupId ?? '__none__'}
                 onValueChange={(val) =>
@@ -228,17 +329,44 @@ export function EditHostModal() {
                   ))}
                 </SelectContent>
               </Select>
-            </div>
+            </Field>
           )}
 
-          <div className="flex flex-col gap-1.5">
-            <Label>Color</Label>
+          <Field>
+            <FieldLabel htmlFor="eh-profile">Terminal Profile</FieldLabel>
+            <Select
+              value={form.terminalProfileId ?? '__none__'}
+              onValueChange={(val) => {
+                if (val === '__manage__') {
+                  setProfilesOpen(true)
+                  return
+                }
+                setForm((f) => ({ ...f, terminalProfileId: val === '__none__' ? undefined : val }))
+              }}
+            >
+              <SelectTrigger id="eh-profile" className="h-9">
+                <SelectValue placeholder="None (use defaults)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">None (use defaults)</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+                <SelectItem value="__manage__">Manage profiles…</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field>
+            <FieldLabel>Color</FieldLabel>
             <div className="flex gap-2">
               <button
                 type="button"
                 className={cn(
-                  'size-6 rounded-full border-2 bg-muted',
-                  !form.color && 'ring-2 ring-ring ring-offset-1'
+                  'bg-muted size-6 rounded-full border-2',
+                  !form.color && 'ring-ring ring-2 ring-offset-1'
                 )}
                 onClick={() => setForm((f) => ({ ...f, color: undefined }))}
               />
@@ -249,48 +377,33 @@ export function EditHostModal() {
                   style={{ background: c }}
                   className={cn(
                     'size-6 rounded-full',
-                    form.color === c && 'ring-2 ring-ring ring-offset-1'
+                    form.color === c && 'ring-ring ring-2 ring-offset-1'
                   )}
                   onClick={() => setForm((f) => ({ ...f, color: c }))}
                 />
               ))}
             </div>
-          </div>
+          </Field>
 
-          <div className="flex flex-col gap-1.5">
-            <Label>Tags</Label>
-            <div className="flex flex-wrap gap-1">
-              {(form.tags ?? []).map((t) => (
-                <Badge key={t} variant="secondary" className="gap-1 text-xs">
-                  {t}
-                  <X className="size-3 cursor-pointer" onClick={() => removeTag(t)} />
-                </Badge>
-              ))}
-              <Input
-                placeholder="Add tag…"
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
-                    e.preventDefault()
-                    addTag(tagInput.trim().replace(/,$/, ''))
-                    setTagInput('')
-                  }
-                }}
-                className="h-6 w-24 text-xs"
-              />
-            </div>
-          </div>
+          <Field>
+            <FieldLabel>Tags</FieldLabel>
+            <TagInput
+              tags={form.tags ?? []}
+              onChange={(tags) => setForm((f) => ({ ...f, tags }))}
+            />
+          </Field>
 
-          <DialogFooter>
+          </FieldGroup>
+        </form>
+        </DialogBody>
+        <DialogFooter>
             <Button type="button" variant="ghost" onClick={close}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" form="eh-form" disabled={submitting}>
               {submitting ? 'Saving…' : 'Save Changes'}
             </Button>
           </DialogFooter>
-        </form>
       </DialogContent>
     </Dialog>
   )
