@@ -367,7 +367,7 @@ export function HostList() {
           <Button
             variant="ghost"
             size="icon-xs"
-            className="text-muted-foreground absolute top-1/2 right-4 -translate-y-1/2"
+            className="text-muted-foreground absolute inset-y-0 right-3 my-auto"
             onClick={() => setSearchQuery('')}
           >
             <X />
