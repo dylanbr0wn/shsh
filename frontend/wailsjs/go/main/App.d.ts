@@ -93,6 +93,8 @@ export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function SplitSession(arg1:string):Promise<session.SplitSessionResult>;
+
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;

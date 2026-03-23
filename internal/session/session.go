@@ -83,6 +83,12 @@ type portForward struct {
 	listener   net.Listener
 }
 
+// SplitSessionResult is returned by SplitSession.
+type SplitSessionResult struct {
+	SessionID       string `json:"sessionId"`
+	ParentSessionID string `json:"parentSessionId"`
+}
+
 type sshSession struct {
 	id           string
 	hostID       string
@@ -101,6 +107,7 @@ type sshSession struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
+	ownsClient   bool // true = this session owns the SSH client and must close it on disconnect
 }
 
 func (s *sshSession) start(emitter EventEmitter, stdout io.Reader) {
@@ -348,6 +355,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			ctx:          sessCtx,
 			cancel:       cancel,
 			portForwards: make(map[string]*portForward),
+			ownsClient:   true,
 		}
 
 		m.mu.Lock()
@@ -378,9 +386,11 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 		}
 		sess.pfMu.Unlock()
 		sshSess.Close()
-		client.Close()
-		if sess.jumpClient != nil {
-			sess.jumpClient.Close()
+		if sess.ownsClient {
+			client.Close()
+			if sess.jumpClient != nil {
+				sess.jumpClient.Close()
+			}
 		}
 		sess.wg.Wait()
 
@@ -425,6 +435,101 @@ func (m *Manager) Disconnect(sessionID string) error {
 	}
 	sess.cancel()
 	return nil
+}
+
+// SplitSession opens a new PTY on the existing SSH connection for existingSessionID.
+// The new session shares the underlying SSH client but has its own shell and PTY.
+func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, error) {
+	m.mu.Lock()
+	parent, ok := m.sessions[existingSessionID]
+	m.mu.Unlock()
+	if !ok {
+		return SplitSessionResult{}, fmt.Errorf("session %s not found", existingSessionID)
+	}
+
+	// Use the inner *ssh.Client, not the outer goph.Client wrapper.
+	// This correctly targets the destination host even for jump-host connections.
+	targetClient := parent.client.Client
+
+	sshSess, err := targetClient.NewSession()
+	if err != nil {
+		return SplitSessionResult{}, fmt.Errorf("failed to create SSH session: %w", err)
+	}
+
+	if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
+		sshSess.Close()
+		return SplitSessionResult{}, fmt.Errorf("failed to request PTY: %w", err)
+	}
+
+	stdin, err := sshSess.StdinPipe()
+	if err != nil {
+		sshSess.Close()
+		return SplitSessionResult{}, fmt.Errorf("failed to get stdin pipe: %w", err)
+	}
+
+	stdout, err := sshSess.StdoutPipe()
+	if err != nil {
+		sshSess.Close()
+		return SplitSessionResult{}, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	if err := sshSess.Shell(); err != nil {
+		sshSess.Close()
+		return SplitSessionResult{}, fmt.Errorf("failed to start shell: %w", err)
+	}
+
+	newID := uuid.New().String()
+	sessCtx, cancel := context.WithCancel(context.Background())
+	newSess := &sshSession{
+		id:           newID,
+		hostID:       parent.hostID,
+		hostLabel:    parent.hostLabel,
+		client:       parent.client,
+		sshSess:      sshSess,
+		stdin:        stdin,
+		ctx:          sessCtx,
+		cancel:       cancel,
+		portForwards: make(map[string]*portForward),
+		ownsClient:   false, // parent owns the client
+	}
+
+	m.mu.Lock()
+	m.sessions[newID] = newSess
+	m.mu.Unlock()
+
+	runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+		SessionID: newID,
+		Status:    StatusConnecting,
+	})
+
+	// Start the output reader goroutine and cleanup goroutine.
+	m.wg.Go(func() {
+		newSess.start(m.ctx, stdout)
+
+		runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+			SessionID: newID,
+			Status:    StatusConnected,
+		})
+
+		<-sessCtx.Done()
+		newSess.pfMu.Lock()
+		for _, pf := range newSess.portForwards {
+			pf.listener.Close()
+		}
+		newSess.pfMu.Unlock()
+		sshSess.Close()
+		// Do NOT close parent.client — parent session owns it.
+		newSess.wg.Wait()
+
+		m.mu.Lock()
+		delete(m.sessions, newID)
+		m.mu.Unlock()
+	})
+
+	return SplitSessionResult{
+		SessionID:       newID,
+		ParentSessionID: existingSessionID,
+	}, nil
 }
 
 // RespondHostKey unblocks a pending host key verification with the user's decision.
