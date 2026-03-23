@@ -7,6 +7,7 @@ import {
   isAddHostOpenAtom,
   closeConfirmPrefAtom,
   hostsAtom,
+  sessionActivityAtom,
 } from '../../store/atoms'
 import { DisconnectSession } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
@@ -21,6 +22,7 @@ export function TabBar() {
   const [closeConfirmPref, setCloseConfirmPref] = useAtom(closeConfirmPrefAtom)
   const hosts = useAtomValue(hostsAtom)
   const hostById = useMemo(() => Object.fromEntries(hosts.map((h) => [h.id, h])), [hosts])
+  const setSessionActivity = useSetAtom(sessionActivityAtom)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -110,7 +112,14 @@ export function TabBar() {
             isActive={session.id === activeSessionId}
             isFirst={idx === 0}
             isLast={idx === sessions.length - 1}
-            onActivate={() => setActiveSessionId(session.id)}
+            onActivate={() => {
+              setActiveSessionId(session.id)
+              setSessionActivity((prev) => {
+                const next = new Set(prev)
+                next.delete(session.id)
+                return next
+              })
+            }}
             onClose={() => handleClose(session.id)}
             onCloseOthers={() => handleCloseOthers(session.id)}
             onCloseToLeft={() => handleCloseToLeft(session.id)}
