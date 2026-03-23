@@ -71,7 +71,7 @@ export function useAppInit() {
     ListTerminalProfiles()
       .then((profiles) => setTerminalProfiles(profiles as unknown as TerminalProfile[]))
       .catch((err) => toast.error('Failed to load terminal profiles', { description: String(err) }))
-  }, [setHosts, setGroups])
+  }, [setHosts, setGroups, setTerminalProfiles])
 
   useEffect(() => {
     const cancel = EventsOn(

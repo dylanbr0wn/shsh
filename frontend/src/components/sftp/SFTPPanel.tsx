@@ -152,7 +152,7 @@ export function SFTPPanel({ sessionId }: Props) {
       await listDir(currentPath)
     })
     return () => EventsOff('window:filedrop')
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [sessionId, currentPath, listDir])
 
   if (!currentPath) return null

@@ -120,7 +120,7 @@ export function useTerminal(
         return next
       })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+   
   }, [containerRef, resolvedTheme, sessionId, setSearchAddons, colorTheme, settings.cursorBlink, settings.cursorStyle, settings.fontSize, settings.scrollback])
 
   // Apply settings changes at runtime (no remount needed)
