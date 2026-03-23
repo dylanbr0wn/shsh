@@ -99,7 +99,7 @@ export function ImportSSHConfigModal() {
             </p>
           ) : (
             <>
-              <div className="border-foreground/15 rounded-md border overflow-hidden">
+              <div className="border-foreground/15 overflow-hidden rounded-md border">
                 <Table className="table-fixed">
                   <colgroup>
                     <col className="w-10" />
@@ -122,7 +122,7 @@ export function ImportSSHConfigModal() {
                     </TableRow>
                   </TableHeader>
                 </Table>
-                <div className="h-60 overflow-y-auto border-t border-foreground/15">
+                <div className="border-foreground/15 h-60 overflow-y-auto border-t">
                   <Table className="table-fixed">
                     <colgroup>
                       <col className="w-10" />

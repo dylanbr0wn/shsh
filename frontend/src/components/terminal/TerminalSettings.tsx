@@ -104,7 +104,7 @@ export function TerminalSettings() {
       <PopoverContent side="left" align="start" className="w-64 p-4">
         <div className="flex flex-col gap-4">
           <FieldSet>
-            <FieldLegend className='flex justify-between items-center'>
+            <FieldLegend className="flex items-center justify-between">
               <span>Terminal settings</span>
               <Button variant="outline" size="sm" onClick={reset}>
                 Reset
@@ -197,9 +197,7 @@ export function TerminalSettings() {
 
               {/* Scrollback */}
               <Field>
-                <FieldLabel id="ts-scrollback-label">
-                  Scrollback Lines
-                </FieldLabel>
+                <FieldLabel id="ts-scrollback-label">Scrollback Lines</FieldLabel>
                 <ToggleGroup
                   type="single"
                   value={String(settings.scrollback)}

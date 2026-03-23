@@ -4,13 +4,7 @@ import { hostsAtom } from '../../store/atoms'
 import { Tag } from './tag'
 import { Input } from './input'
 import { Popover, PopoverAnchor, PopoverContent } from './popover'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandItem,
-  CommandList,
-} from './command'
+import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from './command'
 
 interface TagInputProps {
   tags: string[]
@@ -23,10 +17,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
   const [open, setOpen] = useState(false)
   const commandRef = useRef<HTMLDivElement>(null)
 
-  const allTags = useMemo(
-    () => [...new Set(hosts.flatMap((h) => h.tags ?? []))],
-    [hosts]
-  )
+  const allTags = useMemo(() => [...new Set(hosts.flatMap((h) => h.tags ?? []))], [hosts])
 
   const suggestions = useMemo(
     () =>
@@ -58,9 +49,7 @@ export function TagInput({ tags, onChange }: TagInputProps) {
   function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (open && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
       e.preventDefault()
-      commandRef.current?.dispatchEvent(
-        new KeyboardEvent('keydown', { key: e.key, bubbles: true })
-      )
+      commandRef.current?.dispatchEvent(new KeyboardEvent('keydown', { key: e.key, bubbles: true }))
       return
     }
     if (open && e.key === 'Enter') {
@@ -119,8 +108,8 @@ export function TagInput({ tags, onChange }: TagInputProps) {
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
             className="h-6 w-24 text-xs"
-            autoComplete='off'
-            autoCorrect='off'
+            autoComplete="off"
+            autoCorrect="off"
           />
         </PopoverAnchor>
         <PopoverContent

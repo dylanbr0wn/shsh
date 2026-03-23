@@ -1,7 +1,14 @@
 import React from 'react'
 import { useAtomValue, useAtom } from 'jotai'
 import { useState, useEffect, useCallback } from 'react'
-import { sessionsAtom, activeSessionIdAtom, sftpStateAtom, portForwardsAtom, activeLogsAtom, isLogViewerOpenAtom } from '../../store/atoms'
+import {
+  sessionsAtom,
+  activeSessionIdAtom,
+  sftpStateAtom,
+  portForwardsAtom,
+  activeLogsAtom,
+  isLogViewerOpenAtom,
+} from '../../store/atoms'
 import { TerminalInstance } from './TerminalInstance'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
@@ -52,7 +59,13 @@ export function TerminalPane() {
       })
     }
     setSftpState((prev) => {
-      const cur = prev[sessionId] ?? { isOpen: false, currentPath: '~', entries: [], isLoading: false, error: null }
+      const cur = prev[sessionId] ?? {
+        isOpen: false,
+        currentPath: '~',
+        entries: [],
+        isLoading: false,
+        error: null,
+      }
       return { ...prev, [sessionId]: { ...cur, isOpen: willOpen } }
     })
   }
@@ -106,10 +119,14 @@ export function TerminalPane() {
             isOpen: pf.isOpen,
             defaultSize: 30,
             minSize: 20,
-            onDragClose: () => setPfState((prev) => ({
-              ...prev,
-              [session.id]: { ...(prev[session.id] ?? { isOpen: false, forwards: [] }), isOpen: false },
-            })),
+            onDragClose: () =>
+              setPfState((prev) => ({
+                ...prev,
+                [session.id]: {
+                  ...(prev[session.id] ?? { isOpen: false, forwards: [] }),
+                  isOpen: false,
+                },
+              })),
             render: () => <PortForwardsPanel sessionId={session.id} />,
           },
           {
@@ -117,10 +134,20 @@ export function TerminalPane() {
             isOpen: sftp.isOpen,
             defaultSize: 40,
             minSize: 20,
-            onDragClose: () => setSftpState((prev) => ({
-              ...prev,
-              [session.id]: { ...(prev[session.id] ?? { isOpen: false, currentPath: '~', entries: [], isLoading: false, error: null }), isOpen: false },
-            })),
+            onDragClose: () =>
+              setSftpState((prev) => ({
+                ...prev,
+                [session.id]: {
+                  ...(prev[session.id] ?? {
+                    isOpen: false,
+                    currentPath: '~',
+                    entries: [],
+                    isLoading: false,
+                    error: null,
+                  }),
+                  isOpen: false,
+                },
+              })),
             render: () => <SFTPPanel sessionId={session.id} />,
           },
         ]
@@ -129,35 +156,44 @@ export function TerminalPane() {
           <div
             key={session.id}
             className="absolute inset-0 flex"
-            style={isActive
-              ? { visibility: 'visible', pointerEvents: 'auto' }
-              : { visibility: 'hidden', pointerEvents: 'none' }
+            style={
+              isActive
+                ? { visibility: 'visible', pointerEvents: 'auto' }
+                : { visibility: 'hidden', pointerEvents: 'none' }
             }
           >
             <ResizablePanelGroup orientation="horizontal" className="h-full min-w-0 flex-1">
-              <ResizablePanel defaultSize={60} minSize={30} className="flex min-w-0 flex-col h-full overflow-hidden!">
-                <div className="relative min-h-0 flex-1 py-3 pl-3 h-full">
+              <ResizablePanel
+                defaultSize={60}
+                minSize={30}
+                className="flex h-full min-w-0 flex-col overflow-hidden!"
+              >
+                <div className="relative h-full min-h-0 flex-1 py-3 pl-3">
                   <TerminalInstance session={session} isActive={isActive} />
                   {isActive && searchOpen && (
                     <TerminalSearch sessionId={session.id} onClose={() => setSearchOpen(false)} />
                   )}
                 </div>
               </ResizablePanel>
-              {panels.filter(p => p.isOpen).map(p => (
-                <React.Fragment key={p.id}>
-                  <ResizableHandle withHandle />
-                  <ResizablePanel
-                    defaultSize={p.defaultSize}
-                    minSize={p.minSize}
-                    collapsible
-                    collapsedSize={0}
-                    onResize={(size) => { if (size.inPixels === 0) p.onDragClose() }}
-                    className="flex min-w-0 flex-col"
-                  >
-                    {p.render()}
-                  </ResizablePanel>
-                </React.Fragment>
-              ))}
+              {panels
+                .filter((p) => p.isOpen)
+                .map((p) => (
+                  <React.Fragment key={p.id}>
+                    <ResizableHandle withHandle />
+                    <ResizablePanel
+                      defaultSize={p.defaultSize}
+                      minSize={p.minSize}
+                      collapsible
+                      collapsedSize={0}
+                      onResize={(size) => {
+                        if (size.inPixels === 0) p.onDragClose()
+                      }}
+                      className="flex min-w-0 flex-col"
+                    >
+                      {p.render()}
+                    </ResizablePanel>
+                  </React.Fragment>
+                ))}
             </ResizablePanelGroup>
             {isActive && (
               <TerminalSidebar

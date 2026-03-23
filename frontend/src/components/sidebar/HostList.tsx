@@ -14,7 +14,13 @@ import {
 } from '../../store/atoms'
 import { pendingConnects } from '../../store/useAppInit'
 import { useHostHealth } from '../../store/useHostHealth'
-import { DeleteHost, ConnectHost, UpdateHost, AddGroup, ListHosts } from '../../../wailsjs/go/main/App'
+import {
+  DeleteHost,
+  ConnectHost,
+  UpdateHost,
+  AddGroup,
+  ListHosts,
+} from '../../../wailsjs/go/main/App'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
@@ -94,7 +100,10 @@ export function HostList() {
   }, [hosts, searchQuery, sortMode])
 
   const sortedGroups = useMemo(
-    () => [...groups].sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)),
+    () =>
+      [...groups].sort(
+        (a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
+      ),
     [groups]
   )
 
@@ -103,13 +112,7 @@ export function HostList() {
   }
 
   const sortIcon =
-    sortMode === 'az' ? (
-      <ArrowUpAZ />
-    ) : sortMode === 'za' ? (
-      <ArrowDownAZ />
-    ) : (
-      <Clock />
-    )
+    sortMode === 'az' ? <ArrowUpAZ /> : sortMode === 'za' ? <ArrowDownAZ /> : <Clock />
 
   const sortTooltip =
     sortMode === 'az'
@@ -362,7 +365,7 @@ export function HostList() {
               {ungrouped.length > 0 && (
                 <div className="flex flex-col gap-0.5 pl-2">
                   {sortedGroups.length > 0 && (
-                    <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider">
+                    <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase">
                       Ungrouped
                     </span>
                   )}

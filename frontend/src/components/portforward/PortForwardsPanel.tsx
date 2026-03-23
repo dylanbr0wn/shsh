@@ -70,11 +70,8 @@ export function PortForwardsPanel({ sessionId }: Props) {
           </div>
         )}
         {state.forwards.map((fwd) => (
-          <div
-            key={fwd.id}
-            className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent/60"
-          >
-            <span className="font-mono text-xs flex-1 min-w-0 truncate">
+          <div key={fwd.id} className="hover:bg-accent/60 flex items-center gap-2 px-3 py-1.5">
+            <span className="min-w-0 flex-1 truncate font-mono text-xs">
               127.0.0.1:{fwd.localPort} → {fwd.remoteHost}:{fwd.remotePort}
             </span>
             <Tooltip>

@@ -42,7 +42,10 @@ export function AddPortForwardModal() {
       const forwards = await ListPortForwards(sessionId)
       setPfState((prev) => ({
         ...prev,
-        [sessionId]: { ...(prev[sessionId] ?? { isOpen: true, forwards: [] }), forwards: forwards ?? [] },
+        [sessionId]: {
+          ...(prev[sessionId] ?? { isOpen: true, forwards: [] }),
+          forwards: forwards ?? [],
+        },
       }))
       close()
     } catch (err) {
@@ -61,47 +64,47 @@ export function AddPortForwardModal() {
 
         <form id="apf-form" onSubmit={handleSubmit} className="pt-2">
           <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="apf-local-port">Local Port</FieldLabel>
-            <Input
-              id="apf-local-port"
-              name="localPort"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="8080…"
-              autoComplete="off"
-              value={localPort}
-              onChange={(e) => setLocalPort(e.target.value)}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus
-            />
-          </Field>
-
-          <Field>
-            <FieldLabel>Remote Destination</FieldLabel>
-            <InputGroup>
-              <InputGroupInput
-                name="remoteHost"
-                placeholder="hostname…"
-                autoComplete="off"
-                value={remoteHost}
-                onChange={(e) => setRemoteHost(e.target.value)}
-              />
-              <span className="px-1.5 text-sm text-muted-foreground select-none shrink-0">:</span>
-              <InputGroupInput
-                name="remotePort"
+            <Field>
+              <FieldLabel htmlFor="apf-local-port">Local Port</FieldLabel>
+              <Input
+                id="apf-local-port"
+                name="localPort"
                 type="text"
                 inputMode="numeric"
                 pattern="[0-9]*"
-                placeholder="22…"
+                placeholder="8080…"
                 autoComplete="off"
-                className="w-16 shrink-0 flex-none"
-                value={remotePort}
-                onChange={(e) => setRemotePort(e.target.value)}
+                value={localPort}
+                onChange={(e) => setLocalPort(e.target.value)}
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
               />
-            </InputGroup>
-          </Field>
+            </Field>
+
+            <Field>
+              <FieldLabel>Remote Destination</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  name="remoteHost"
+                  placeholder="hostname…"
+                  autoComplete="off"
+                  value={remoteHost}
+                  onChange={(e) => setRemoteHost(e.target.value)}
+                />
+                <span className="text-muted-foreground shrink-0 px-1.5 text-sm select-none">:</span>
+                <InputGroupInput
+                  name="remotePort"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="22…"
+                  autoComplete="off"
+                  className="w-16 flex-none shrink-0"
+                  value={remotePort}
+                  onChange={(e) => setRemotePort(e.target.value)}
+                />
+              </InputGroup>
+            </Field>
           </FieldGroup>
         </form>
 

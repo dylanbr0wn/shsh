@@ -74,7 +74,7 @@ export function HostListItem({
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
-  const {text, color} = latencyValue(health[host.id])
+  const { text, color } = latencyValue(health[host.id])
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -89,7 +89,7 @@ export function HostListItem({
           tabIndex={0}
         >
           {/* Left: status dot + latency */}
-          <div className="flex shrink-0 flex-col items-center gap-1 w-10">
+          <div className="flex w-10 shrink-0 flex-col items-center gap-1">
             <span
               className={cn(
                 'size-2 rounded-full',
@@ -98,20 +98,11 @@ export function HostListItem({
                 !isConnected && !isConnecting && 'bg-muted-foreground/30'
               )}
             />
-            {!isConnected && (
-              <span
-                className={cn(
-                  'text-[10px] leading-none',
-                  color
-                )}
-              >
-                {text}
-              </span>
-            )}
+            {!isConnected && <span className={cn('text-[10px] leading-none', color)}>{text}</span>}
           </div>
 
           {/* Center: host identity */}
-          <div className="min-w-0 flex-1 flex-col flex gap-1">
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center gap-3">
               <div className="truncate text-sm font-medium">{host.label}</div>
               {/* {host.lastConnectedAt && (
@@ -127,13 +118,15 @@ export function HostListItem({
             {host.tags && host.tags.length > 0 && (
               <HoverCard openDelay={300} closeDelay={100}>
                 <HoverCardTrigger asChild>
-                  <Badge variant="link" className='flex items-center gap-1'>
+                  <Badge variant="link" className="flex items-center gap-1">
                     <TagIcon className="size-3" />
-                  <span>{host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}</span>
+                    <span>
+                      {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
+                    </span>
                   </Badge>
                 </HoverCardTrigger>
                 <HoverCardContent side="bottom" align="start" className="w-auto p-2">
-                  <div className="flex flex-wrap gap-1 w-42">
+                  <div className="flex w-42 flex-wrap gap-1">
                     {host.tags.map((t) => (
                       <Tag key={t} label={t} />
                     ))}

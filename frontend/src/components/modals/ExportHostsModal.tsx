@@ -4,19 +4,20 @@ import { useAtom, useAtomValue } from 'jotai'
 import { isExportHostsOpenAtom, hostsAtom, groupsAtom } from '../../store/atoms'
 import type { Host } from '../../types'
 import { ExportHosts } from '../../../wailsjs/go/main/App'
-import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../ui/dialog'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Checkbox } from '../ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '../ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { FieldGroup, Field, FieldLabel } from '../ui/field'
 
 type ExportFormat = 'sshconfig' | 'json' | 'csv'
@@ -194,7 +195,10 @@ export function ExportHostsModal() {
                       <TableBody>
                         {hosts.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={3} className="text-muted-foreground py-6 text-center text-sm">
+                            <TableCell
+                              colSpan={3}
+                              className="text-muted-foreground py-6 text-center text-sm"
+                            >
                               No saved hosts
                             </TableCell>
                           </TableRow>

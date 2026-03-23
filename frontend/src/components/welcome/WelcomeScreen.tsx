@@ -63,7 +63,6 @@ export function WelcomeScreen() {
 
       {/* Content column */}
       <div className="relative flex w-full max-w-[400px] flex-col gap-5 px-6">
-
         {/* Zone 1 — App identity */}
         <div className="flex items-center gap-2.5">
           <div
@@ -86,11 +85,11 @@ export function WelcomeScreen() {
             'group flex w-full items-center gap-3 rounded-md border px-4 py-3 text-left',
             'border-primary/25 bg-primary/[0.04] transition-colors',
             'hover:border-primary/50 hover:bg-primary/[0.08]',
-            'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50'
+            'focus-visible:ring-ring/50 focus-visible:ring-3 focus-visible:outline-none'
           )}
         >
           <div
-            className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-md transition-colors group-hover:bg-primary/20"
+            className="bg-primary/10 text-primary group-hover:bg-primary/20 flex size-9 shrink-0 items-center justify-center rounded-md transition-colors"
             aria-hidden="true"
           >
             <Zap className="size-4" />
@@ -102,7 +101,7 @@ export function WelcomeScreen() {
             </span>
           </div>
           <ArrowRight
-            className="text-primary/40 size-4 shrink-0 transition-all group-hover:translate-x-1 group-hover:text-primary/70 duration-300"
+            className="text-primary/40 group-hover:text-primary/70 size-4 shrink-0 transition-all duration-300 group-hover:translate-x-1"
             aria-hidden="true"
           />
         </button>
@@ -110,7 +109,7 @@ export function WelcomeScreen() {
         {/* Zone 3 — Recent hosts */}
         {recentHosts.length > 0 && (
           <div className="flex flex-col gap-2">
-            <h2 className="text-muted-foreground/60 font-mono text-[10px] font-semibold uppercase tracking-widest">
+            <h2 className="text-muted-foreground/60 font-mono text-[10px] font-semibold tracking-widest uppercase">
               Recent
             </h2>
             <div className="grid grid-cols-2 gap-2">
@@ -128,7 +127,7 @@ export function WelcomeScreen() {
                         className={cn(
                           'group flex flex-col gap-1 rounded-md border p-3 text-left transition-colors',
                           'border-border bg-card hover:border-border hover:bg-accent/50',
-                          'focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
+                          'focus-visible:ring-ring/50 focus-visible:ring-3 focus-visible:outline-none',
                           'disabled:pointer-events-none disabled:opacity-50'
                         )}
                         style={

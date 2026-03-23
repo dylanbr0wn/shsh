@@ -5,7 +5,14 @@ import { useAtom } from 'jotai'
 import { isQuickConnectOpenAtom } from '../../store/atoms'
 import { pendingConnects } from '../../store/useAppInit'
 import { QuickConnect } from '../../../wailsjs/go/main/App'
-import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
@@ -92,9 +99,11 @@ export function QuickConnectModal() {
     e.preventDefault()
 
     // Re-parse shorthand one last time before submitting
-    const { username: parsedUser, hostname: parsedHost, port: parsedPort } = parseShorthand(
-      form.hostShorthand.trim()
-    )
+    const {
+      username: parsedUser,
+      hostname: parsedHost,
+      port: parsedPort,
+    } = parseShorthand(form.hostShorthand.trim())
     const hostname = form.hostname.trim() || parsedHost
     const username = form.username.trim() || parsedUser
     const port = form.port || parsedPort
@@ -137,97 +146,97 @@ export function QuickConnectModal() {
         </DialogHeader>
 
         <DialogBody className="pt-1">
-        <form id="qc-form" onSubmit={handleSubmit}>
-          <FieldGroup>
-          {/* Shorthand field */}
-          <Field>
-            <FieldLabel htmlFor="qc-host">Host</FieldLabel>
-            <Input
-              id="qc-host"
-              placeholder="user@hostname:22"
-              value={form.hostShorthand}
-              onChange={(e) => setForm((f) => ({ ...f, hostShorthand: e.target.value }))}
-              onBlur={handleHostBlur}
-            />
-            <FieldDescription>
-              Shorthand: <span className="font-mono">user@host:port</span>
-            </FieldDescription>
-          </Field>
+          <form id="qc-form" onSubmit={handleSubmit}>
+            <FieldGroup>
+              {/* Shorthand field */}
+              <Field>
+                <FieldLabel htmlFor="qc-host">Host</FieldLabel>
+                <Input
+                  id="qc-host"
+                  placeholder="user@hostname:22"
+                  value={form.hostShorthand}
+                  onChange={(e) => setForm((f) => ({ ...f, hostShorthand: e.target.value }))}
+                  onBlur={handleHostBlur}
+                />
+                <FieldDescription>
+                  Shorthand: <span className="font-mono">user@host:port</span>
+                </FieldDescription>
+              </Field>
 
-          {/* Hostname + Port */}
-          <div className="grid grid-cols-[1fr_80px] gap-3">
-            <Field>
-              <FieldLabel htmlFor="qc-hostname">Hostname</FieldLabel>
-              <Input
-                id="qc-hostname"
-                placeholder="192.168.1.1"
-                value={form.hostname}
-                onChange={(e) => setForm((f) => ({ ...f, hostname: e.target.value }))}
-              />
-              {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="qc-port">Port</FieldLabel>
-              <Input
-                id="qc-port"
-                type="number"
-                min={1}
-                max={65535}
-                value={form.port}
-                onChange={(e) => setForm((f) => ({ ...f, port: Number(e.target.value) || 22 }))}
-              />
-            </Field>
-          </div>
+              {/* Hostname + Port */}
+              <div className="grid grid-cols-[1fr_80px] gap-3">
+                <Field>
+                  <FieldLabel htmlFor="qc-hostname">Hostname</FieldLabel>
+                  <Input
+                    id="qc-hostname"
+                    placeholder="192.168.1.1"
+                    value={form.hostname}
+                    onChange={(e) => setForm((f) => ({ ...f, hostname: e.target.value }))}
+                  />
+                  {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="qc-port">Port</FieldLabel>
+                  <Input
+                    id="qc-port"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={form.port}
+                    onChange={(e) => setForm((f) => ({ ...f, port: Number(e.target.value) || 22 }))}
+                  />
+                </Field>
+              </div>
 
-          {/* Username */}
-          <Field>
-            <FieldLabel htmlFor="qc-username">Username</FieldLabel>
-            <Input
-              id="qc-username"
-              placeholder="root"
-              value={form.username}
-              onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
-            />
-            {errors.username && <FieldError>{errors.username}</FieldError>}
-          </Field>
+              {/* Username */}
+              <Field>
+                <FieldLabel htmlFor="qc-username">Username</FieldLabel>
+                <Input
+                  id="qc-username"
+                  placeholder="root"
+                  value={form.username}
+                  onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))}
+                />
+                {errors.username && <FieldError>{errors.username}</FieldError>}
+              </Field>
 
-          {/* Auth method */}
-          <Field>
-            <FieldLabel>Auth Method</FieldLabel>
-            <ToggleGroup
-              type="single"
-              variant="outline"
-              size="sm"
-              value={form.authMethod}
-              onValueChange={(val) => {
-                if (val) setForm((f) => ({ ...f, authMethod: val as 'password' | 'agent' }))
-              }}
-              className="w-full"
-            >
-              <ToggleGroupItem value="password" className="flex-1">
-                Password
-              </ToggleGroupItem>
-              <ToggleGroupItem value="agent" className="flex-1">
-                SSH Agent
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </Field>
+              {/* Auth method */}
+              <Field>
+                <FieldLabel>Auth Method</FieldLabel>
+                <ToggleGroup
+                  type="single"
+                  variant="outline"
+                  size="sm"
+                  value={form.authMethod}
+                  onValueChange={(val) => {
+                    if (val) setForm((f) => ({ ...f, authMethod: val as 'password' | 'agent' }))
+                  }}
+                  className="w-full"
+                >
+                  <ToggleGroupItem value="password" className="flex-1">
+                    Password
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="agent" className="flex-1">
+                    SSH Agent
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </Field>
 
-          {/* Password */}
-          {form.authMethod === 'password' && (
-            <Field>
-              <FieldLabel htmlFor="qc-password">Password</FieldLabel>
-              <Input
-                id="qc-password"
-                type="password"
-                placeholder="Optional"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
-            </Field>
-          )}
-          </FieldGroup>
-        </form>
+              {/* Password */}
+              {form.authMethod === 'password' && (
+                <Field>
+                  <FieldLabel htmlFor="qc-password">Password</FieldLabel>
+                  <Input
+                    id="qc-password"
+                    type="password"
+                    placeholder="Optional"
+                    value={form.password}
+                    onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  />
+                </Field>
+              )}
+            </FieldGroup>
+          </form>
         </DialogBody>
 
         <DialogFooter>

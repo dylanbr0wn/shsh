@@ -152,7 +152,6 @@ export function SFTPPanel({ sessionId }: Props) {
       await listDir(currentPath)
     })
     return () => EventsOff('window:filedrop')
-     
   }, [sessionId, currentPath, listDir])
 
   if (!currentPath) return null
@@ -284,12 +283,7 @@ export function SFTPPanel({ sessionId }: Props) {
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label="Upload file"
-              onClick={handleUpload}
-            >
+            <Button variant="ghost" size="icon-sm" aria-label="Upload file" onClick={handleUpload}>
               <Upload aria-hidden="true" />
             </Button>
           </TooltipTrigger>
@@ -332,7 +326,9 @@ export function SFTPPanel({ sessionId }: Props) {
             <Button
               variant="ghost"
               size="xs"
-              className={cn(idx === segments.length - 1 ? 'text-foreground' : 'text-muted-foreground')}
+              className={cn(
+                idx === segments.length - 1 ? 'text-foreground' : 'text-muted-foreground'
+              )}
               onClick={() => navigateTo(idx)}
             >
               {seg}
@@ -342,7 +338,7 @@ export function SFTPPanel({ sessionId }: Props) {
       </div>
 
       {/* File list */}
-      <ScrollArea className="@container min-h-0 flex-1 w-full">
+      <ScrollArea className="@container min-h-0 w-full flex-1">
         {isLoading && (
           <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
             <Loader2 className="size-4 animate-spin" aria-hidden="true" />
@@ -363,103 +359,104 @@ export function SFTPPanel({ sessionId }: Props) {
         {!isLoading && !error && (
           <>
             {entries.map((entry) => (
-            <ContextMenu key={entry.path}>
-              <ContextMenuTrigger asChild>
-                <button
-                  className={cn(
-                    'flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-left transition-colors select-none',
-                    'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none focus-visible:ring-1',
-                    selected === entry.path && 'bg-accent text-accent-foreground',
-                    dragTargetPath === entry.path && 'ring-1 ring-inset ring-primary bg-primary/10'
-                  )}
-                  draggable
-                  onClick={() => setSelected(entry.path)}
-                  onDoubleClick={() => handleRowDoubleClick(entry)}
-                  onDragStart={(e) => {
-                    draggedEntryRef.current = entry
-                    e.dataTransfer.effectAllowed = 'move'
-                    e.dataTransfer.setData('application/x-shsh-sftp', entry.path)
-                  }}
-                  onDragOver={(e) => {
-                    if (
-                      entry.isDir &&
-                      e.dataTransfer.types.includes('application/x-shsh-sftp') &&
-                      draggedEntryRef.current?.path !== entry.path
-                    ) {
+              <ContextMenu key={entry.path}>
+                <ContextMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-left transition-colors select-none',
+                      'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset',
+                      selected === entry.path && 'bg-accent text-accent-foreground',
+                      dragTargetPath === entry.path &&
+                        'ring-primary bg-primary/10 ring-1 ring-inset'
+                    )}
+                    draggable
+                    onClick={() => setSelected(entry.path)}
+                    onDoubleClick={() => handleRowDoubleClick(entry)}
+                    onDragStart={(e) => {
+                      draggedEntryRef.current = entry
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData('application/x-shsh-sftp', entry.path)
+                    }}
+                    onDragOver={(e) => {
+                      if (
+                        entry.isDir &&
+                        e.dataTransfer.types.includes('application/x-shsh-sftp') &&
+                        draggedEntryRef.current?.path !== entry.path
+                      ) {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDragTargetPath(entry.path)
+                      }
+                    }}
+                    onDragLeave={() => setDragTargetPath(null)}
+                    onDrop={async (e) => {
+                      if (!entry.isDir) return
                       e.preventDefault()
                       e.stopPropagation()
-                      setDragTargetPath(entry.path)
-                    }
-                  }}
-                  onDragLeave={() => setDragTargetPath(null)}
-                  onDrop={async (e) => {
-                    if (!entry.isDir) return
-                    e.preventDefault()
-                    e.stopPropagation()
-                    const dragged = draggedEntryRef.current
-                    draggedEntryRef.current = null
-                    setDragTargetPath(null)
-                    if (!dragged || dragged.path === entry.path) return
-                    if (entry.path.startsWith(dragged.path + '/')) {
-                      toast.error('Cannot move a folder into itself.')
-                      return
-                    }
-                    try {
-                      await SFTPRename(sessionId, dragged.path, entry.path + '/' + dragged.name)
-                      await listDir(currentPath)
-                    } catch (err) {
-                      toast.error(String(err))
-                    }
-                  }}
-                  onDragEnd={() => {
-                    draggedEntryRef.current = null
-                    setDragTargetPath(null)
-                  }}
-                >
-                  {entry.isDir ? (
-                    <Folder className="text-primary/70 size-4 shrink-0" aria-hidden="true" />
-                  ) : (
-                    <File className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
-                  <span className="text-muted-foreground hidden w-16 shrink-0 text-right text-xs tabular-nums @sm:block">
-                    {formatSize(entry.size, entry.isDir)}
-                  </span>
-                  <span className="text-muted-foreground hidden w-24 shrink-0 text-right text-xs tabular-nums @md:block">
-                    {formatDate(entry.modTime)}
-                  </span>
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem
-                  onSelect={() => {
-                    const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
-                    fn(sessionId, entry.path).catch((err) => toast.error(String(err)))
-                  }}
-                >
-                  Download
-                </ContextMenuItem>
-                <ContextMenuItem
-                  onSelect={() => setModal({ type: 'rename', entry, value: entry.name })}
-                >
-                  Rename
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  variant="destructive"
-                  onSelect={() => setModal({ type: 'delete', entry })}
-                >
-                  Delete
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-          ))}
+                      const dragged = draggedEntryRef.current
+                      draggedEntryRef.current = null
+                      setDragTargetPath(null)
+                      if (!dragged || dragged.path === entry.path) return
+                      if (entry.path.startsWith(dragged.path + '/')) {
+                        toast.error('Cannot move a folder into itself.')
+                        return
+                      }
+                      try {
+                        await SFTPRename(sessionId, dragged.path, entry.path + '/' + dragged.name)
+                        await listDir(currentPath)
+                      } catch (err) {
+                        toast.error(String(err))
+                      }
+                    }}
+                    onDragEnd={() => {
+                      draggedEntryRef.current = null
+                      setDragTargetPath(null)
+                    }}
+                  >
+                    {entry.isDir ? (
+                      <Folder className="text-primary/70 size-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <File className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
+                    <span className="text-muted-foreground hidden w-16 shrink-0 text-right text-xs tabular-nums @sm:block">
+                      {formatSize(entry.size, entry.isDir)}
+                    </span>
+                    <span className="text-muted-foreground hidden w-24 shrink-0 text-right text-xs tabular-nums @md:block">
+                      {formatDate(entry.modTime)}
+                    </span>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem
+                    onSelect={() => {
+                      const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
+                      fn(sessionId, entry.path).catch((err) => toast.error(String(err)))
+                    }}
+                  >
+                    Download
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => setModal({ type: 'rename', entry, value: entry.name })}
+                  >
+                    Rename
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    onSelect={() => setModal({ type: 'delete', entry })}
+                  >
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ))}
           </>
         )}
       </ScrollArea>
 
       {isDragOver && (
-        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-primary bg-primary/10 text-sm text-primary">
+        <div className="border-primary bg-primary/10 text-primary pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-sm">
           <Upload className="size-6" />
           <span>Drop to upload</span>
         </div>

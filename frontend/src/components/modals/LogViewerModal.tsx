@@ -126,11 +126,7 @@ export function LogViewerModal() {
             </DialogTitle>
 
             {!viewingLog && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => OpenLogsDirectory()}
-              >
+              <Button variant="ghost" size="icon-sm" onClick={() => OpenLogsDirectory()}>
                 <FolderOpen data-icon />
               </Button>
             )}
@@ -146,11 +142,7 @@ export function LogViewerModal() {
               </Tooltip>
             )}
             <div className="ml-auto flex shrink-0 items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => handleClose(false)}
-              >
+              <Button variant="ghost" size="icon-sm" onClick={() => handleClose(false)}>
                 <X data-icon />
               </Button>
             </div>
@@ -188,7 +180,12 @@ export function LogViewerModal() {
                         </ItemDescription>
                       </ItemContent>
                       <ItemActions className="flex shrink-0 items-center gap-1">
-                        <Button disabled={isLoading} variant="outline" className="shrink-0" onClick={() => openLog(log)}>
+                        <Button
+                          disabled={isLoading}
+                          variant="outline"
+                          className="shrink-0"
+                          onClick={() => openLog(log)}
+                        >
                           <Eye data-icon />
                           <span>Open</span>
                         </Button>

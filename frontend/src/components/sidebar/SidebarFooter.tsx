@@ -28,7 +28,6 @@ export function SidebarFooter() {
         </TooltipTrigger>
         <TooltipContent side="top">Import from SSH Config</TooltipContent>
       </Tooltip>
-
     </div>
   )
 }
