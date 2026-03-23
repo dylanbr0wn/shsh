@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2, Upload } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isEditHostOpenAtom,
@@ -36,6 +36,7 @@ import { cn } from '../../lib/utils'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
 import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
+import { DeployKeyModal } from './DeployKeyModal'
 
 interface FormErrors {
   label?: string
@@ -85,6 +86,7 @@ export function EditHostModal() {
   const [submitting, setSubmitting] = useState(false)
   const [browsingKey, setBrowsingKey] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
+  const [deployKeyOpen, setDeployKeyOpen] = useState(false)
   const [pmStatus, setPmStatus] = useState<PasswordManagersStatus | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -412,6 +414,14 @@ export function EditHostModal() {
                         <KeyRound data-icon="inline-start" />
                         Generate…
                       </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setDeployKeyOpen(true)}
+                      >
+                        <Upload data-icon="inline-start" />
+                        Deploy…
+                      </Button>
                     </div>
                   </Field>
                   <GenerateKeyModal
@@ -421,6 +431,12 @@ export function EditHostModal() {
                       setForm((f) => ({ ...f, keyPath: path }))
                       setGenerateKeyOpen(false)
                     }}
+                  />
+                  <DeployKeyModal
+                    open={deployKeyOpen}
+                    onClose={() => setDeployKeyOpen(false)}
+                    hostId={form.id}
+                    hostLabel={form.label}
                   />
                   <Field>
                     <FieldLabel htmlFor="eh-passphrase">
