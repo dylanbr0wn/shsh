@@ -33,6 +33,38 @@ import type { Group, Host } from '../../types'
 
 type SortMode = 'az' | 'za' | 'recent'
 
+interface ParsedQuery {
+  plain: string
+  tags: string[]
+  groups: string[]
+}
+
+function parseQuery(query: string): ParsedQuery {
+  const tags: string[] = []
+  const groups: string[] = []
+  const plainParts: string[] = []
+
+  for (const token of query.trim().split(/\s+/)) {
+    if (!token) continue
+    const lower = token.toLowerCase()
+    if (lower.startsWith('tag:') || lower.startsWith('tags:')) {
+      const prefix = lower.startsWith('tags:') ? 'tags:' : 'tag:'
+      const value = token.slice(prefix.length)
+      if (value) tags.push(value.toLowerCase())
+      else plainParts.push(token)
+    } else if (lower.startsWith('group:') || lower.startsWith('groups:')) {
+      const prefix = lower.startsWith('groups:') ? 'groups:' : 'group:'
+      const value = token.slice(prefix.length)
+      if (value) groups.push(value.toLowerCase())
+      else plainParts.push(token)
+    } else {
+      plainParts.push(token.toLowerCase())
+    }
+  }
+
+  return { plain: plainParts.join(' '), tags, groups }
+}
+
 function comparator(sortMode: SortMode) {
   return (a: Host, b: Host) => {
     if (sortMode === 'az') return a.label.toLowerCase().localeCompare(b.label.toLowerCase())
@@ -87,17 +119,42 @@ export function HostList() {
   // Flat filtered list (search active)
   const filteredHosts = useMemo(() => {
     if (!searchQuery.trim()) return []
-    const q = searchQuery.toLowerCase()
+    const { plain, tags, groups: groupTerms } = parseQuery(searchQuery)
+
     return [...hosts]
-      .filter(
-        (h) =>
-          h.label.toLowerCase().includes(q) ||
-          h.hostname.toLowerCase().includes(q) ||
-          h.username.toLowerCase().includes(q) ||
-          h.tags?.some((t) => t.toLowerCase().includes(q))
-      )
+      .filter((h) => {
+        const groupName = h.groupId
+          ? (groups.find((g) => g.id === h.groupId)?.name ?? '').toLowerCase()
+          : ''
+
+        // group: tokens — all must match (AND); host with no/unresolvable group never matches
+        if (groupTerms.length > 0) {
+          if (!groupName) return false
+          if (!groupTerms.every((term) => groupName.includes(term))) return false
+        }
+
+        // tag: tokens — all must match (AND); host with no tags never matches
+        if (tags.length > 0) {
+          const hostTags = h.tags?.map((t) => t.toLowerCase()) ?? []
+          if (hostTags.length === 0) return false
+          if (!tags.every((term) => hostTags.some((ht) => ht.includes(term)))) return false
+        }
+
+        // plain text — OR across all fields
+        if (plain) {
+          const matches =
+            h.label.toLowerCase().includes(plain) ||
+            h.hostname.toLowerCase().includes(plain) ||
+            h.username.toLowerCase().includes(plain) ||
+            (h.tags?.some((t) => t.toLowerCase().includes(plain)) ?? false) ||
+            groupName.includes(plain)
+          if (!matches) return false
+        }
+
+        return true
+      })
       .sort(comparator(sortMode))
-  }, [hosts, searchQuery, sortMode])
+  }, [hosts, groups, searchQuery, sortMode])
 
   const sortedGroups = useMemo(
     () =>
@@ -300,13 +357,17 @@ export function HostList() {
           placeholder="Search hosts…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="h-7 pr-6 text-xs"
         />
         {searchQuery && (
           <Button
             variant="ghost"
             size="icon-xs"
-            className="text-muted-foreground absolute top-1/2 right-4 -translate-y-1/2"
+            className="text-muted-foreground absolute inset-y-0 right-3 my-auto"
             onClick={() => setSearchQuery('')}
           >
             <X />
