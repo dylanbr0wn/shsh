@@ -32,6 +32,7 @@ interface Props {
   session: Session
   host?: Host
   isActive: boolean
+  hasActivity: boolean
   isFirst: boolean
   isLast: boolean
   onActivate: () => void
@@ -46,6 +47,7 @@ export function TabItem({
   session,
   host,
   isActive,
+  hasActivity,
   isFirst,
   isLast,
   onActivate,
@@ -75,12 +77,17 @@ export function TabItem({
                 if (e.key === 'Enter' || e.key === ' ') onActivate()
               }}
             >
-              <div
-                className={cn(
-                  'size-2 shrink-0 rounded-full',
-                  statusDotClass[session.status] ?? 'bg-muted-foreground'
+              <div className="relative shrink-0">
+                <div
+                  className={cn(
+                    'size-2 rounded-full',
+                    statusDotClass[session.status] ?? 'bg-muted-foreground'
+                  )}
+                />
+                {hasActivity && !isActive && (
+                  <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-orange-400" />
                 )}
-              />
+              </div>
               <span className="max-w-[120px] truncate text-xs font-medium">
                 {session.hostLabel}
               </span>

@@ -22,7 +22,7 @@ export function TabBar() {
   const [closeConfirmPref, setCloseConfirmPref] = useAtom(closeConfirmPrefAtom)
   const hosts = useAtomValue(hostsAtom)
   const hostById = useMemo(() => Object.fromEntries(hosts.map((h) => [h.id, h])), [hosts])
-  const setSessionActivity = useSetAtom(sessionActivityAtom)
+  const [sessionActivity, setSessionActivity] = useAtom(sessionActivityAtom)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -110,6 +110,7 @@ export function TabBar() {
             session={session}
             host={hostById[session.hostId]}
             isActive={session.id === activeSessionId}
+            hasActivity={sessionActivity.has(session.id)}
             isFirst={idx === 0}
             isLast={idx === sessions.length - 1}
             onActivate={() => {
