@@ -1,4 +1,16 @@
 export type AuthMethod = 'password' | 'key' | 'agent'
+export type CredentialSource = 'inline' | '1password' | 'bitwarden'
+
+export interface PMStatus {
+  available: boolean
+  locked: boolean
+  error?: string
+}
+
+export interface PasswordManagersStatus {
+  onePassword: PMStatus
+  bitwarden: PMStatus
+}
 export type SessionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
 export type CursorStyle = 'block' | 'underline' | 'bar'
 
@@ -46,6 +58,8 @@ export interface Host {
   tags?: string[]
   terminalProfileId?: string
   keyPath?: string
+  credentialSource?: CredentialSource
+  credentialRef?: string
 }
 
 export interface Session {
@@ -69,6 +83,8 @@ export interface CreateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  credentialSource?: CredentialSource
+  credentialRef?: string
 }
 
 export interface UpdateHostInput {
@@ -85,6 +101,8 @@ export interface UpdateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  credentialSource?: CredentialSource
+  credentialRef?: string
 }
 
 export interface SFTPEntry {

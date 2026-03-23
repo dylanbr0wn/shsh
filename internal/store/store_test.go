@@ -201,6 +201,80 @@ func TestGetHostForConnect_EmptyPasswordCoalesces(t *testing.T) {
 	}
 }
 
+func TestAddHost_CredentialSourceStored(t *testing.T) {
+	s := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label:            "pm",
+		Hostname:         "pm.example.com",
+		Port:             22,
+		Username:         "u",
+		AuthMethod:       AuthPassword,
+		CredentialSource: "1password",
+		CredentialRef:    "op://Personal/MyServer/password",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+	if added.CredentialSource != "1password" {
+		t.Errorf("CredentialSource = %q, want %q", added.CredentialSource, "1password")
+	}
+	if added.CredentialRef != "op://Personal/MyServer/password" {
+		t.Errorf("CredentialRef = %q, want %q", added.CredentialRef, "op://Personal/MyServer/password")
+	}
+
+	// Round-trip through ListHosts
+	hosts, err := s.ListHosts()
+	if err != nil {
+		t.Fatalf("ListHosts: %v", err)
+	}
+	if len(hosts) != 1 {
+		t.Fatalf("expected 1 host, got %d", len(hosts))
+	}
+	if hosts[0].CredentialSource != "1password" {
+		t.Errorf("ListHosts CredentialSource = %q, want %q", hosts[0].CredentialSource, "1password")
+	}
+}
+
+func TestUpdateHost_CredentialSourceRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label:      "h",
+		Hostname:   "h.example.com",
+		Port:       22,
+		Username:   "u",
+		AuthMethod: AuthPassword,
+		Password:   "inline-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+	if added.CredentialSource != "inline" {
+		t.Errorf("initial CredentialSource = %q, want inline", added.CredentialSource)
+	}
+
+	updated, err := s.UpdateHost(UpdateHostInput{
+		ID:               added.ID,
+		Label:            added.Label,
+		Hostname:         added.Hostname,
+		Port:             added.Port,
+		Username:         added.Username,
+		AuthMethod:       AuthPassword,
+		CredentialSource: "bitwarden",
+		CredentialRef:    "MyServer",
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+	if updated.CredentialSource != "bitwarden" {
+		t.Errorf("updated CredentialSource = %q, want bitwarden", updated.CredentialSource)
+	}
+	if updated.CredentialRef != "MyServer" {
+		t.Errorf("updated CredentialRef = %q, want MyServer", updated.CredentialRef)
+	}
+}
+
 func TestGetHostForConnect_NotFound(t *testing.T) {
 	s := newTestStore(t)
 

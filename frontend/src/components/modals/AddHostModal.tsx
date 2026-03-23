@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isAddHostOpenAtom,
@@ -9,8 +9,13 @@ import {
   terminalProfilesAtom,
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
-import type { CreateHostInput, Host } from '../../types'
-import { AddHost, BrowseKeyFile } from '../../../wailsjs/go/main/App'
+import type { CreateHostInput, Host, CredentialSource, PasswordManagersStatus } from '../../types'
+import {
+  AddHost,
+  BrowseKeyFile,
+  CheckPasswordManagers,
+  TestCredentialRef,
+} from '../../../wailsjs/go/main/App'
 import {
   Dialog,
   DialogBody,
@@ -27,7 +32,8 @@ import { TagInput } from '../ui/tag-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
-import { Field, FieldError, FieldGroup, FieldLabel } from '../ui/field'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
+import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
 
 const defaultForm: CreateHostInput = {
@@ -37,9 +43,10 @@ const defaultForm: CreateHostInput = {
   username: '',
   authMethod: 'password',
   password: '',
+  credentialSource: 'inline',
 }
 
-interface FieldError {
+interface FormErrors {
   label?: string
   hostname?: string
   username?: string
@@ -62,21 +69,36 @@ export function AddHostModal() {
   const groups = useAtomValue(groupsAtom)
   const profiles = useAtomValue(terminalProfilesAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
-
   const [form, setForm] = useState<CreateHostInput>(defaultForm)
-  const [errors, setErrors] = useState<FieldError>({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [browsingKey, setBrowsingKey] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
+  const [pmStatus, setPmStatus] = useState<PasswordManagersStatus | null>(null)
+  const [testing, setTesting] = useState(false)
+  const credSrc = form.credentialSource ?? 'inline'
+
+  useEffect(() => {
+    if (credSrc === 'inline') {
+      setPmStatus(null)
+      return
+    }
+    if (isAddHostOpen && form.authMethod === 'password') {
+      CheckPasswordManagers()
+        .then(setPmStatus)
+        .catch(() => {})
+    }
+  }, [isAddHostOpen, form.authMethod, credSrc])
 
   function close() {
     setIsAddHostOpen(false)
     setForm(defaultForm)
     setErrors({})
+    setPmStatus(null)
   }
 
-  function validate(): FieldError {
-    const e: FieldError = {}
+  function validate(): FormErrors {
+    const e: FormErrors = {}
     if (!form.label.trim()) e.label = 'Label is required'
     if (!form.hostname.trim()) e.hostname = 'Hostname is required'
     if (!form.username.trim()) e.username = 'Username is required'
@@ -102,6 +124,18 @@ export function AddHostModal() {
     }
   }
 
+  async function handleTestCredential() {
+    setTesting(true)
+    try {
+      await TestCredentialRef(credSrc, form.credentialRef ?? '')
+      toast.success('Credential fetched successfully')
+    } catch (err) {
+      toast.error('Credential test failed', { description: String(err) })
+    } finally {
+      setTesting(false)
+    }
+  }
+
   function field(name: keyof CreateHostInput) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
       setForm((f) => ({ ...f, [name]: e.target.value }))
@@ -120,9 +154,9 @@ export function AddHostModal() {
           <form id="ah-form" onSubmit={handleSubmit}>
             <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="eh-label">Label</FieldLabel>
+                <FieldLabel htmlFor="ah-label">Label</FieldLabel>
                 <Input
-                  id="eh-label"
+                  id="ah-label"
                   placeholder="My Server"
                   value={form.label}
                   onChange={field('label')}
@@ -132,7 +166,7 @@ export function AddHostModal() {
 
               <div className="grid grid-cols-2 gap-4">
                 <Field>
-                  <FieldLabel htmlFor="eh-hostname">
+                  <FieldLabel htmlFor="ah-hostname">
                     Hostname
                     <FieldHint>
                       IP address or domain name of the remote server — e.g. 192.168.1.10 or
@@ -140,7 +174,7 @@ export function AddHostModal() {
                     </FieldHint>
                   </FieldLabel>
                   <Input
-                    id="eh-hostname"
+                    id="ah-hostname"
                     placeholder="192.168.1.1"
                     value={form.hostname}
                     onChange={field('hostname')}
@@ -148,7 +182,7 @@ export function AddHostModal() {
                   {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="eh-port">
+                  <FieldLabel htmlFor="ah-port">
                     Port
                     <FieldHint>
                       SSH normally runs on port 22. Your server admin may have configured a
@@ -156,7 +190,7 @@ export function AddHostModal() {
                     </FieldHint>
                   </FieldLabel>
                   <Input
-                    id="eh-port"
+                    id="ah-port"
                     type="number"
                     min={1}
                     max={65535}
@@ -165,6 +199,7 @@ export function AddHostModal() {
                   />
                 </Field>
               </div>
+
               <Field>
                 <FieldLabel htmlFor="ah-username">
                   Username
@@ -190,6 +225,8 @@ export function AddHostModal() {
                       password: '',
                       keyPath: undefined,
                       keyPassphrase: '',
+                      credentialSource: 'inline',
+                      credentialRef: '',
                     }))
                   }
                 >
@@ -205,19 +242,98 @@ export function AddHostModal() {
               </Field>
 
               {form.authMethod === 'password' && (
-                <Field>
-                  <FieldLabel htmlFor="ah-password">
-                    Password
-                    <FieldHint>Leave blank for passwordless or agent-based auth.</FieldHint>
-                  </FieldLabel>
-                  <Input
-                    id="ah-password"
-                    type="password"
-                    placeholder="Leave blank if not required"
-                    value={form.password ?? ''}
-                    onChange={field('password')}
-                  />
-                </Field>
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="ah-cred-source">
+                      Credential Source
+                      <FieldHint>
+                        Where to fetch the password at connect time. Use a password manager to avoid
+                        storing credentials in shsh.
+                      </FieldHint>
+                    </FieldLabel>
+                    <Select
+                      value={credSrc}
+                      onValueChange={(val) => {
+                        setForm((f) => ({
+                          ...f,
+                          credentialSource: val as CredentialSource,
+                          password: '',
+                          credentialRef: '',
+                        }))
+                        if (val === 'inline') {
+                          setPmStatus(null)
+                        } else {
+                          CheckPasswordManagers()
+                            .then(setPmStatus)
+                            .catch(() => {})
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="ah-cred-source" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inline">Inline (macOS Keychain)</SelectItem>
+                        <SelectItem value="1password">1Password</SelectItem>
+                        <SelectItem value="bitwarden">Bitwarden</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  {credSrc === 'inline' && (
+                    <Field>
+                      <FieldLabel htmlFor="ah-password">
+                        Password
+                        <FieldHint>
+                          Stored securely in macOS Keychain, never in plain text.
+                        </FieldHint>
+                      </FieldLabel>
+                      <Input
+                        id="ah-password"
+                        type="password"
+                        placeholder="Leave blank if not required"
+                        value={form.password ?? ''}
+                        onChange={field('password')}
+                      />
+                    </Field>
+                  )}
+
+                  {(credSrc === '1password' || credSrc === 'bitwarden') && (
+                    <Field>
+                      <FieldLabel htmlFor="ah-cred-ref">
+                        {credSrc === '1password' ? '1Password Reference' : 'Bitwarden Item'}
+                        <FieldHint>
+                          {credSrc === '1password'
+                            ? 'An op:// URI (e.g. op://vault/item/password), item UUID, or item name'
+                            : 'The Bitwarden item name or UUID'}
+                        </FieldHint>
+                      </FieldLabel>
+                      <div className="flex gap-2">
+                        <Input
+                          id="ah-cred-ref"
+                          placeholder={
+                            credSrc === '1password' ? 'op://Personal/MyServer/password' : 'MyServer'
+                          }
+                          value={form.credentialRef ?? ''}
+                          onChange={field('credentialRef')}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={testing || !form.credentialRef}
+                          onClick={handleTestCredential}
+                        >
+                          {testing && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                          Test
+                        </Button>
+                      </div>
+                      <FieldDescription className="flex items-center justify-between">
+                        <PMStatusBadge status={pmStatus} source={credSrc} />
+                      </FieldDescription>
+                    </Field>
+                  )}
+                </>
               )}
 
               {form.authMethod === 'key' && (
@@ -253,7 +369,7 @@ export function AddHostModal() {
                           }
                         }}
                       >
-                        <FolderOpen className="size-3.5" />
+                        <FolderOpen data-icon="inline-start" />
                         Browse
                       </Button>
                       <Button
@@ -261,7 +377,7 @@ export function AddHostModal() {
                         variant="outline"
                         onClick={() => setGenerateKeyOpen(true)}
                       >
-                        <KeyRound className="size-3.5" />
+                        <KeyRound data-icon="inline-start" />
                         Generate…
                       </Button>
                     </div>
@@ -298,14 +414,14 @@ export function AddHostModal() {
 
               {groups.length > 0 && (
                 <Field>
-                  <FieldLabel htmlFor="eh-group">Group</FieldLabel>
+                  <FieldLabel htmlFor="ah-group">Group</FieldLabel>
                   <Select
                     value={form.groupId ?? '__none__'}
                     onValueChange={(val) =>
                       setForm((f) => ({ ...f, groupId: val === '__none__' ? undefined : val }))
                     }
                   >
-                    <SelectTrigger id="eh-group" className="h-9">
+                    <SelectTrigger id="ah-group" className="h-9">
                       <SelectValue placeholder="No Group" />
                     </SelectTrigger>
                     <SelectContent>
@@ -321,7 +437,7 @@ export function AddHostModal() {
               )}
 
               <Field>
-                <FieldLabel htmlFor="eh-profile">Terminal Profile</FieldLabel>
+                <FieldLabel htmlFor="ah-profile">Terminal Profile</FieldLabel>
                 <Select
                   value={form.terminalProfileId ?? '__none__'}
                   onValueChange={(val) => {
@@ -335,7 +451,7 @@ export function AddHostModal() {
                     }))
                   }}
                 >
-                  <SelectTrigger id="eh-profile" className="h-9">
+                  <SelectTrigger id="ah-profile" className="h-9">
                     <SelectValue placeholder="None (use defaults)" />
                   </SelectTrigger>
                   <SelectContent>

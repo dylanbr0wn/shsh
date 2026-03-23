@@ -108,6 +108,59 @@ export namespace config {
 
 }
 
+export namespace credstore {
+	
+	export class PMStatus {
+	    available: boolean;
+	    locked: boolean;
+	    error?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new PMStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.locked = source["locked"];
+	        this.error = source["error"];
+	    }
+	}
+	export class PasswordManagersStatus {
+	    onePassword: PMStatus;
+	    bitwarden: PMStatus;
+	
+	    static createFrom(source: any = {}) {
+	        return new PasswordManagersStatus(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.onePassword = this.convertValues(source["onePassword"], PMStatus);
+	        this.bitwarden = this.convertValues(source["bitwarden"], PMStatus);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+
+}
+
 export namespace main {
 	
 	export class BulkConnectResult {
@@ -328,6 +381,8 @@ export namespace store {
 	    color?: string;
 	    tags?: string[];
 	    terminalProfileId?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateHostInput(source);
@@ -347,6 +402,8 @@ export namespace store {
 	        this.color = source["color"];
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class CreateProfileInput {
@@ -405,6 +462,8 @@ export namespace store {
 	    tags?: string[];
 	    terminalProfileId?: string;
 	    keyPath?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Host(source);
@@ -425,6 +484,8 @@ export namespace store {
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
 	        this.keyPath = source["keyPath"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class TerminalProfile {
@@ -485,6 +546,8 @@ export namespace store {
 	    color?: string;
 	    tags?: string[];
 	    terminalProfileId?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateHostInput(source);
@@ -505,6 +568,8 @@ export namespace store {
 	        this.color = source["color"];
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class UpdateProfileInput {
