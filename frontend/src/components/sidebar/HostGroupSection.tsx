@@ -46,6 +46,7 @@ interface Props {
   onDelete: (hostId: string) => void
   onEdit: (host: Host) => void
   onMoveToGroup: (hostId: string, groupId: string | null) => void
+  onDeployKey: (host: Host) => void
   onGroupDeleted?: () => void
 }
 
@@ -58,6 +59,7 @@ export function HostGroupSection({
   onDelete,
   onEdit,
   onMoveToGroup,
+  onDeployKey,
   onGroupDeleted,
 }: Props) {
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
@@ -284,6 +286,7 @@ export function HostGroupSection({
                 onConnect={() => onConnect(host.id, host.label)}
                 onDelete={() => onDelete(host.id)}
                 onEdit={() => onEdit(host)}
+                onDeployKey={() => onDeployKey(host)}
                 onMoveToGroup={onMoveToGroup}
               />
             ))}
