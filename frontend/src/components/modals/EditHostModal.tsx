@@ -377,7 +377,7 @@ export function EditHostModal() {
                       Private Key File
                       <FieldHint>Path to your private key, e.g. ~/.ssh/id_ed25519</FieldHint>
                     </FieldLabel>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Input
                         id="eh-key-path"
                         placeholder="~/.ssh/id_ed25519"
@@ -385,43 +385,44 @@ export function EditHostModal() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, keyPath: e.target.value || undefined }))
                         }
-                        className="flex-1"
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={browsingKey}
-                        onClick={async () => {
-                          setBrowsingKey(true)
-                          try {
-                            const path = await BrowseKeyFile()
-                            if (path) setForm((f) => ({ ...f, keyPath: path }))
-                          } catch {
-                            // user cancelled or error
-                          } finally {
-                            setBrowsingKey(false)
-                          }
-                        }}
-                      >
-                        <FolderOpen data-icon="inline-start" />
-                        Browse
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setGenerateKeyOpen(true)}
-                      >
-                        <KeyRound data-icon="inline-start" />
-                        Generate…
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setDeployKeyOpen(true)}
-                      >
-                        <Upload data-icon="inline-start" />
-                        Deploy…
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={browsingKey}
+                          onClick={async () => {
+                            setBrowsingKey(true)
+                            try {
+                              const path = await BrowseKeyFile()
+                              if (path) setForm((f) => ({ ...f, keyPath: path }))
+                            } catch {
+                              // user cancelled or error
+                            } finally {
+                              setBrowsingKey(false)
+                            }
+                          }}
+                        >
+                          <FolderOpen data-icon="inline-start" />
+                          Browse
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setGenerateKeyOpen(true)}
+                        >
+                          <KeyRound data-icon="inline-start" />
+                          Generate…
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setDeployKeyOpen(true)}
+                        >
+                          <Upload data-icon="inline-start" />
+                          Deploy…
+                        </Button>
+                      </div>
                     </div>
                   </Field>
                   <GenerateKeyModal
