@@ -357,6 +357,10 @@ export function HostList() {
           placeholder="Search hosts…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="off"
+          spellCheck={false}
           className="h-7 pr-6 text-xs"
         />
         {searchQuery && (
