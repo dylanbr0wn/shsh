@@ -253,22 +253,18 @@ export function HostGroupSection({
             </div>
           </ContextMenuTrigger>
           <ContextMenuContent>
-             <ContextMenuItem
-                disabled={anyConnecting || hosts.length === 0}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleBulkConnect()
-                }}
-                title="Connect all"
-              >
-                Connect All
-              </ContextMenuItem>
-            <ContextMenuItem onClick={startRename}>
-              Rename
+            <ContextMenuItem
+              disabled={anyConnecting || hosts.length === 0}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleBulkConnect()
+              }}
+              title="Connect all"
+            >
+              Connect All
             </ContextMenuItem>
-            <ContextMenuItem onClick={() => setEditGroupOpen(true)}>
-              Edit group…
-            </ContextMenuItem>
+            <ContextMenuItem onClick={startRename}>Rename</ContextMenuItem>
+            <ContextMenuItem onClick={() => setEditGroupOpen(true)}>Edit group…</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
               Delete
@@ -295,11 +291,7 @@ export function HostGroupSection({
         )}
       </div>
 
-      <EditGroupModal
-        group={group}
-        open={editGroupOpen}
-        onClose={() => setEditGroupOpen(false)}
-      />
+      <EditGroupModal group={group} open={editGroupOpen} onClose={() => setEditGroupOpen(false)} />
 
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>

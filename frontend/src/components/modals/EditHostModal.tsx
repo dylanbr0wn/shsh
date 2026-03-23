@@ -12,7 +12,15 @@ import {
 } from '../../store/atoms'
 import type { UpdateHostInput, Host } from '../../types'
 import { UpdateHost, BrowseKeyFile } from '../../../wailsjs/go/main/App'
-import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -137,273 +145,285 @@ export function EditHostModal() {
         </DialogHeader>
 
         <DialogBody>
-        <form id="eh-form" onSubmit={handleSubmit}>
-          <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="eh-label">Label</FieldLabel>
-            <Input
-              id="eh-label"
-              placeholder="My Server"
-              value={form.label}
-              onChange={field('label')}
-            />
-            {errors.label && <FieldError>{errors.label}</FieldError>}
-          </Field>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Field>
-              <FieldLabel htmlFor="eh-hostname">
-                Hostname
-                <FieldHint>
-                  IP address or domain name of the remote server — e.g. 192.168.1.10 or
-                  myserver.example.com
-                </FieldHint>
-              </FieldLabel>
-              <Input
-                id="eh-hostname"
-                placeholder="192.168.1.1"
-                value={form.hostname}
-                onChange={field('hostname')}
-              />
-              {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
-            </Field>
-            <Field >
-              <FieldLabel htmlFor="eh-port" >
-                Port
-                <FieldHint>
-                  SSH normally runs on port 22. Your server admin may have configured a different
-                  port.
-                </FieldHint>
-              </FieldLabel>
-              <Input
-                id="eh-port"
-                type="number"
-                min={1}
-                max={65535}
-                value={form.port}
-                onChange={field('port')}
-              />
-            </Field>
-          </div>
-          <Field>
-            <FieldLabel htmlFor="eh-username">
-              Username
-              <FieldHint>The account to log in as — e.g. ubuntu, ec2-user, or root</FieldHint>
-            </FieldLabel>
-            <Input
-              id="eh-username"
-              placeholder="root"
-              value={form.username}
-              onChange={field('username')}
-            />
-            {errors.username && <FieldError>{errors.username}</FieldError>}
-          </Field>
-
-          <Field>
-            <FieldLabel htmlFor="eh-auth-method">Auth Method</FieldLabel>
-            <Select
-              value={form.authMethod}
-              onValueChange={(val) =>
-                setForm((f) => ({ ...f, authMethod: val as typeof f.authMethod, password: '', keyPath: undefined, keyPassphrase: '' }))
-              }
-            >
-              <SelectTrigger id="eh-auth-method" className="h-9">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="password">Password</SelectItem>
-                <SelectItem value="key">SSH Key</SelectItem>
-                <SelectItem value="agent">SSH Agent</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {form.authMethod === 'password' && (
-            <Field>
-              <FieldLabel htmlFor="eh-password">
-                Password
-                <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
-              </FieldLabel>
-              <Input
-                id="eh-password"
-                type="password"
-                placeholder="Leave blank to keep unchanged"
-                value={form.password ?? ''}
-                onChange={field('password')}
-              />
-            </Field>
-          )}
-
-          {form.authMethod === 'key' && (
-            <>
+          <form id="eh-form" onSubmit={handleSubmit}>
+            <FieldGroup>
               <Field>
-                <FieldLabel htmlFor="eh-key-path">
-                  Private Key File
-                  <FieldHint>Path to your private key, e.g. ~/.ssh/id_ed25519</FieldHint>
-                </FieldLabel>
-                <div className="flex gap-2">
-                  <Input
-                    id="eh-key-path"
-                    placeholder="~/.ssh/id_ed25519"
-                    value={form.keyPath ?? ''}
-                    onChange={(e) => setForm((f) => ({ ...f, keyPath: e.target.value || undefined }))}
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={browsingKey}
-                    onClick={async () => {
-                      setBrowsingKey(true)
-                      try {
-                        const path = await BrowseKeyFile()
-                        if (path) setForm((f) => ({ ...f, keyPath: path }))
-                      } catch {
-                        // user cancelled or error
-                      } finally {
-                        setBrowsingKey(false)
-                      }
-                    }}
-                  >
-                    <FolderOpen className="size-3.5" />
-                    Browse
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setGenerateKeyOpen(true)}
-                  >
-                    <KeyRound className="size-3.5" />
-                    Generate…
-                  </Button>
-                </div>
+                <FieldLabel htmlFor="eh-label">Label</FieldLabel>
+                <Input
+                  id="eh-label"
+                  placeholder="My Server"
+                  value={form.label}
+                  onChange={field('label')}
+                />
+                {errors.label && <FieldError>{errors.label}</FieldError>}
               </Field>
-              <GenerateKeyModal
-                open={generateKeyOpen}
-                onClose={() => setGenerateKeyOpen(false)}
-                onGenerated={(path) => {
-                  setForm((f) => ({ ...f, keyPath: path }))
-                  setGenerateKeyOpen(false)
-                }}
-              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field>
+                  <FieldLabel htmlFor="eh-hostname">
+                    Hostname
+                    <FieldHint>
+                      IP address or domain name of the remote server — e.g. 192.168.1.10 or
+                      myserver.example.com
+                    </FieldHint>
+                  </FieldLabel>
+                  <Input
+                    id="eh-hostname"
+                    placeholder="192.168.1.1"
+                    value={form.hostname}
+                    onChange={field('hostname')}
+                  />
+                  {errors.hostname && <FieldError>{errors.hostname}</FieldError>}
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="eh-port">
+                    Port
+                    <FieldHint>
+                      SSH normally runs on port 22. Your server admin may have configured a
+                      different port.
+                    </FieldHint>
+                  </FieldLabel>
+                  <Input
+                    id="eh-port"
+                    type="number"
+                    min={1}
+                    max={65535}
+                    value={form.port}
+                    onChange={field('port')}
+                  />
+                </Field>
+              </div>
               <Field>
-                <FieldLabel htmlFor="eh-passphrase">
-                  Passphrase
-                  <FieldHint>Leave blank to keep unchanged, or enter a new passphrase.</FieldHint>
+                <FieldLabel htmlFor="eh-username">
+                  Username
+                  <FieldHint>The account to log in as — e.g. ubuntu, ec2-user, or root</FieldHint>
                 </FieldLabel>
                 <Input
-                  id="eh-passphrase"
-                  type="password"
-                  placeholder="Leave blank to keep unchanged"
-                  value={form.keyPassphrase ?? ''}
-                  onChange={field('keyPassphrase')}
+                  id="eh-username"
+                  placeholder="root"
+                  value={form.username}
+                  onChange={field('username')}
+                />
+                {errors.username && <FieldError>{errors.username}</FieldError>}
+              </Field>
+
+              <Field>
+                <FieldLabel htmlFor="eh-auth-method">Auth Method</FieldLabel>
+                <Select
+                  value={form.authMethod}
+                  onValueChange={(val) =>
+                    setForm((f) => ({
+                      ...f,
+                      authMethod: val as typeof f.authMethod,
+                      password: '',
+                      keyPath: undefined,
+                      keyPassphrase: '',
+                    }))
+                  }
+                >
+                  <SelectTrigger id="eh-auth-method" className="h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="password">Password</SelectItem>
+                    <SelectItem value="key">SSH Key</SelectItem>
+                    <SelectItem value="agent">SSH Agent</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              {form.authMethod === 'password' && (
+                <Field>
+                  <FieldLabel htmlFor="eh-password">
+                    Password
+                    <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
+                  </FieldLabel>
+                  <Input
+                    id="eh-password"
+                    type="password"
+                    placeholder="Leave blank to keep unchanged"
+                    value={form.password ?? ''}
+                    onChange={field('password')}
+                  />
+                </Field>
+              )}
+
+              {form.authMethod === 'key' && (
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="eh-key-path">
+                      Private Key File
+                      <FieldHint>Path to your private key, e.g. ~/.ssh/id_ed25519</FieldHint>
+                    </FieldLabel>
+                    <div className="flex gap-2">
+                      <Input
+                        id="eh-key-path"
+                        placeholder="~/.ssh/id_ed25519"
+                        value={form.keyPath ?? ''}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, keyPath: e.target.value || undefined }))
+                        }
+                        className="flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={browsingKey}
+                        onClick={async () => {
+                          setBrowsingKey(true)
+                          try {
+                            const path = await BrowseKeyFile()
+                            if (path) setForm((f) => ({ ...f, keyPath: path }))
+                          } catch {
+                            // user cancelled or error
+                          } finally {
+                            setBrowsingKey(false)
+                          }
+                        }}
+                      >
+                        <FolderOpen className="size-3.5" />
+                        Browse
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setGenerateKeyOpen(true)}
+                      >
+                        <KeyRound className="size-3.5" />
+                        Generate…
+                      </Button>
+                    </div>
+                  </Field>
+                  <GenerateKeyModal
+                    open={generateKeyOpen}
+                    onClose={() => setGenerateKeyOpen(false)}
+                    onGenerated={(path) => {
+                      setForm((f) => ({ ...f, keyPath: path }))
+                      setGenerateKeyOpen(false)
+                    }}
+                  />
+                  <Field>
+                    <FieldLabel htmlFor="eh-passphrase">
+                      Passphrase
+                      <FieldHint>
+                        Leave blank to keep unchanged, or enter a new passphrase.
+                      </FieldHint>
+                    </FieldLabel>
+                    <Input
+                      id="eh-passphrase"
+                      type="password"
+                      placeholder="Leave blank to keep unchanged"
+                      value={form.keyPassphrase ?? ''}
+                      onChange={field('keyPassphrase')}
+                    />
+                  </Field>
+                </>
+              )}
+
+              {form.authMethod === 'agent' && (
+                <p className="text-muted-foreground text-xs">
+                  Will authenticate using your running SSH agent (e.g. ssh-agent or 1Password).
+                </p>
+              )}
+
+              {groups.length > 0 && (
+                <Field>
+                  <FieldLabel htmlFor="eh-group">Group</FieldLabel>
+                  <Select
+                    value={form.groupId ?? '__none__'}
+                    onValueChange={(val) =>
+                      setForm((f) => ({ ...f, groupId: val === '__none__' ? undefined : val }))
+                    }
+                  >
+                    <SelectTrigger id="eh-group" className="h-9">
+                      <SelectValue placeholder="No Group" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No Group</SelectItem>
+                      {groups.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+
+              <Field>
+                <FieldLabel htmlFor="eh-profile">Terminal Profile</FieldLabel>
+                <Select
+                  value={form.terminalProfileId ?? '__none__'}
+                  onValueChange={(val) => {
+                    if (val === '__manage__') {
+                      setProfilesOpen(true)
+                      return
+                    }
+                    setForm((f) => ({
+                      ...f,
+                      terminalProfileId: val === '__none__' ? undefined : val,
+                    }))
+                  }}
+                >
+                  <SelectTrigger id="eh-profile" className="h-9">
+                    <SelectValue placeholder="None (use defaults)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None (use defaults)</SelectItem>
+                    {profiles.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manage__">Manage profiles…</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Field>
+
+              <Field>
+                <FieldLabel>Color</FieldLabel>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      'bg-muted size-6 rounded-full border-2',
+                      !form.color && 'ring-ring ring-2 ring-offset-1'
+                    )}
+                    onClick={() => setForm((f) => ({ ...f, color: undefined }))}
+                  />
+                  {HOST_COLOR_PALETTE.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      style={{ background: c }}
+                      className={cn(
+                        'size-6 rounded-full',
+                        form.color === c && 'ring-ring ring-2 ring-offset-1'
+                      )}
+                      onClick={() => setForm((f) => ({ ...f, color: c }))}
+                    />
+                  ))}
+                </div>
+              </Field>
+
+              <Field>
+                <FieldLabel>Tags</FieldLabel>
+                <TagInput
+                  tags={form.tags ?? []}
+                  onChange={(tags) => setForm((f) => ({ ...f, tags }))}
                 />
               </Field>
-            </>
-          )}
-
-          {form.authMethod === 'agent' && (
-            <p className="text-muted-foreground text-xs">
-              Will authenticate using your running SSH agent (e.g. ssh-agent or 1Password).
-            </p>
-          )}
-
-          {groups.length > 0 && (
-            <Field>
-              <FieldLabel htmlFor="eh-group">Group</FieldLabel>
-              <Select
-                value={form.groupId ?? '__none__'}
-                onValueChange={(val) =>
-                  setForm((f) => ({ ...f, groupId: val === '__none__' ? undefined : val }))
-                }
-              >
-                <SelectTrigger id="eh-group" className="h-9">
-                  <SelectValue placeholder="No Group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">No Group</SelectItem>
-                  {groups.map((g) => (
-                    <SelectItem key={g.id} value={g.id}>
-                      {g.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
-
-          <Field>
-            <FieldLabel htmlFor="eh-profile">Terminal Profile</FieldLabel>
-            <Select
-              value={form.terminalProfileId ?? '__none__'}
-              onValueChange={(val) => {
-                if (val === '__manage__') {
-                  setProfilesOpen(true)
-                  return
-                }
-                setForm((f) => ({ ...f, terminalProfileId: val === '__none__' ? undefined : val }))
-              }}
-            >
-              <SelectTrigger id="eh-profile" className="h-9">
-                <SelectValue placeholder="None (use defaults)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">None (use defaults)</SelectItem>
-                {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="__manage__">Manage profiles…</SelectItem>
-              </SelectContent>
-            </Select>
-          </Field>
-
-          <Field>
-            <FieldLabel>Color</FieldLabel>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={cn(
-                  'bg-muted size-6 rounded-full border-2',
-                  !form.color && 'ring-ring ring-2 ring-offset-1'
-                )}
-                onClick={() => setForm((f) => ({ ...f, color: undefined }))}
-              />
-              {HOST_COLOR_PALETTE.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  style={{ background: c }}
-                  className={cn(
-                    'size-6 rounded-full',
-                    form.color === c && 'ring-ring ring-2 ring-offset-1'
-                  )}
-                  onClick={() => setForm((f) => ({ ...f, color: c }))}
-                />
-              ))}
-            </div>
-          </Field>
-
-          <Field>
-            <FieldLabel>Tags</FieldLabel>
-            <TagInput
-              tags={form.tags ?? []}
-              onChange={(tags) => setForm((f) => ({ ...f, tags }))}
-            />
-          </Field>
-
-          </FieldGroup>
-        </form>
+            </FieldGroup>
+          </form>
         </DialogBody>
         <DialogFooter>
-            <Button type="button" variant="ghost" onClick={close}>
-              Cancel
-            </Button>
-            <Button type="submit" form="eh-form" disabled={submitting}>
-              {submitting ? 'Saving…' : 'Save Changes'}
-            </Button>
-          </DialogFooter>
+          <Button type="button" variant="outline" onClick={close}>
+            Cancel
+          </Button>
+          <Button type="submit" form="eh-form" disabled={submitting}>
+            {submitting ? 'Saving…' : 'Save Changes'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

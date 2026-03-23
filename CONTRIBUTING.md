@@ -28,14 +28,6 @@ idk just do it
   ---
   Credentials & Keys
 
-  SSH Key Generation
-  - Generate ed25519/RSA keys from within the app
-  - Save to ~/.ssh/ or a custom path
-
-  Key Management UI
-  - List, inspect, and delete SSH keys
-  - Associate a key with a saved host
-
   ---
   Terminal UX
 
@@ -53,9 +45,6 @@ idk just do it
 
   ---
   SFTP Enhancements
-
-  Drag & Drop File Upload
-  - Drop files from Finder/Explorer directly into the SFTP panel
 
   Dual-Pane File Manager
   - Local filesystem on the left, remote on the right (like FileZilla)

@@ -84,17 +84,13 @@ export function HostKeyDialog() {
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={() => respond(false)}>
+          <Button type="button" variant="outline" onClick={() => respond(false)}>
             Cancel
           </Button>
           <Button type="button" variant="outline" onClick={() => respond(false)}>
             Reject
           </Button>
-          <Button
-            type="button"
-            variant="default"
-            onClick={() => respond(true)}
-          >
+          <Button type="button" variant="default" onClick={() => respond(true)}>
             Accept &amp; Connect
           </Button>
         </DialogFooter>

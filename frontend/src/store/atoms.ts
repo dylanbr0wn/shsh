@@ -1,7 +1,14 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SearchAddon } from '@xterm/addon-search'
-import type { Host, Group, Session, SFTPState, PortForwardPanelState, TerminalProfile } from '../types'
+import type {
+  Host,
+  Group,
+  Session,
+  SFTPState,
+  PortForwardPanelState,
+  TerminalProfile,
+} from '../types'
 
 export const hostsAtom = atom<Host[]>([])
 export const groupsAtom = atom<Group[]>([])
@@ -40,6 +47,7 @@ export interface PendingHostKey {
 export const pendingHostKeyAtom = atom<PendingHostKey | null>(null)
 
 export const isImportSSHConfigOpenAtom = atom<boolean>(false)
+export const isExportHostsOpenAtom = atom<boolean>(false)
 export const isQuickConnectOpenAtom = atom<boolean>(false)
 export const isNewGroupOpenAtom = atom<boolean>(false)
 

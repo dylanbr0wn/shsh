@@ -22,6 +22,7 @@ import {
   pendingHostKeyAtom,
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
+  isExportHostsOpenAtom,
   isSettingsOpenAtom,
   isQuickConnectOpenAtom,
   isTerminalProfilesOpenAtom,
@@ -47,6 +48,7 @@ export function useAppInit() {
   const setPendingHostKey = useSetAtom(pendingHostKeyAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsExportHostsOpen = useSetAtom(isExportHostsOpenAtom)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsTerminalProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
@@ -69,7 +71,7 @@ export function useAppInit() {
     ListTerminalProfiles()
       .then((profiles) => setTerminalProfiles(profiles as unknown as TerminalProfile[]))
       .catch((err) => toast.error('Failed to load terminal profiles', { description: String(err) }))
-  }, [setHosts, setGroups])
+  }, [setHosts, setGroups, setTerminalProfiles])
 
   useEffect(() => {
     const cancel = EventsOn(
@@ -154,14 +156,29 @@ export function useAppInit() {
     const c4 = EventsOn('menu:add-host', () => setIsAddHostOpen(true))
     const c5 = EventsOn('menu:new-group', () => setIsNewGroupOpen(true))
     const c6 = EventsOn('menu:terminal-profiles', () => setIsTerminalProfilesOpen(true))
+    const c7 = EventsOn('menu:export-hosts', () => setIsExportHostsOpen(true))
     return () => {
-      c1(); c2(); c3(); c4(); c5(); c6()
+      c1()
+      c2()
+      c3()
+      c4()
+      c5()
+      c6()
+      c7()
     }
-  }, [setIsAddHostOpen, setIsImportSSHConfigOpen, setIsSettingsOpen, setIsQuickConnectOpen, setIsTerminalProfilesOpen, setIsNewGroupOpen])
+  }, [
+    setIsAddHostOpen,
+    setIsImportSSHConfigOpen,
+    setIsExportHostsOpen,
+    setIsSettingsOpen,
+    setIsQuickConnectOpen,
+    setIsTerminalProfilesOpen,
+    setIsNewGroupOpen,
+  ])
 
   useEffect(() => {
     function requireActiveSession(action: (sessionId: string) => void) {
-      const connected = sessions.find(s => s.id === activeSessionId && s.status === 'connected')
+      const connected = sessions.find((s) => s.id === activeSessionId && s.status === 'connected')
       if (!connected) {
         toast.error('No active session')
         return
@@ -171,39 +188,75 @@ export function useAppInit() {
 
     const c1 = EventsOn('menu:session:disconnect', () => {
       requireActiveSession(async (id) => {
-        try { await DisconnectSession(id) } catch (err) { toast.error('Failed to disconnect', { description: String(err) }) }
+        try {
+          await DisconnectSession(id)
+        } catch (err) {
+          toast.error('Failed to disconnect', { description: String(err) })
+        }
       })
     })
     const c2 = EventsOn('menu:session:disconnect-all', async () => {
-      const connected = sessions.filter(s => s.status === 'connected')
-      if (connected.length === 0) { toast.error('No active sessions'); return }
-      await Promise.allSettled(connected.map(s => DisconnectSession(s.id)))
+      const connected = sessions.filter((s) => s.status === 'connected')
+      if (connected.length === 0) {
+        toast.error('No active sessions')
+        return
+      }
+      await Promise.allSettled(connected.map((s) => DisconnectSession(s.id)))
     })
     const c3 = EventsOn('menu:session:add-port-forward', () => {
       requireActiveSession((id) => setAddPortForwardSessionId(id))
     })
     const c4 = EventsOn('menu:session:start-log', () => {
       requireActiveSession(async (id) => {
-        if (activeLogs.get(id)) { toast.error('Already logging this session'); return }
+        if (activeLogs.get(id)) {
+          toast.error('Already logging this session')
+          return
+        }
         try {
           const path = await StartSessionLog(id)
-          setActiveLogs(prev => new Map(prev).set(id, path))
+          setActiveLogs((prev) => new Map(prev).set(id, path))
           toast.success('Session logging started')
-        } catch (err) { toast.error('Failed to start logging', { description: String(err) }) }
+        } catch (err) {
+          toast.error('Failed to start logging', { description: String(err) })
+        }
       })
     })
     const c5 = EventsOn('menu:session:stop-log', () => {
       requireActiveSession(async (id) => {
-        if (!activeLogs.get(id)) { toast.error('Not currently logging this session'); return }
+        if (!activeLogs.get(id)) {
+          toast.error('Not currently logging this session')
+          return
+        }
         try {
           await StopSessionLog(id)
-          setActiveLogs(prev => { const next = new Map(prev); next.delete(id); return next })
+          setActiveLogs((prev) => {
+            const next = new Map(prev)
+            next.delete(id)
+            return next
+          })
           toast.success('Session logging stopped')
-        } catch (err) { toast.error('Failed to stop logging', { description: String(err) }) }
+        } catch (err) {
+          toast.error('Failed to stop logging', { description: String(err) })
+        }
       })
     })
     const c6 = EventsOn('menu:session:view-logs', () => setIsLogViewerOpen(true))
     const c7 = EventsOn('menu:session:open-logs-folder', () => OpenLogsDirectory())
-    return () => { c1(); c2(); c3(); c4(); c5(); c6(); c7() }
-  }, [activeSessionId, sessions, activeLogs, setAddPortForwardSessionId, setActiveLogs, setIsLogViewerOpen])
+    return () => {
+      c1()
+      c2()
+      c3()
+      c4()
+      c5()
+      c6()
+      c7()
+    }
+  }, [
+    activeSessionId,
+    sessions,
+    activeLogs,
+    setAddPortForwardSessionId,
+    setActiveLogs,
+    setIsLogViewerOpen,
+  ])
 }

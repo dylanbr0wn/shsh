@@ -2,7 +2,15 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { CheckCircle, Copy, Info } from 'lucide-react'
 import { GenerateSSHKey } from '../../../wailsjs/go/main/App'
-import { Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '../ui/dialog'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from '../ui/dialog'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -12,7 +20,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '../ui/field'
 type KeyType = 'ed25519' | 'rsa-4096' | 'rsa-2048'
 
 const DEFAULT_PATHS: Record<KeyType, string> = {
-  'ed25519': '~/.ssh/id_ed25519',
+  ed25519: '~/.ssh/id_ed25519',
   'rsa-4096': '~/.ssh/id_rsa',
   'rsa-2048': '~/.ssh/id_rsa',
 }
@@ -69,7 +77,13 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
   // Reset when opening
   useEffect(() => {
     if (open) {
-      setForm({ keyType: 'ed25519', savePath: DEFAULT_PATHS['ed25519'], comment: '', passphrase: '', passphraseConfirm: '' })
+      setForm({
+        keyType: 'ed25519',
+        savePath: DEFAULT_PATHS['ed25519'],
+        comment: '',
+        passphrase: '',
+        passphraseConfirm: '',
+      })
       setPathEdited(false)
       setErrors({})
       setSuccess(null)
@@ -101,9 +115,10 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
     setErrors({})
     setGenerating(true)
     try {
-      const [keyType, rsaBits] = form.keyType === 'ed25519'
-        ? ['ed25519', 0] as const
-        : ['rsa', form.keyType === 'rsa-4096' ? 4096 : 2048] as const
+      const [keyType, rsaBits] =
+        form.keyType === 'ed25519'
+          ? (['ed25519', 0] as const)
+          : (['rsa', form.keyType === 'rsa-4096' ? 4096 : 2048] as const)
       const result = await GenerateSSHKey({
         keyType,
         rsaBits,
@@ -144,9 +159,7 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
       <DialogContent className="sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>Generate SSH Key</DialogTitle>
-          <DialogDescription>
-            Create a new key pair and save it to disk.
-          </DialogDescription>
+          <DialogDescription>Create a new key pair and save it to disk.</DialogDescription>
         </DialogHeader>
 
         {success ? (
@@ -154,30 +167,39 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
             <DialogBody>
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-2 text-sm">
-                  <CheckCircle className="text-green-500 size-4 shrink-0" />
+                  <CheckCircle className="size-4 shrink-0 text-green-500" />
                   <span>Key pair generated successfully</span>
                 </div>
                 <div className="flex flex-col gap-1">
                   <p className="text-muted-foreground text-xs font-medium">Private key</p>
-                  <p className="text-xs font-mono break-all">{success.privateKeyPath}</p>
+                  <p className="font-mono text-xs break-all">{success.privateKeyPath}</p>
                 </div>
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
                     <p className="text-muted-foreground text-xs font-medium">Public key</p>
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleCopyPublicKey}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={handleCopyPublicKey}
+                    >
                       <Copy className="size-3" />
                       Copy
                     </Button>
                   </div>
-                  <pre className="bg-muted text-muted-foreground rounded-md p-2 text-[10px] break-all whitespace-pre-wrap font-mono">
+                  <pre className="bg-muted text-muted-foreground rounded-md p-2 font-mono text-[10px] break-all whitespace-pre-wrap">
                     {success.publicKeyText}
                   </pre>
                 </div>
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
-              <Button type="button" onClick={handleUseKey}>Use This Key</Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Close
+              </Button>
+              <Button type="button" onClick={handleUseKey}>
+                Use This Key
+              </Button>
             </DialogFooter>
           </>
         ) : (
@@ -204,7 +226,10 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
                 <Field>
                   <FieldLabel htmlFor="gk-path">
                     Save Path
-                    <FieldHint>Where to save the private key file. The public key is saved at the same path with a .pub extension.</FieldHint>
+                    <FieldHint>
+                      Where to save the private key file. The public key is saved at the same path
+                      with a .pub extension.
+                    </FieldHint>
                   </FieldLabel>
                   <Input
                     id="gk-path"
@@ -221,7 +246,10 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
                 <Field>
                   <FieldLabel htmlFor="gk-comment">
                     Comment
-                    <FieldHint>Optional label appended to the public key — usually your email or machine name.</FieldHint>
+                    <FieldHint>
+                      Optional label appended to the public key — usually your email or machine
+                      name.
+                    </FieldHint>
                   </FieldLabel>
                   <Input
                     id="gk-comment"
@@ -234,7 +262,9 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
                 <Field>
                   <FieldLabel htmlFor="gk-passphrase">
                     Passphrase
-                    <FieldHint>Encrypts the private key on disk. Leave blank for an unencrypted key.</FieldHint>
+                    <FieldHint>
+                      Encrypts the private key on disk. Leave blank for an unencrypted key.
+                    </FieldHint>
                   </FieldLabel>
                   <Input
                     id="gk-passphrase"
@@ -252,16 +282,22 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
                       id="gk-passphrase-confirm"
                       type="password"
                       value={form.passphraseConfirm}
-                      onChange={(e) => setForm((f) => ({ ...f, passphraseConfirm: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((f) => ({ ...f, passphraseConfirm: e.target.value }))
+                      }
                       placeholder="Re-enter passphrase"
                     />
-                    {errors.passphraseConfirm && <FieldError>{errors.passphraseConfirm}</FieldError>}
+                    {errors.passphraseConfirm && (
+                      <FieldError>{errors.passphraseConfirm}</FieldError>
+                    )}
                   </Field>
                 )}
               </FieldGroup>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
               <Button type="button" onClick={handleGenerate} disabled={generating}>
                 {generating ? 'Generating…' : 'Generate Key'}
               </Button>

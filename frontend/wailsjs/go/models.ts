@@ -1,3 +1,113 @@
+export namespace config {
+	
+	export class LogConfig {
+	    level: string;
+	    max_size_mb: number;
+	    max_backups: number;
+	    max_age_days: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new LogConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.level = source["level"];
+	        this.max_size_mb = source["max_size_mb"];
+	        this.max_backups = source["max_backups"];
+	        this.max_age_days = source["max_age_days"];
+	    }
+	}
+	export class WindowConfig {
+	    width: number;
+	    height: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new WindowConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.width = source["width"];
+	        this.height = source["height"];
+	    }
+	}
+	export class SFTPConfig {
+	    buffer_size_kb: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new SFTPConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.buffer_size_kb = source["buffer_size_kb"];
+	    }
+	}
+	export class SSHConfig {
+	    connection_timeout_seconds: number;
+	    host_key_verification_timeout_seconds: number;
+	    tcp_ping_timeout_seconds: number;
+	    default_rsa_key_bits: number;
+	    terminal_type: string;
+	    port_forward_bind_address: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SSHConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connection_timeout_seconds = source["connection_timeout_seconds"];
+	        this.host_key_verification_timeout_seconds = source["host_key_verification_timeout_seconds"];
+	        this.tcp_ping_timeout_seconds = source["tcp_ping_timeout_seconds"];
+	        this.default_rsa_key_bits = source["default_rsa_key_bits"];
+	        this.terminal_type = source["terminal_type"];
+	        this.port_forward_bind_address = source["port_forward_bind_address"];
+	    }
+	}
+	export class Config {
+	    ssh: SSHConfig;
+	    sftp: SFTPConfig;
+	    window: WindowConfig;
+	    log: LogConfig;
+	
+	    static createFrom(source: any = {}) {
+	        return new Config(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.ssh = this.convertValues(source["ssh"], SSHConfig);
+	        this.sftp = this.convertValues(source["sftp"], SFTPConfig);
+	        this.window = this.convertValues(source["window"], WindowConfig);
+	        this.log = this.convertValues(source["log"], LogConfig);
+	    }
+	
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
+	
+	
+	
+
+}
+
 export namespace main {
 	
 	export class BulkConnectResult {
@@ -12,6 +122,22 @@ export namespace main {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.sessionId = source["sessionId"];
 	        this.hostId = source["hostId"];
+	    }
+	}
+	export class ExportInput {
+	    format: string;
+	    hostIds: string[];
+	    groupId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ExportInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.format = source["format"];
+	        this.hostIds = source["hostIds"];
+	        this.groupId = source["groupId"];
 	    }
 	}
 	export class GenerateKeyInput {

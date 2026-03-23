@@ -3,6 +3,7 @@
 import {store} from '../models';
 import {session} from '../models';
 import {main} from '../models';
+import {config} from '../models';
 import {sshconfig} from '../models';
 
 export function AddGroup(arg1:store.CreateGroupInput):Promise<store.Group>;
@@ -31,7 +32,11 @@ export function DeleteTerminalProfile(arg1:string):Promise<void>;
 
 export function DisconnectSession(arg1:string):Promise<void>;
 
+export function ExportHosts(arg1:main.ExportInput):Promise<string>;
+
 export function GenerateSSHKey(arg1:main.GenerateKeyInput):Promise<main.GenerateKeyResult>;
+
+export function GetConfig():Promise<config.Config>;
 
 export function GetSessionLogPath(arg1:string):Promise<string>;
 
@@ -79,9 +84,13 @@ export function SFTPRename(arg1:string,arg2:string,arg3:string):Promise<void>;
 
 export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
+export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
+
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;
+
+export function UpdateConfig(arg1:config.Config):Promise<void>;
 
 export function UpdateGroup(arg1:store.UpdateGroupInput):Promise<store.Group>;
 

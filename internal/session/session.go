@@ -20,7 +20,8 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"myproject/internal/store"
+	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/store"
 )
 
 // ansiRe strips ANSI/VT escape sequences from terminal output for log files.
@@ -133,16 +134,18 @@ func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
 // Manager manages SSH sessions.
 type Manager struct {
 	ctx         context.Context
+	cfg         *config.Config
 	sessions    map[string]*sshSession
 	pendingKeys map[string]chan bool
 	mu          sync.Mutex
 	wg          sync.WaitGroup
 }
 
-// NewManager creates a new Manager with the given Wails app context.
-func NewManager(ctx context.Context) *Manager {
+// NewManager creates a new Manager with the given Wails app context and config.
+func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 	return &Manager{
 		ctx:         ctx,
+		cfg:         cfg,
 		sessions:    make(map[string]*sshSession),
 		pendingKeys: make(map[string]chan bool),
 	}
@@ -208,7 +211,7 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 			Addr:     host.Hostname,
 			Port:     uint(host.Port),
 			Auth:     auth,
-			Timeout:  goph.DefaultTimeout,
+			Timeout:  time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second,
 			Callback: m.hostKeyCallback(sessionID),
 		})
 		if err != nil {
@@ -233,7 +236,7 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 			return
 		}
 
-		if err := sshSess.RequestPty("xterm-256color", 24, 80, ssh.TerminalModes{}); err != nil {
+		if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 			sshSess.Close()
 			client.Close()
 			log.Error().Err(err).Msg("Failed to request PTY")
@@ -532,7 +535,7 @@ func (m *Manager) hostKeyCallback(sessionID string) ssh.HostKeyCallback {
 				fmt.Fprintf(wf, "%s %s", hostname, ssh.MarshalAuthorizedKey(key)) //nolint:errcheck
 			}
 			return nil
-		case <-time.After(2 * time.Minute):
+		case <-time.After(time.Duration(m.cfg.SSH.HostKeyVerificationTimeoutSeconds) * time.Second):
 			return fmt.Errorf("host key verification timed out")
 		}
 	}

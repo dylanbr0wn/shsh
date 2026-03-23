@@ -2,8 +2,15 @@ package main
 
 import (
 	"embed"
+	"os"
+	"path/filepath"
 	goruntime "runtime"
+	"time"
 
+	"github.com/dylanbr0wn/shsh/internal/config"
+
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
@@ -11,6 +18,7 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
+	"gopkg.in/lumberjack.v2"
 )
 
 //go:embed all:frontend/dist
@@ -31,6 +39,9 @@ func buildMenu(app *App) *menu.Menu {
 	})
 	file.AddText("Import SSH Config...", nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.ctx, "menu:import-ssh-config")
+	})
+	file.AddText("Export Hosts...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.ctx, "menu:export-hosts")
 	})
 	file.AddSeparator()
 	file.AddText("New Group...", nil, func(_ *menu.CallbackData) {
@@ -79,21 +90,49 @@ func buildMenu(app *App) *menu.Menu {
 	return m
 }
 
+func setupLogger(cfg *config.Config) {
+	level, err := zerolog.ParseLevel(cfg.Log.Level)
+	if err != nil {
+		level = zerolog.InfoLevel
+	}
+	zerolog.SetGlobalLevel(level)
+	zerolog.TimeFieldFormat = time.RFC3339
+
+	configDir, _ := os.UserConfigDir()
+	logPath := filepath.Join(configDir, "shsh", "shsh.log")
+
+	roller := &lumberjack.Logger{
+		Filename:   logPath,
+		MaxSize:    cfg.Log.MaxSizeMB,
+		MaxBackups: cfg.Log.MaxBackups,
+		MaxAge:     cfg.Log.MaxAgeDays,
+		Compress:   true,
+	}
+
+	multi := zerolog.MultiLevelWriter(
+		zerolog.ConsoleWriter{Out: os.Stderr, TimeFormat: time.RFC3339},
+		roller,
+	)
+	log.Logger = zerolog.New(multi).With().Timestamp().Caller().Logger()
+}
+
 func main() {
-	// Create an instance of the app structure
-	app := NewApp()
+	cfg, _ := config.Load(config.DefaultConfigPath())
+	setupLogger(cfg)
+	app := NewApp(cfg)
 
 	// Create application with options
 	err := wails.Run(&options.App{
 		Title:     "shsh",
-		Width:     1280,
-		Height:    800,
+		Width:     cfg.Window.Width,
+		Height:    cfg.Window.Height,
 		Frameless: goruntime.GOOS != "darwin",
 		Menu:      buildMenu(app),
 		AssetServer: &assetserver.Options{
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		DragAndDrop:      &options.DragAndDrop{EnableFileDrop: true},
 		OnStartup:        app.startup,
 		OnShutdown:       app.shutdown,
 		Bind: []any{
@@ -105,6 +144,6 @@ func main() {
 	})
 
 	if err != nil {
-		println("Error:", err.Error())
+		log.Fatal().Err(err).Msg("Error starting application")
 	}
 }

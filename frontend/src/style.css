@@ -193,7 +193,7 @@ html {
 }
 
 /* Prevent horizontal scroll in all ScrollArea viewports */
-[data-slot="scroll-area-viewport"] {
+[data-slot='scroll-area-viewport'] {
   overflow-x: hidden !important;
 }
 
