@@ -53,6 +53,11 @@ export function TabBar() {
   function disconnectAndRemove(ids: string[]) {
     ids.forEach((id) => DisconnectSession(id).catch(() => {}))
     setSessions((prev) => prev.filter((s) => !ids.includes(s.id)))
+    setSessionActivity((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.delete(id))
+      return next
+    })
   }
 
   function handleClose(sessionId: string) {
@@ -63,6 +68,11 @@ export function TabBar() {
         if (activeSessionId === sessionId) {
           setActiveSessionId(next.length > 0 ? next[next.length - 1].id : null)
         }
+        return next
+      })
+      setSessionActivity((prev) => {
+        const next = new Set(prev)
+        next.delete(sessionId)
         return next
       })
     }, 1)
