@@ -46,6 +46,18 @@ export function useTerminal(
     isActiveRef.current = isActive
   }, [isActive])
 
+  // Clear activity flag whenever this session becomes active (handles programmatic
+  // activation from useAppInit in addition to user tab clicks in TabBar)
+  useEffect(() => {
+    if (!isActive) return
+    setSessionActivity((prev) => {
+      if (!prev.has(sessionId)) return prev
+      const next = new Set(prev)
+      next.delete(sessionId)
+      return next
+    })
+  }, [isActive, sessionId, setSessionActivity])
+
   // Resolve: session override → host profile → group profile → global settings
   const session = sessions.find((s) => s.id === sessionId)
   const host = hosts.find((h) => h.id === session?.hostId)
