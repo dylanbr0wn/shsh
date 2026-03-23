@@ -17,13 +17,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/export"
+	"github.com/dylanbr0wn/shsh/internal/session"
+	"github.com/dylanbr0wn/shsh/internal/sshconfig"
+	"github.com/dylanbr0wn/shsh/internal/store"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
-	"myproject/internal/session"
-	"myproject/internal/sshconfig"
-	"myproject/internal/store"
 )
 
 // App is the Wails application coordinator.
@@ -31,11 +34,13 @@ type App struct {
 	ctx     context.Context
 	store   *store.Store
 	manager *session.Manager
+	cfg     *config.Config
+	cfgPath string
 }
 
 // NewApp creates a new App application struct.
-func NewApp() *App {
-	return &App{}
+func NewApp(cfg *config.Config) *App {
+	return &App{cfg: cfg}
 }
 
 // startup is called when the app starts.
@@ -51,6 +56,15 @@ func (a *App) startup(ctx context.Context) {
 		fmt.Fprintf(os.Stderr, "failed to create config dir: %v\n", err)
 		return
 	}
+
+	a.cfgPath = filepath.Join(dbDir, "config.json")
+	if _, statErr := os.Stat(a.cfgPath); os.IsNotExist(statErr) {
+		// Write defaults so the user has a reference to all available settings.
+		if saveErr := a.cfg.Save(a.cfgPath); saveErr != nil {
+			log.Warn().Err(saveErr).Msg("could not write default config file")
+		}
+	}
+
 	dbPath := filepath.Join(dbDir, "shsh.db")
 
 	s, err := store.New(dbPath)
@@ -64,7 +78,13 @@ func (a *App) startup(ctx context.Context) {
 		log.Warn().Err(err).Msg("keychain migration encountered errors")
 	}
 
-	a.manager = session.NewManager(ctx)
+	a.manager = session.NewManager(ctx, a.cfg)
+
+	wailsruntime.OnFileDrop(ctx, func(_ int, _ int, paths []string) {
+		wailsruntime.EventsEmit(ctx, "window:filedrop", map[string]interface{}{
+			"paths": paths,
+		})
+	})
 }
 
 // shutdown is called by Wails on window close.
@@ -75,6 +95,22 @@ func (a *App) shutdown(_ context.Context) {
 	if a.store != nil {
 		a.store.Close()
 	}
+}
+
+// --- App Config ---
+
+// GetConfig returns the current application configuration.
+func (a *App) GetConfig() config.Config {
+	return *a.cfg
+}
+
+// UpdateConfig replaces the current configuration and persists it to disk.
+func (a *App) UpdateConfig(cfg config.Config) error {
+	a.cfg = &cfg
+	if a.cfgPath != "" {
+		return cfg.Save(a.cfgPath)
+	}
+	return nil
 }
 
 // --- Host CRUD ---
@@ -213,6 +249,102 @@ func (a *App) ImportSSHConfigHosts(aliases []string) ([]store.Host, error) {
 	return imported, nil
 }
 
+// --- Export ---
+
+// ExportInput is the payload sent from the frontend to initiate a host export.
+// GroupID filters to a single group; HostIDs filters to specific hosts.
+// If both are empty/nil, all hosts are exported.
+type ExportInput struct {
+	Format  string   `json:"format"`  // "sshconfig" | "json" | "csv"
+	HostIDs []string `json:"hostIds"` // nil or empty = no ID filter
+	GroupID string   `json:"groupId"` // "" = no group filter
+}
+
+// ExportHosts opens a native save-file dialog and writes the exported hosts to disk.
+// Returns the path written, or "" if the user cancelled the dialog.
+func (a *App) ExportHosts(input ExportInput) (string, error) {
+	// Determine dialog defaults based on format.
+	var defaultFilename string
+	var filters []wailsruntime.FileFilter
+	switch input.Format {
+	case "json":
+		defaultFilename = "shsh_hosts.json"
+		filters = []wailsruntime.FileFilter{{DisplayName: "JSON files (*.json)", Pattern: "*.json"}}
+	case "csv":
+		defaultFilename = "shsh_hosts.csv"
+		filters = []wailsruntime.FileFilter{{DisplayName: "CSV files (*.csv)", Pattern: "*.csv"}}
+	default: // sshconfig
+		defaultFilename = "ssh_config"
+		filters = []wailsruntime.FileFilter{{DisplayName: "All files (*)", Pattern: "*"}}
+	}
+
+	home, _ := os.UserHomeDir()
+	path, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+		DefaultDirectory: home,
+		DefaultFilename:  defaultFilename,
+		Title:            "Export Hosts",
+		Filters:          filters,
+	})
+	if err != nil {
+		return "", err
+	}
+	if path == "" {
+		return "", nil // user cancelled
+	}
+
+	hosts, err := a.store.ListHosts()
+	if err != nil {
+		return "", err
+	}
+	groups, err := a.store.ListGroups()
+	if err != nil {
+		return "", err
+	}
+
+	// Apply filters.
+	if input.GroupID != "" {
+		filtered := hosts[:0]
+		for _, h := range hosts {
+			if h.GroupID != nil && *h.GroupID == input.GroupID {
+				filtered = append(filtered, h)
+			}
+		}
+		hosts = filtered
+	} else if len(input.HostIDs) > 0 {
+		idSet := make(map[string]struct{}, len(input.HostIDs))
+		for _, id := range input.HostIDs {
+			idSet[id] = struct{}{}
+		}
+		filtered := hosts[:0]
+		for _, h := range hosts {
+			if _, ok := idSet[h.ID]; ok {
+				filtered = append(filtered, h)
+			}
+		}
+		hosts = filtered
+	}
+
+	records := export.BuildRecords(hosts, groups)
+
+	var data []byte
+	switch input.Format {
+	case "json":
+		data, err = export.JSON(records)
+	case "csv":
+		data, err = export.CSV(records)
+	default:
+		data, err = export.SSHConfig(records)
+	}
+	if err != nil {
+		return "", fmt.Errorf("export: %w", err)
+	}
+
+	if err := os.WriteFile(path, data, 0644); err != nil { //nolint:gosec
+		return "", fmt.Errorf("write export file: %w", err)
+	}
+	return path, nil
+}
+
 // --- Session management ---
 
 // QuickConnectInput is the payload for an ad hoc SSH connection (not saved to DB).
@@ -297,6 +429,10 @@ func (a *App) SFTPDownloadDir(sessionID string, remotePath string) error {
 
 func (a *App) SFTPUpload(sessionID string, remoteDir string) error {
 	return a.manager.SFTPUpload(sessionID, remoteDir)
+}
+
+func (a *App) SFTPUploadPath(sessionID string, localPath string, remotePath string) error {
+	return a.manager.SFTPUploadPath(sessionID, localPath, remotePath)
 }
 
 func (a *App) SFTPMkdir(sessionID string, path string) error {
@@ -486,7 +622,7 @@ func (a *App) GenerateSSHKey(input GenerateKeyInput) (GenerateKeyResult, error) 
 	case "rsa":
 		bits := input.RSABits
 		if bits == 0 {
-			bits = 4096
+			bits = a.cfg.SSH.DefaultRSAKeyBits
 		}
 		priv, err := rsa.GenerateKey(rand.Reader, bits)
 		if err != nil {
@@ -587,9 +723,9 @@ func (a *App) PingHosts(hostIDs []string) []PingResult {
 			defer wg.Done()
 			r := PingResult{HostID: hostID, LatencyMs: -1}
 			if h, ok := hostMap[hostID]; ok {
-				addr := fmt.Sprintf("%s:%d", h.Hostname, h.Port)
+				addr := net.JoinHostPort(h.Hostname, fmt.Sprintf("%d", h.Port))
 				start := time.Now()
-				conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+				conn, err := net.DialTimeout("tcp", addr, time.Duration(a.cfg.SSH.TCPPingTimeoutSeconds)*time.Second)
 				if err == nil {
 					r.LatencyMs = time.Since(start).Milliseconds()
 					conn.Close()

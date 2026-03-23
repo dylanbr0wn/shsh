@@ -1,0 +1,21 @@
+name: Chore / Refactor
+description: Non-feature, non-bug work (dependency updates, refactoring, build changes)
+labels: ["chore"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What needs doing and why?
+      description: Describe the work and the motivation behind it.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Done when
+      description: How will you know this is complete?
+      placeholder: |
+        - go.mod module name is github.com/dylanbr0wn/shsh
+        - go build ./... passes
+        - All imports updated

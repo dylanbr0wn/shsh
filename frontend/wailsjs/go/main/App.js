@@ -54,8 +54,16 @@ export function DisconnectSession(arg1) {
   return window['go']['main']['App']['DisconnectSession'](arg1);
 }
 
+export function ExportHosts(arg1) {
+  return window['go']['main']['App']['ExportHosts'](arg1);
+}
+
 export function GenerateSSHKey(arg1) {
   return window['go']['main']['App']['GenerateSSHKey'](arg1);
+}
+
+export function GetConfig() {
+  return window['go']['main']['App']['GetConfig']();
 }
 
 export function GetSessionLogPath(arg1) {
@@ -150,12 +158,20 @@ export function SFTPUpload(arg1, arg2) {
   return window['go']['main']['App']['SFTPUpload'](arg1, arg2);
 }
 
+export function SFTPUploadPath(arg1, arg2, arg3) {
+  return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
+}
+
 export function StartSessionLog(arg1) {
   return window['go']['main']['App']['StartSessionLog'](arg1);
 }
 
 export function StopSessionLog(arg1) {
   return window['go']['main']['App']['StopSessionLog'](arg1);
+}
+
+export function UpdateConfig(arg1) {
+  return window['go']['main']['App']['UpdateConfig'](arg1);
 }
 
 export function UpdateGroup(arg1) {

@@ -164,7 +164,7 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center justify-between">
                     <p className="text-muted-foreground text-xs font-medium">Public key</p>
-                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={handleCopyPublicKey}>
+                    <Button variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={handleCopyPublicKey}>
                       <Copy className="size-3" />
                       Copy
                     </Button>
@@ -176,7 +176,7 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
               </div>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>Close</Button>
+              <Button type="button" variant="outline" onClick={onClose}>Close</Button>
               <Button type="button" onClick={handleUseKey}>Use This Key</Button>
             </DialogFooter>
           </>
@@ -261,7 +261,7 @@ export function GenerateKeyModal({ open, onClose, onGenerated }: Props) {
               </FieldGroup>
             </DialogBody>
             <DialogFooter>
-              <Button type="button" variant="ghost" onClick={onClose}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="button" onClick={handleGenerate} disabled={generating}>
                 {generating ? 'Generating…' : 'Generate Key'}
               </Button>

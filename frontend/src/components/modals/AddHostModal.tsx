@@ -368,7 +368,7 @@ export function AddHostModal() {
         </form>
         </DialogBody>
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={close}>
+          <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>
           <Button type="submit" form="ah-form" disabled={submitting}>

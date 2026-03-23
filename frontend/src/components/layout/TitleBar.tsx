@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { TerminalIcon, Minus, Square, X } from 'lucide-react'
+import { TerminalIcon, Minus, Square, X, Settings } from 'lucide-react'
+import { useSetAtom } from 'jotai'
 import {
   Environment,
   WindowMinimise,
@@ -7,9 +8,13 @@ import {
   Quit,
 } from '../../../wailsjs/runtime/runtime'
 import { cn } from '../../lib/utils'
+import { isSettingsOpenAtom } from '../../store/atoms'
+import { Button } from '../ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function TitleBar() {
   const [isMac, setIsMac] = useState(false)
+  const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
 
   useEffect(() => {
     Environment().then((env) => setIsMac(env.platform === 'darwin'))
@@ -31,6 +36,26 @@ export function TitleBar() {
       <div className={cn('flex flex-1 items-center gap-2', isMac ? '' : 'pl-3')}>
         <TerminalIcon className="text-muted-foreground size-4" />
         <span className="text-sm font-semibold tracking-tight">shsh</span>
+      </div>
+
+      <div
+        className="flex items-center"
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setIsSettingsOpen(true)}
+              aria-label="Settings"
+            >
+              <Settings className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Settings</TooltipContent>
+        </Tooltip>
       </div>
 
       {!isMac && (

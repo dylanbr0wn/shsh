@@ -16,6 +16,7 @@ interface PanelDescriptor {
   isOpen: boolean
   defaultSize: number
   minSize: number
+  onDragClose: () => void
   render: () => React.ReactNode
 }
 
@@ -105,6 +106,10 @@ export function TerminalPane() {
             isOpen: pf.isOpen,
             defaultSize: 30,
             minSize: 20,
+            onDragClose: () => setPfState((prev) => ({
+              ...prev,
+              [session.id]: { ...(prev[session.id] ?? { isOpen: false, forwards: [] }), isOpen: false },
+            })),
             render: () => <PortForwardsPanel sessionId={session.id} />,
           },
           {
@@ -112,6 +117,10 @@ export function TerminalPane() {
             isOpen: sftp.isOpen,
             defaultSize: 40,
             minSize: 20,
+            onDragClose: () => setSftpState((prev) => ({
+              ...prev,
+              [session.id]: { ...(prev[session.id] ?? { isOpen: false, currentPath: '~', entries: [], isLoading: false, error: null }), isOpen: false },
+            })),
             render: () => <SFTPPanel sessionId={session.id} />,
           },
         ]
@@ -137,7 +146,14 @@ export function TerminalPane() {
               {panels.filter(p => p.isOpen).map(p => (
                 <React.Fragment key={p.id}>
                   <ResizableHandle withHandle />
-                  <ResizablePanel defaultSize={p.defaultSize} minSize={p.minSize} className="flex min-w-0 flex-col">
+                  <ResizablePanel
+                    defaultSize={p.defaultSize}
+                    minSize={p.minSize}
+                    collapsible
+                    collapsedSize={0}
+                    onResize={(size) => { if (size.inPixels === 0) p.onDragClose() }}
+                    className="flex min-w-0 flex-col"
+                  >
                     {p.render()}
                   </ResizablePanel>
                 </React.Fragment>

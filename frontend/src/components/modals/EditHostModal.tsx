@@ -397,7 +397,7 @@ export function EditHostModal() {
         </form>
         </DialogBody>
         <DialogFooter>
-            <Button type="button" variant="ghost" onClick={close}>
+            <Button type="button" variant="outline" onClick={close}>
               Cancel
             </Button>
             <Button type="submit" form="eh-form" disabled={submitting}>

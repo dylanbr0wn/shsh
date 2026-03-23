@@ -309,7 +309,7 @@ export function TerminalProfilesModal() {
                   Delete
                 </Button>
                 <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" className="text-xs" onClick={close}>
+                  <Button variant="outline" size="sm" className="text-xs" onClick={close}>
                     Close
                   </Button>
                   <Button

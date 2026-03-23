@@ -6,6 +6,7 @@ import (
 	"net"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 )
 
 // PortForwardInfo is the serialisable view sent to the frontend.
@@ -26,8 +27,9 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 		return PortForwardInfo{}, fmt.Errorf("session %s not found", sessionID)
 	}
 
-	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", localPort))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.cfg.SSH.PortForwardBindAddress, localPort))
 	if err != nil {
+		log.Error().Err(err).Str("sessionID", sessionID).Int("localPort", localPort).Msg("port forward failed to bind")
 		return PortForwardInfo{}, fmt.Errorf("failed to listen on port %d: %w", localPort, err)
 	}
 
@@ -43,6 +45,7 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 	sess.portForwards[pf.id] = pf
 	sess.pfMu.Unlock()
 
+	log.Info().Str("sessionID", sessionID).Int("localPort", localPort).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward started")
 	sess.wg.Go(func() {
 		defer listener.Close()
 		for {
@@ -54,6 +57,7 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 				defer local.Close()
 				remote, err := sess.client.Client.Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
 				if err != nil {
+					log.Error().Err(err).Str("sessionID", sessionID).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward dial failed")
 					return
 				}
 				defer remote.Close()
@@ -96,6 +100,7 @@ func (m *Manager) RemovePortForward(sessionID, forwardID string) error {
 	if !exists {
 		return fmt.Errorf("forward %s not found", forwardID)
 	}
+	log.Info().Str("sessionID", sessionID).Str("forwardID", forwardID).Int("localPort", pf.localPort).Msg("port forward stopped")
 	return nil
 }
 

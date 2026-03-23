@@ -1,5 +1,5 @@
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Settings } from 'lucide-react'
+import { SlidersHorizontal } from 'lucide-react'
 import {
   isTerminalProfilesOpenAtom,
   activeSessionIdAtom,
@@ -94,7 +94,7 @@ export function TerminalSettings() {
               className="text-muted-foreground"
               aria-label="Terminal settings"
             >
-              <Settings aria-hidden="true" />
+              <SlidersHorizontal aria-hidden="true" />
             </Button>
           </PopoverTrigger>
         </TooltipTrigger>
@@ -218,9 +218,9 @@ export function TerminalSettings() {
               <FieldSeparator />
 
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="text-muted-foreground h-7 w-full justify-start px-2 text-xs"
+                className="h-7 w-full justify-start px-2 text-xs"
                 onClick={() => setProfilesOpen(true)}
               >
                 Manage Profiles…

@@ -113,7 +113,7 @@ export function EditGroupModal({ group, open, onClose }: Props) {
         </form>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={close}>Cancel</Button>
+          <Button type="button" variant="outline" onClick={close}>Cancel</Button>
           <Button type="submit" form="eg-form" disabled={saving || !name.trim()}>
             {saving ? 'Saving…' : 'Save'}
           </Button>

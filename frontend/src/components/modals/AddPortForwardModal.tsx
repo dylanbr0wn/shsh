@@ -106,7 +106,7 @@ export function AddPortForwardModal() {
         </form>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={close}>
+          <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>
           <Button type="submit" form="apf-form" disabled={submitting}>

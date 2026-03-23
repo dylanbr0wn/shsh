@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react'
+import { useEffect, useCallback, useState, useRef } from 'react'
 import {
   Folder,
   File,
@@ -20,6 +20,7 @@ import {
   SFTPDownload,
   SFTPDownloadDir,
   SFTPUpload,
+  SFTPUploadPath,
   SFTPMkdir,
   SFTPDelete,
   SFTPRename,
@@ -68,8 +69,14 @@ type Modal =
 
 export function SFTPPanel({ sessionId }: Props) {
   const [state, setState] = useSessionPanelState(sftpStateAtom, sessionId, DEFAULT_SFTP_STATE)
+  const { currentPath, entries, isLoading, error } = state
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
+  const draggedEntryRef = useRef<SFTPEntry | null>(null)
+  const dragCounterRef = useRef(0)
+  const isDragOverRef = useRef(false)
 
   const listDir = useCallback(
     async (path: string) => {
@@ -107,17 +114,14 @@ export function SFTPPanel({ sessionId }: Props) {
     EventsOn(eventKey, (evt: { path: string; bytes: number; total: number }) => {
       const pct = evt.total > 0 ? Math.round((evt.bytes / evt.total) * 100) : 0
       const label = evt.path.split('/').pop() ?? evt.path
-      if (!toastIds.has(evt.path)) {
-        const id = toast.loading(`Transferring ${label}… ${pct}%`)
-        toastIds.set(evt.path, id)
-      } else {
-        const id = toastIds.get(evt.path)!
-        if (pct >= 100) {
-          toast.success(`${label} transferred`, { id })
-          toastIds.delete(evt.path)
-        } else {
-          toast.loading(`Transferring ${label}… ${pct}%`, { id })
-        }
+      const existing = toastIds.get(evt.path)
+      const id = existing ?? toast.loading(`Transferring ${label}… ${pct}%`)
+      if (existing === undefined) toastIds.set(evt.path, id)
+      if (pct >= 100) {
+        toast.success(`${label} transferred`, { id })
+        toastIds.delete(evt.path)
+      } else if (existing !== undefined) {
+        toast.loading(`Transferring ${label}… ${pct}%`, { id })
       }
     })
 
@@ -129,7 +133,27 @@ export function SFTPPanel({ sessionId }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId])
 
-  const { currentPath, entries, isLoading, error } = state
+  // Handle OS file drops — paths come from Go's runtime.OnFileDrop via Wails event
+  useEffect(() => {
+    EventsOn('window:filedrop', async (data: { paths: string[] }) => {
+      if (!isDragOverRef.current) return
+      isDragOverRef.current = false
+      dragCounterRef.current = 0
+      setIsDragOver(false)
+      const paths = data.paths ?? []
+      if (!paths.length) return
+      const results = await Promise.allSettled(
+        paths.map((p) => SFTPUploadPath(sessionId, p, currentPath + '/' + p.split('/').pop()))
+      )
+      results.forEach((r, i) => {
+        if (r.status === 'rejected')
+          toast.error(`Failed to upload ${paths[i].split('/').pop()}: ${r.reason}`)
+      })
+      await listDir(currentPath)
+    })
+    return () => EventsOff('window:filedrop')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, currentPath, listDir])
 
   if (!currentPath) return null
 
@@ -213,7 +237,37 @@ export function SFTPPanel({ sessionId }: Props) {
   }
 
   return (
-    <div className="border-border bg-background flex h-full flex-col overflow-hidden border-l text-sm">
+    <div
+      className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
+      onDragEnter={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault()
+          dragCounterRef.current++
+          if (dragCounterRef.current === 1) {
+            isDragOverRef.current = true
+            setIsDragOver(true)
+          }
+        }
+      }}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('Files')) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+      onDragLeave={() => {
+        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+        if (dragCounterRef.current === 0) {
+          isDragOverRef.current = false
+          setIsDragOver(false)
+        }
+      }}
+      onDrop={(e) => {
+        // Paths arrive via window:filedrop Wails event — just prevent browser default
+        e.preventDefault()
+        dragCounterRef.current = 0
+      }}
+    >
       <PanelHeader title="Files">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -315,10 +369,52 @@ export function SFTPPanel({ sessionId }: Props) {
                   className={cn(
                     'flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-left transition-colors select-none',
                     'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none focus-visible:ring-1',
-                    selected === entry.path && 'bg-accent text-accent-foreground'
+                    selected === entry.path && 'bg-accent text-accent-foreground',
+                    dragTargetPath === entry.path && 'ring-1 ring-inset ring-primary bg-primary/10'
                   )}
+                  draggable
                   onClick={() => setSelected(entry.path)}
                   onDoubleClick={() => handleRowDoubleClick(entry)}
+                  onDragStart={(e) => {
+                    draggedEntryRef.current = entry
+                    e.dataTransfer.effectAllowed = 'move'
+                    e.dataTransfer.setData('application/x-shsh-sftp', entry.path)
+                  }}
+                  onDragOver={(e) => {
+                    if (
+                      entry.isDir &&
+                      e.dataTransfer.types.includes('application/x-shsh-sftp') &&
+                      draggedEntryRef.current?.path !== entry.path
+                    ) {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setDragTargetPath(entry.path)
+                    }
+                  }}
+                  onDragLeave={() => setDragTargetPath(null)}
+                  onDrop={async (e) => {
+                    if (!entry.isDir) return
+                    e.preventDefault()
+                    e.stopPropagation()
+                    const dragged = draggedEntryRef.current
+                    draggedEntryRef.current = null
+                    setDragTargetPath(null)
+                    if (!dragged || dragged.path === entry.path) return
+                    if (entry.path.startsWith(dragged.path + '/')) {
+                      toast.error('Cannot move a folder into itself.')
+                      return
+                    }
+                    try {
+                      await SFTPRename(sessionId, dragged.path, entry.path + '/' + dragged.name)
+                      await listDir(currentPath)
+                    } catch (err) {
+                      toast.error(String(err))
+                    }
+                  }}
+                  onDragEnd={() => {
+                    draggedEntryRef.current = null
+                    setDragTargetPath(null)
+                  }}
                 >
                   {entry.isDir ? (
                     <Folder className="text-primary/70 size-4 shrink-0" aria-hidden="true" />
@@ -362,6 +458,13 @@ export function SFTPPanel({ sessionId }: Props) {
         )}
       </ScrollArea>
 
+      {isDragOver && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-primary bg-primary/10 text-sm text-primary">
+          <Upload className="size-6" />
+          <span>Drop to upload</span>
+        </div>
+      )}
+
       {/* Modals */}
       <Dialog
         open={modal.type !== 'none'}
@@ -393,7 +496,7 @@ export function SFTPPanel({ sessionId }: Props) {
                 />
               </div>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setModal({ type: 'none' })}>
+                <Button variant="outline" onClick={() => setModal({ type: 'none' })}>
                   Cancel
                 </Button>
                 <Button
@@ -431,7 +534,7 @@ export function SFTPPanel({ sessionId }: Props) {
                 />
               </div>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setModal({ type: 'none' })}>
+                <Button variant="outline" onClick={() => setModal({ type: 'none' })}>
                   Cancel
                 </Button>
                 <Button
@@ -453,7 +556,7 @@ export function SFTPPanel({ sessionId }: Props) {
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setModal({ type: 'none' })}>
+                <Button variant="outline" onClick={() => setModal({ type: 'none' })}>
                   Cancel
                 </Button>
                 <Button variant="destructive" onClick={() => handleDeleteConfirm(modal.entry)}>

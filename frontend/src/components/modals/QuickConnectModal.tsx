@@ -231,7 +231,7 @@ export function QuickConnectModal() {
         </DialogBody>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={close} disabled={connecting}>
+          <Button type="button" variant="outline" onClick={close} disabled={connecting}>
             Cancel
           </Button>
           <Button type="submit" form="qc-form" disabled={connecting}>

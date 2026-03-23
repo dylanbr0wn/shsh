@@ -46,7 +46,7 @@ export function PortForwardsPanel({ sessionId }: Props) {
   }
 
   return (
-    <div className="border-border bg-background flex h-full flex-col overflow-hidden border-l text-sm">
+    <div className="bg-background flex h-full flex-col overflow-hidden text-sm">
       <PanelHeader title="Port Forwards">
         <Tooltip>
           <TooltipTrigger asChild>

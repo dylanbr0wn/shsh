@@ -8,7 +8,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '../ui/button'
 import { Checkbox } from '../ui/checkbox'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
-import { ScrollArea } from '../ui/scroll-area'
 
 interface SSHConfigEntry {
   alias: string
@@ -100,9 +99,15 @@ export function ImportSSHConfigModal() {
             </p>
           ) : (
             <>
-              <ScrollArea className="border-foreground/15 h-72 rounded-md border">
-                <Table>
-                  <TableHeader className="bg-background sticky top-0 z-10">
+              <div className="border-foreground/15 rounded-md border overflow-hidden">
+                <Table className="table-fixed">
+                  <colgroup>
+                    <col className="w-10" />
+                    <col className="w-1/4" />
+                    <col className="w-2/5" />
+                    <col />
+                  </colgroup>
+                  <TableHeader>
                     <TableRow>
                       <TableHead>
                         <Checkbox
@@ -116,39 +121,49 @@ export function ImportSSHConfigModal() {
                       <TableHead>User</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow
-                        key={entry.alias}
-                        data-state={selected.has(entry.alias) ? 'selected' : undefined}
-                        className="cursor-pointer"
-                        onClick={() => toggle(entry.alias)}
-                      >
-                        <TableCell>
-                          <Checkbox
-                            checked={selected.has(entry.alias)}
-                            onCheckedChange={() => toggle(entry.alias)}
-                            aria-label={`Select ${entry.alias}`}
-                            onClick={(e) => e.stopPropagation()}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{entry.alias}</TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {entry.hostname}:{entry.port}
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">{entry.user}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
                 </Table>
-              </ScrollArea>
+                <div className="h-60 overflow-y-auto border-t border-foreground/15">
+                  <Table className="table-fixed">
+                    <colgroup>
+                      <col className="w-10" />
+                      <col className="w-1/4" />
+                      <col className="w-2/5" />
+                      <col />
+                    </colgroup>
+                    <TableBody>
+                      {entries.map((entry) => (
+                        <TableRow
+                          key={entry.alias}
+                          data-state={selected.has(entry.alias) ? 'selected' : undefined}
+                          className="cursor-pointer"
+                          onClick={() => toggle(entry.alias)}
+                        >
+                          <TableCell>
+                            <Checkbox
+                              checked={selected.has(entry.alias)}
+                              onCheckedChange={() => toggle(entry.alias)}
+                              aria-label={`Select ${entry.alias}`}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{entry.alias}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {entry.hostname}:{entry.port}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">{entry.user}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
               <p className="text-muted-foreground mt-2 text-xs">Duplicate hosts will be skipped.</p>
             </>
           )}
         </div>
 
         <DialogFooter>
-          <Button type="button" variant="ghost" onClick={close}>
+          <Button type="button" variant="outline" onClick={close}>
             Cancel
           </Button>
           <Button

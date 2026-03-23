@@ -1,0 +1,47 @@
+name: Feature Request
+description: New capability or enhancement
+labels: ["feature", "needs-triage"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Terminal UX
+        - SFTP
+        - SSH Config
+        - Credentials / Key Management
+        - Port Forwarding
+        - UI / Polish
+        - Backend / Go
+        - Build / Tooling
+    validations:
+      required: true
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do?
+      description: Describe the feature from the user's perspective.
+      placeholder: "e.g. When adding a host, allow selecting another saved host as a jump host. On connect, shsh dials the jump host first, then tunnels to the target."
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Bullet list of concrete things that must be true when this is done. This becomes the spec Claude codes against.
+      placeholder: |
+        - JumpHostID field on the Host record (nullable)
+        - AddHost/EditHost modals show a Jump Host dropdown
+        - session.Manager.Connect() chains the SSH dial when JumpHostID is set
+        - Works with all auth methods (password, key, agent)
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Implementation notes (optional)
+      description: Known constraints, related code paths, prior art, etc.

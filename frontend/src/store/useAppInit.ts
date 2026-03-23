@@ -22,6 +22,7 @@ import {
   pendingHostKeyAtom,
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
+  isExportHostsOpenAtom,
   isSettingsOpenAtom,
   isQuickConnectOpenAtom,
   isTerminalProfilesOpenAtom,
@@ -47,6 +48,7 @@ export function useAppInit() {
   const setPendingHostKey = useSetAtom(pendingHostKeyAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsExportHostsOpen = useSetAtom(isExportHostsOpenAtom)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsTerminalProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
@@ -154,10 +156,11 @@ export function useAppInit() {
     const c4 = EventsOn('menu:add-host', () => setIsAddHostOpen(true))
     const c5 = EventsOn('menu:new-group', () => setIsNewGroupOpen(true))
     const c6 = EventsOn('menu:terminal-profiles', () => setIsTerminalProfilesOpen(true))
+    const c7 = EventsOn('menu:export-hosts', () => setIsExportHostsOpen(true))
     return () => {
-      c1(); c2(); c3(); c4(); c5(); c6()
+      c1(); c2(); c3(); c4(); c5(); c6(); c7()
     }
-  }, [setIsAddHostOpen, setIsImportSSHConfigOpen, setIsSettingsOpen, setIsQuickConnectOpen, setIsTerminalProfilesOpen, setIsNewGroupOpen])
+  }, [setIsAddHostOpen, setIsImportSSHConfigOpen, setIsExportHostsOpen, setIsSettingsOpen, setIsQuickConnectOpen, setIsTerminalProfilesOpen, setIsNewGroupOpen])
 
   useEffect(() => {
     function requireActiveSession(action: (sessionId: string) => void) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
+	"github.com/rs/zerolog/log"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -34,8 +35,10 @@ func (m *Manager) OpenSFTP(sessionID string) error {
 
 	sc, err := sftp.NewClient(sess.client.Client)
 	if err != nil {
+		log.Error().Err(err).Str("sessionID", sessionID).Msg("SFTP negotiation failed")
 		return fmt.Errorf("sftp negotiation failed: %w", err)
 	}
+	log.Debug().Str("sessionID", sessionID).Msg("SFTP session opened")
 	sess.sftpClient = sc
 	return nil
 }
@@ -55,6 +58,7 @@ func (m *Manager) CloseSFTP(sessionID string) error {
 	if sess.sftpClient != nil {
 		sess.sftpClient.Close()
 		sess.sftpClient = nil
+		log.Debug().Str("sessionID", sessionID).Msg("SFTP session closed")
 	}
 	return nil
 }
@@ -138,6 +142,7 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 
 	remoteFile, err := sc.Open(remotePath)
 	if err != nil {
+		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP download failed to open remote file")
 		return err
 	}
 	defer remoteFile.Close()
@@ -154,7 +159,8 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 	}
 	defer localFile.Close()
 
-	buf := make([]byte, 32*1024)
+	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Str("local", localPath).Int64("size", total).Msg("SFTP download started")
+	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
 		nr, rerr := remoteFile.Read(buf)
@@ -177,6 +183,7 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 			return rerr
 		}
 	}
+	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP download complete")
 	return nil
 }
 
@@ -230,7 +237,7 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string) error {
 	localTmpPath := localTmp.Name()
 	defer os.Remove(localTmpPath)
 
-	buf := make([]byte, 32*1024)
+	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	eventKey := "sftp:progress:" + sessionID
 	for {
@@ -301,11 +308,13 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string) error {
 	remotePath := remoteDir + "/" + filepath.Base(localPath)
 	remoteFile, err := sc.Create(remotePath)
 	if err != nil {
+		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
 		return err
 	}
 	defer remoteFile.Close()
 
-	buf := make([]byte, 32*1024)
+	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
 		nr, rerr := localFile.Read(buf)
@@ -328,6 +337,74 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string) error {
 			return rerr
 		}
 	}
+	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	return nil
+}
+
+// SFTPUploadPath uploads a local file at localPath to the given remotePath.
+func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath string) error {
+	m.mu.Lock()
+	sess, ok := m.sessions[sessionID]
+	m.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("session %s not found", sessionID)
+	}
+
+	sess.sftpMu.Lock()
+	sc := sess.sftpClient
+	sess.sftpMu.Unlock()
+	if sc == nil {
+		return fmt.Errorf("sftp not open for session %s", sessionID)
+	}
+
+	info, err := os.Stat(localPath)
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("cannot upload a directory via drag-drop; upload files only")
+	}
+
+	localFile, err := os.Open(localPath)
+	if err != nil {
+		return err
+	}
+	defer localFile.Close()
+
+	total := info.Size()
+
+	remoteFile, err := sc.Create(remotePath)
+	if err != nil {
+		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
+		return err
+	}
+	defer remoteFile.Close()
+
+	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
+	var written int64
+	for {
+		nr, rerr := localFile.Read(buf)
+		if nr > 0 {
+			nw, werr := remoteFile.Write(buf[:nr])
+			written += int64(nw)
+			runtime.EventsEmit(m.ctx, "sftp:progress:"+sessionID, SFTPProgressEvent{
+				Path:  remotePath,
+				Bytes: written,
+				Total: total,
+			})
+			if werr != nil {
+				return werr
+			}
+		}
+		if rerr == io.EOF {
+			break
+		}
+		if rerr != nil {
+			return rerr
+		}
+	}
+	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
 	return nil
 }
 
