@@ -1,15 +1,15 @@
 export namespace config {
-
+	
 	export class LogConfig {
 	    level: string;
 	    max_size_mb: number;
 	    max_backups: number;
 	    max_age_days: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new LogConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.level = source["level"];
@@ -21,11 +21,11 @@ export namespace config {
 	export class WindowConfig {
 	    width: number;
 	    height: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new WindowConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.width = source["width"];
@@ -34,11 +34,11 @@ export namespace config {
 	}
 	export class SFTPConfig {
 	    buffer_size_kb: number;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SFTPConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.buffer_size_kb = source["buffer_size_kb"];
@@ -51,11 +51,11 @@ export namespace config {
 	    default_rsa_key_bits: number;
 	    terminal_type: string;
 	    port_forward_bind_address: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new SSHConfig(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.connection_timeout_seconds = source["connection_timeout_seconds"];
@@ -71,11 +71,11 @@ export namespace config {
 	    sftp: SFTPConfig;
 	    window: WindowConfig;
 	    log: LogConfig;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ssh = this.convertValues(source["ssh"], SSHConfig);
@@ -83,7 +83,7 @@ export namespace config {
 	        this.window = this.convertValues(source["window"], WindowConfig);
 	        this.log = this.convertValues(source["log"], LogConfig);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -102,20 +102,23 @@ export namespace config {
 		    return a;
 		}
 	}
+	
+	
+	
 
 }
 
 export namespace credstore {
-
+	
 	export class PMStatus {
 	    available: boolean;
 	    locked: boolean;
 	    error?: string;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PMStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.available = source["available"];
@@ -126,17 +129,17 @@ export namespace credstore {
 	export class PasswordManagersStatus {
 	    onePassword: PMStatus;
 	    bitwarden: PMStatus;
-
+	
 	    static createFrom(source: any = {}) {
 	        return new PasswordManagersStatus(source);
 	    }
-
+	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.onePassword = this.convertValues(source["onePassword"], PMStatus);
 	        this.bitwarden = this.convertValues(source["bitwarden"], PMStatus);
 	    }
-
+	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;

@@ -3,8 +3,8 @@
 import {store} from '../models';
 import {session} from '../models';
 import {main} from '../models';
-import {config} from '../models';
 import {credstore} from '../models';
+import {config} from '../models';
 import {sshconfig} from '../models';
 
 export function AddGroup(arg1:store.CreateGroupInput):Promise<store.Group>;
@@ -92,6 +92,8 @@ export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;
+
+export function TestCredentialRef(arg1:string,arg2:string):Promise<void>;
 
 export function TestHostCredential(arg1:string):Promise<void>;
 

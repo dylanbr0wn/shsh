@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound, ShieldCheck, ShieldOff } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isAddHostOpenAtom,
@@ -10,7 +10,12 @@ import {
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
 import type { CreateHostInput, Host, CredentialSource, PasswordManagersStatus } from '../../types'
-import { AddHost, BrowseKeyFile, CheckPasswordManagers } from '../../../wailsjs/go/main/App'
+import {
+  AddHost,
+  BrowseKeyFile,
+  CheckPasswordManagers,
+  TestCredentialRef,
+} from '../../../wailsjs/go/main/App'
 import {
   Dialog,
   DialogBody,
@@ -28,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
+import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
 
 const defaultForm: CreateHostInput = {
@@ -57,39 +63,6 @@ function FieldHint({ children }: { children: React.ReactNode }) {
   )
 }
 
-function PMStatusBadge({
-  status,
-  source,
-}: {
-  status: PasswordManagersStatus | null
-  source: CredentialSource
-}) {
-  if (!status) return null
-  const pm = source === '1password' ? status.onePassword : status.bitwarden
-  if (!pm.available) {
-    return (
-      <span className="text-muted-foreground flex items-center gap-1 text-xs">
-        <ShieldOff className="size-3" />
-        {pm.error ?? 'CLI not found'}
-      </span>
-    )
-  }
-  if (pm.locked) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-amber-500">
-        <ShieldOff className="size-3" />
-        {pm.error ?? 'Locked'}
-      </span>
-    )
-  }
-  return (
-    <span className="flex items-center gap-1 text-xs text-emerald-500">
-      <ShieldCheck className="size-3" />
-      Unlocked
-    </span>
-  )
-}
-
 export function AddHostModal() {
   const [isAddHostOpen, setIsAddHostOpen] = useAtom(isAddHostOpenAtom)
   const setHosts = useSetAtom(hostsAtom)
@@ -102,10 +75,15 @@ export function AddHostModal() {
   const [browsingKey, setBrowsingKey] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
   const [pmStatus, setPmStatus] = useState<PasswordManagersStatus | null>(null)
+  const [testing, setTesting] = useState(false)
   const credSrc = form.credentialSource ?? 'inline'
 
   useEffect(() => {
-    if (isAddHostOpen && form.authMethod === 'password' && credSrc !== 'inline') {
+    if (credSrc === 'inline') {
+      setPmStatus(null)
+      return
+    }
+    if (isAddHostOpen && form.authMethod === 'password') {
       CheckPasswordManagers()
         .then(setPmStatus)
         .catch(() => {})
@@ -143,6 +121,18 @@ export function AddHostModal() {
       toast.error('Failed to save host', { description: String(err) })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleTestCredential() {
+    setTesting(true)
+    try {
+      await TestCredentialRef(credSrc, form.credentialRef ?? '')
+      toast.success('Credential fetched successfully')
+    } catch (err) {
+      toast.error('Credential test failed', { description: String(err) })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -270,7 +260,9 @@ export function AddHostModal() {
                           password: '',
                           credentialRef: '',
                         }))
-                        if (val !== 'inline') {
+                        if (val === 'inline') {
+                          setPmStatus(null)
+                        } else {
                           CheckPasswordManagers()
                             .then(setPmStatus)
                             .catch(() => {})
@@ -326,6 +318,15 @@ export function AddHostModal() {
                           onChange={field('credentialRef')}
                           className="flex-1"
                         />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={testing || !form.credentialRef}
+                          onClick={handleTestCredential}
+                        >
+                          {testing && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                          Test
+                        </Button>
                       </div>
                       <FieldDescription className="flex items-center justify-between">
                         <PMStatusBadge status={pmStatus} source={credSrc} />

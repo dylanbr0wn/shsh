@@ -174,6 +174,10 @@ export function StopSessionLog(arg1) {
   return window['go']['main']['App']['StopSessionLog'](arg1);
 }
 
+export function TestCredentialRef(arg1, arg2) {
+  return window['go']['main']['App']['TestCredentialRef'](arg1, arg2);
+}
+
 export function TestHostCredential(arg1) {
   return window['go']['main']['App']['TestHostCredential'](arg1);
 }

@@ -148,10 +148,15 @@ func FetchFromBitwarden(ref string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// SetBitwardenSessionKey caches a Bitwarden session key for the app lifetime.
-// Call this after the user has unlocked the vault with `bw unlock`.
-func SetBitwardenSessionKey(key string) {
-	mu.Lock()
-	defer mu.Unlock()
-	bwSessionKey = key
+// Fetch retrieves a credential from the given external source using ref.
+// source must be Source1Password or SourceBitwarden.
+func Fetch(source Source, ref string) (string, error) {
+	switch source {
+	case Source1Password:
+		return FetchFrom1Password(ref)
+	case SourceBitwarden:
+		return FetchFromBitwarden(ref)
+	default:
+		return "", fmt.Errorf("unsupported credential source: %s", source)
+	}
 }

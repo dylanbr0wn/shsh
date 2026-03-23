@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound, ShieldCheck, ShieldOff, Loader2 } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isEditHostOpenAtom,
@@ -15,7 +15,7 @@ import {
   UpdateHost,
   BrowseKeyFile,
   CheckPasswordManagers,
-  TestHostCredential,
+  TestCredentialRef,
 } from '../../../wailsjs/go/main/App'
 import {
   Dialog,
@@ -34,6 +34,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
+import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
 
 interface FormErrors {
@@ -58,39 +59,6 @@ function FieldHint({
         {children}
       </TooltipContent>
     </Tooltip>
-  )
-}
-
-function PMStatusBadge({
-  status,
-  source,
-}: {
-  status: PasswordManagersStatus | null
-  source: CredentialSource
-}) {
-  if (!status) return null
-  const pm = source === '1password' ? status.onePassword : status.bitwarden
-  if (!pm.available) {
-    return (
-      <span className="text-muted-foreground flex items-center gap-1 text-xs">
-        <ShieldOff className="size-3" />
-        {pm.error ?? 'CLI not found'}
-      </span>
-    )
-  }
-  if (pm.locked) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-amber-500">
-        <ShieldOff className="size-3" />
-        {pm.error ?? 'Locked'}
-      </span>
-    )
-  }
-  return (
-    <span className="flex items-center gap-1 text-xs text-emerald-500">
-      <ShieldCheck className="size-3" />
-      Unlocked
-    </span>
   )
 }
 
@@ -146,7 +114,11 @@ export function EditHostModal() {
   }, [editingHost])
 
   useEffect(() => {
-    if (isOpen && form.authMethod === 'password' && credSrc !== 'inline') {
+    if (credSrc === 'inline') {
+      setPmStatus(null)
+      return
+    }
+    if (isOpen && form.authMethod === 'password') {
       CheckPasswordManagers()
         .then(setPmStatus)
         .catch(() => {})
@@ -186,10 +158,9 @@ export function EditHostModal() {
   }
 
   async function handleTestCredential() {
-    if (!form.id) return
     setTesting(true)
     try {
-      await TestHostCredential(form.id)
+      await TestCredentialRef(credSrc, form.credentialRef ?? '')
       toast.success('Credential fetched successfully')
     } catch (err) {
       toast.error('Credential test failed', { description: String(err) })
@@ -321,7 +292,9 @@ export function EditHostModal() {
                           password: '',
                           credentialRef: val === 'inline' ? '' : f.credentialRef,
                         }))
-                        if (val !== 'inline') {
+                        if (val === 'inline') {
+                          setPmStatus(null)
+                        } else {
                           CheckPasswordManagers()
                             .then(setPmStatus)
                             .catch(() => {})

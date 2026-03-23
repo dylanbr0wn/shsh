@@ -149,6 +149,13 @@ func (a *App) TestHostCredential(hostID string) error {
 	return err
 }
 
+// TestCredentialRef fetches a credential directly by source and ref,
+// without requiring the host to be saved first.
+func (a *App) TestCredentialRef(source string, ref string) error {
+	_, err := credstore.Fetch(credstore.Source(source), ref)
+	return err
+}
+
 // --- Terminal Profile CRUD ---
 
 func (a *App) ListTerminalProfiles() ([]store.TerminalProfile, error) {

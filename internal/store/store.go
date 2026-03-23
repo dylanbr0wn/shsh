@@ -552,7 +552,7 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 		case credstore.Source1Password:
 			pw, err := credstore.FetchFrom1Password(h.CredentialRef)
 			if err != nil {
-				log.Warn().Err(err).Str("hostID", id).Msg("1Password fetch failed, falling back to empty")
+				log.Warn().Err(err).Str("hostID", id).Msg("1Password fetch failed")
 				return h, "", fmt.Errorf("1Password: %w", err)
 			}
 			return h, pw, nil
