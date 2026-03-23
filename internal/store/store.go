@@ -91,6 +91,7 @@ type Host struct {
 	Tags              []string   `json:"tags,omitempty"`
 	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
 	KeyPath           *string    `json:"keyPath,omitempty"`
+	JumpHostID        *string    `json:"jumpHostId,omitempty"`
 }
 
 // CreateHostInput is the payload for adding a new host.
@@ -107,6 +108,7 @@ type CreateHostInput struct {
 	Color             string     `json:"color,omitempty"`
 	Tags              []string   `json:"tags,omitempty"`
 	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
+	JumpHostID        *string    `json:"jumpHostId,omitempty"`
 }
 
 // UpdateHostInput is the payload for editing an existing host.
@@ -124,6 +126,7 @@ type UpdateHostInput struct {
 	Color             string     `json:"color,omitempty"`
 	Tags              []string   `json:"tags,omitempty"`
 	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
+	JumpHostID        *string    `json:"jumpHostId,omitempty"`
 }
 
 // Store manages persistent host data in SQLite.
@@ -192,6 +195,7 @@ func New(dbPath string) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN terminal_profile_id TEXT REFERENCES terminal_profiles(id) ON DELETE SET NULL`)
 	_, _ = db.Exec(`ALTER TABLE groups ADD COLUMN terminal_profile_id TEXT REFERENCES terminal_profiles(id) ON DELETE SET NULL`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN key_path TEXT`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN jump_host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
 
 	return &Store{db: db}, nil
 }
@@ -319,7 +323,7 @@ func (s *Store) DeleteProfile(id string) error {
 // ListHosts returns all saved hosts.
 func (s *Store) ListHosts() ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path FROM hosts ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id FROM hosts ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -329,8 +333,8 @@ func (s *Store) ListHosts() ([]Host, error) {
 	var hosts []Host
 	for rows.Next() {
 		var h Host
-		var lastConn, groupID, color, tags, profileID, keyPath sql.NullString
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath); err != nil {
+		var lastConn, groupID, color, tags, profileID, keyPath, jumpHostID sql.NullString
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &jumpHostID); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -344,6 +348,9 @@ func (s *Store) ListHosts() ([]Host, error) {
 		}
 		if keyPath.Valid {
 			h.KeyPath = &keyPath.String
+		}
+		if jumpHostID.Valid {
+			h.JumpHostID = &jumpHostID.String
 		}
 		scanColorTags(&h, color, tags)
 		hosts = append(hosts, h)
@@ -369,6 +376,7 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 		Tags:              input.Tags,
 		TerminalProfileID: input.TerminalProfileID,
 		KeyPath:           input.KeyPath,
+		JumpHostID:        input.JumpHostID,
 	}
 
 	groupID := sql.NullString{}
@@ -379,9 +387,9 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		host.ID, host.Label, host.Hostname, host.Port, host.Username, host.AuthMethod, host.CreatedAt, groupID,
-		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath),
+		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), nullStrPtr(input.JumpHostID),
 	)
 	if err != nil {
 		return Host{}, err
@@ -418,9 +426,9 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=? WHERE id=?`,
+		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=?, jump_host_id=? WHERE id=?`,
 		input.Label, input.Hostname, input.Port, input.Username, input.AuthMethod, groupID,
-		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), input.ID,
+		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), nullStrPtr(input.JumpHostID), input.ID,
 	)
 	if err != nil {
 		return Host{}, err
@@ -449,10 +457,10 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	}
 
 	var h Host
-	var lastConn, gid, color, tags, profileID, keyPath sql.NullString
+	var lastConn, gid, color, tags, profileID, keyPath, jumpHostID sql.NullString
 	err = s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path FROM hosts WHERE id=?`, input.ID,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath)
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id FROM hosts WHERE id=?`, input.ID,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &jumpHostID)
 	if err != nil {
 		return Host{}, err
 	}
@@ -467,6 +475,9 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	}
 	if keyPath.Valid {
 		h.KeyPath = &keyPath.String
+	}
+	if jumpHostID.Valid {
+		h.JumpHostID = &jumpHostID.String
 	}
 	scanColorTags(&h, color, tags)
 	return h, nil
@@ -486,15 +497,18 @@ func (s *Store) DeleteHost(id string) error {
 // For agent auth: returns an empty secret.
 func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	var h Host
-	var dbPassword, keyPath sql.NullString
+	var dbPassword, keyPath, jumpHostID sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, password, key_path FROM hosts WHERE id = ?`, id,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath)
+		`SELECT id, label, hostname, port, username, auth_method, password, key_path, jump_host_id FROM hosts WHERE id = ?`, id,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath, &jumpHostID)
 	if err != nil {
 		return Host{}, "", fmt.Errorf("host not found: %w", err)
 	}
 	if keyPath.Valid {
 		h.KeyPath = &keyPath.String
+	}
+	if jumpHostID.Valid {
+		h.JumpHostID = &jumpHostID.String
 	}
 
 	switch h.AuthMethod {

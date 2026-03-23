@@ -46,6 +46,7 @@ export interface Host {
   tags?: string[]
   terminalProfileId?: string
   keyPath?: string
+  jumpHostId?: string
 }
 
 export interface Session {
@@ -69,6 +70,7 @@ export interface CreateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  jumpHostId?: string
 }
 
 export interface UpdateHostInput {
@@ -85,6 +87,7 @@ export interface UpdateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  jumpHostId?: string
 }
 
 export interface SFTPEntry {

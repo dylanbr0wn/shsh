@@ -185,7 +185,16 @@ func (a *App) BulkConnectGroup(groupID string) ([]BulkConnectResult, error) {
 		if err != nil {
 			continue
 		}
-		sessionID := a.manager.Connect(host, password, func() {
+		var jumpHost *store.Host
+		var jumpPassword string
+		if host.JumpHostID != nil {
+			jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
+			if err == nil {
+				jumpHost = &jh
+				jumpPassword = jp
+			}
+		}
+		sessionID := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
 			a.store.TouchLastConnected(h.ID)
 		})
 		results = append(results, BulkConnectResult{SessionID: sessionID, HostID: h.ID})
@@ -370,7 +379,7 @@ func (a *App) QuickConnect(input QuickConnectInput) (string, error) {
 		Username:   input.Username,
 		AuthMethod: input.AuthMethod,
 	}
-	sessionID := a.manager.Connect(host, input.Password, nil)
+	sessionID := a.manager.Connect(host, input.Password, nil, "", nil)
 	return sessionID, nil
 }
 
@@ -383,7 +392,18 @@ func (a *App) ConnectHost(hostID string) (string, error) {
 
 	log.Info().Str("hostID", hostID).Str("hostname", host.Hostname).Int("port", host.Port).Str("username", host.Username).Msg("Connecting to host")
 
-	sessionID := a.manager.Connect(host, password, func() {
+	var jumpHost *store.Host
+	var jumpPassword string
+	if host.JumpHostID != nil {
+		jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
+		if err != nil {
+			return "", fmt.Errorf("resolving jump host: %w", err)
+		}
+		jumpHost = &jh
+		jumpPassword = jp
+	}
+
+	sessionID := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
 		a.store.TouchLastConnected(hostID)
 	})
 	return sessionID, nil
