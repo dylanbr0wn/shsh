@@ -99,20 +99,11 @@ export function DeployKeyModal({ open, onClose, hostId, hostLabel }: Props) {
                   onChange={(e) => setKeyPath(e.target.value)}
                   className="flex-1"
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={browsing}
-                  onClick={handleBrowse}
-                >
+                <Button type="button" variant="outline" disabled={browsing} onClick={handleBrowse}>
                   <FolderOpen data-icon="inline-start" />
                   Browse
                 </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setGenerateKeyOpen(true)}
-                >
+                <Button type="button" variant="outline" onClick={() => setGenerateKeyOpen(true)}>
                   <KeyRound data-icon="inline-start" />
                   Generate…
                 </Button>
@@ -131,21 +122,17 @@ export function DeployKeyModal({ open, onClose, hostId, hostLabel }: Props) {
 
           {/* Transparency block */}
           <div className="bg-muted/50 text-muted-foreground mt-4 space-y-1 rounded-md p-3 text-xs">
-            <p className="text-foreground font-medium">
-              This will connect to {hostLabel} and:
-            </p>
+            <p className="text-foreground font-medium">This will connect to {hostLabel} and:</p>
             <ul className="mt-1 list-inside list-disc space-y-0.5">
               <li>Ensure ~/.ssh exists with permissions 700</li>
-              <li>
-                Append your public key to ~/.ssh/authorized_keys (if not already present)
-              </li>
+              <li>Append your public key to ~/.ssh/authorized_keys (if not already present)</li>
               <li>Set permissions 600 on ~/.ssh/authorized_keys</li>
             </ul>
-            <p className="mt-2 break-all font-mono text-[10px]">
+            <p className="mt-2 font-mono text-[10px] break-all">
               {keyPreview ? (
                 <>Key: {keyPreview}</>
               ) : (
-                <span className="opacity-60 italic">Select a key above to preview</span>
+                <span className="italic opacity-60">Select a key above to preview</span>
               )}
             </p>
           </div>
