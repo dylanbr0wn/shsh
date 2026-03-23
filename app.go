@@ -732,6 +732,22 @@ func (a *App) BrowseKeyFile() (string, error) {
 	return path, nil
 }
 
+// ReadPublicKeyText reads a public key file and returns its first line.
+// If path does not end in ".pub", ".pub" is appended before reading.
+// Used by the frontend to preview the key in the Deploy Public Key dialog.
+func (a *App) ReadPublicKeyText(path string) (string, error) {
+	pubPath := path
+	if !strings.HasSuffix(pubPath, ".pub") {
+		pubPath = path + ".pub"
+	}
+	data, err := os.ReadFile(pubPath)
+	if err != nil {
+		return "", fmt.Errorf("read public key: %w", err)
+	}
+	line := strings.SplitN(strings.TrimRight(string(data), "\n"), "\n", 2)[0]
+	return line, nil
+}
+
 // validateLogPath ensures the given path is within the shsh logs directory.
 func (a *App) validateLogPath(path string) error {
 	configDir, err := os.UserConfigDir()
