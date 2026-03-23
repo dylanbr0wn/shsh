@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dylanbr0wn/shsh/internal/credstore"
+
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
@@ -78,55 +80,61 @@ type UpdateGroupInput struct {
 
 // Host represents a saved SSH host entry.
 type Host struct {
-	ID                string     `json:"id"`
-	Label             string     `json:"label"`
-	Hostname          string     `json:"hostname"`
-	Port              int        `json:"port"`
-	Username          string     `json:"username"`
-	AuthMethod        AuthMethod `json:"authMethod"`
-	CreatedAt         string     `json:"createdAt"`
-	LastConnectedAt   *string    `json:"lastConnectedAt,omitempty"`
-	GroupID           *string    `json:"groupId,omitempty"`
-	Color             string     `json:"color,omitempty"`
-	Tags              []string   `json:"tags,omitempty"`
-	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
-	KeyPath           *string    `json:"keyPath,omitempty"`
-	JumpHostID        *string    `json:"jumpHostId,omitempty"`
+	ID                string           `json:"id"`
+	Label             string           `json:"label"`
+	Hostname          string           `json:"hostname"`
+	Port              int              `json:"port"`
+	Username          string           `json:"username"`
+	AuthMethod        AuthMethod       `json:"authMethod"`
+	CreatedAt         string           `json:"createdAt"`
+	LastConnectedAt   *string          `json:"lastConnectedAt,omitempty"`
+	GroupID           *string          `json:"groupId,omitempty"`
+	Color             string           `json:"color,omitempty"`
+	Tags              []string         `json:"tags,omitempty"`
+	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
+	KeyPath           *string          `json:"keyPath,omitempty"`
+	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
+	CredentialRef     string           `json:"credentialRef,omitempty"`
+	JumpHostID        *string          `json:"jumpHostId,omitempty"`
 }
 
 // CreateHostInput is the payload for adding a new host.
 type CreateHostInput struct {
-	Label             string     `json:"label"`
-	Hostname          string     `json:"hostname"`
-	Port              int        `json:"port"`
-	Username          string     `json:"username"`
-	AuthMethod        AuthMethod `json:"authMethod"`
-	Password          string     `json:"password,omitempty"`
-	KeyPath           *string    `json:"keyPath,omitempty"`
-	KeyPassphrase     string     `json:"keyPassphrase,omitempty"`
-	GroupID           *string    `json:"groupId,omitempty"`
-	Color             string     `json:"color,omitempty"`
-	Tags              []string   `json:"tags,omitempty"`
-	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
-	JumpHostID        *string    `json:"jumpHostId,omitempty"`
+	Label             string           `json:"label"`
+	Hostname          string           `json:"hostname"`
+	Port              int              `json:"port"`
+	Username          string           `json:"username"`
+	AuthMethod        AuthMethod       `json:"authMethod"`
+	Password          string           `json:"password,omitempty"`
+	KeyPath           *string          `json:"keyPath,omitempty"`
+	KeyPassphrase     string           `json:"keyPassphrase,omitempty"`
+	GroupID           *string          `json:"groupId,omitempty"`
+	Color             string           `json:"color,omitempty"`
+	Tags              []string         `json:"tags,omitempty"`
+	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
+	JumpHostID        *string          `json:"jumpHostId,omitempty"`
+	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
+	CredentialRef     string           `json:"credentialRef,omitempty"`
 }
 
 // UpdateHostInput is the payload for editing an existing host.
 type UpdateHostInput struct {
-	ID                string     `json:"id"`
-	Label             string     `json:"label"`
-	Hostname          string     `json:"hostname"`
-	Port              int        `json:"port"`
-	Username          string     `json:"username"`
-	AuthMethod        AuthMethod `json:"authMethod"`
-	Password          string     `json:"password,omitempty"`
-	KeyPath           *string    `json:"keyPath,omitempty"`
-	KeyPassphrase     string     `json:"keyPassphrase,omitempty"`
-	GroupID           *string    `json:"groupId,omitempty"`
-	Color             string     `json:"color,omitempty"`
-	Tags              []string   `json:"tags,omitempty"`
-	TerminalProfileID *string    `json:"terminalProfileId,omitempty"`
-	JumpHostID        *string    `json:"jumpHostId,omitempty"`
+	ID                string           `json:"id"`
+	Label             string           `json:"label"`
+	Hostname          string           `json:"hostname"`
+	Port              int              `json:"port"`
+	Username          string           `json:"username"`
+	AuthMethod        AuthMethod       `json:"authMethod"`
+	Password          string           `json:"password,omitempty"`
+	KeyPath           *string          `json:"keyPath,omitempty"`
+	KeyPassphrase     string           `json:"keyPassphrase,omitempty"`
+	GroupID           *string          `json:"groupId,omitempty"`
+	Color             string           `json:"color,omitempty"`
+	Tags              []string         `json:"tags,omitempty"`
+	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
+	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
+	CredentialRef     string           `json:"credentialRef,omitempty"`
+	JumpHostID        *string          `json:"jumpHostId,omitempty"`
 }
 
 // Store manages persistent host data in SQLite.
@@ -195,6 +203,8 @@ func New(dbPath string) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN terminal_profile_id TEXT REFERENCES terminal_profiles(id) ON DELETE SET NULL`)
 	_, _ = db.Exec(`ALTER TABLE groups ADD COLUMN terminal_profile_id TEXT REFERENCES terminal_profiles(id) ON DELETE SET NULL`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN key_path TEXT`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_source TEXT NOT NULL DEFAULT 'inline'`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_ref TEXT`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN jump_host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
 
 	return &Store{db: db}, nil
@@ -323,7 +333,7 @@ func (s *Store) DeleteProfile(id string) error {
 // ListHosts returns all saved hosts.
 func (s *Store) ListHosts() ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id FROM hosts ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id FROM hosts ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -333,8 +343,8 @@ func (s *Store) ListHosts() ([]Host, error) {
 	var hosts []Host
 	for rows.Next() {
 		var h Host
-		var lastConn, groupID, color, tags, profileID, keyPath, jumpHostID sql.NullString
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &jumpHostID); err != nil {
+		var lastConn, groupID, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -348,6 +358,12 @@ func (s *Store) ListHosts() ([]Host, error) {
 		}
 		if keyPath.Valid {
 			h.KeyPath = &keyPath.String
+		}
+		if credSrc.Valid {
+			h.CredentialSource = credstore.Source(credSrc.String)
+		}
+		if credRef.Valid {
+			h.CredentialRef = credRef.String
 		}
 		if jumpHostID.Valid {
 			h.JumpHostID = &jumpHostID.String
@@ -363,6 +379,11 @@ func (s *Store) ListHosts() ([]Host, error) {
 
 // AddHost saves a new SSH host to the database and stores its password in the OS keychain.
 func (s *Store) AddHost(input CreateHostInput) (Host, error) {
+	credSrc := input.CredentialSource
+	if credSrc == "" {
+		credSrc = credstore.SourceInline
+	}
+
 	host := Host{
 		ID:                uuid.New().String(),
 		Label:             input.Label,
@@ -376,6 +397,8 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 		Tags:              input.Tags,
 		TerminalProfileID: input.TerminalProfileID,
 		KeyPath:           input.KeyPath,
+		CredentialSource:  credSrc,
+		CredentialRef:     input.CredentialRef,
 		JumpHostID:        input.JumpHostID,
 	}
 
@@ -387,15 +410,16 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		host.ID, host.Label, host.Hostname, host.Port, host.Username, host.AuthMethod, host.CreatedAt, groupID,
-		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), nullStrPtr(input.JumpHostID),
+		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), string(credSrc), nullStr(input.CredentialRef), nullStrPtr(input.JumpHostID),
 	)
 	if err != nil {
 		return Host{}, err
 	}
 
-	if input.Password != "" && input.AuthMethod == AuthPassword {
+	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
+	if input.AuthMethod == AuthPassword && credSrc == credstore.SourceInline && input.Password != "" {
 		if err := keychainSet(host.ID, input.Password); err != nil {
 			if errors.Is(err, ErrKeychainUnavailable) {
 				log.Warn().Str("hostID", host.ID).Msg("keychain unavailable, storing password in DB as fallback")
@@ -418,6 +442,11 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 
 // UpdateHost updates an existing host record and manages its keychain password entry.
 func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
+	credSrc := input.CredentialSource
+	if credSrc == "" {
+		credSrc = credstore.SourceInline
+	}
+
 	groupID := sql.NullString{}
 	if input.GroupID != nil {
 		groupID = sql.NullString{String: *input.GroupID, Valid: true}
@@ -426,15 +455,17 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=?, jump_host_id=? WHERE id=?`,
+		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=?, credential_source=?, credential_ref=?, jump_host_id=? WHERE id=?`,
 		input.Label, input.Hostname, input.Port, input.Username, input.AuthMethod, groupID,
-		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), nullStrPtr(input.JumpHostID), input.ID,
+		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath),
+		string(credSrc), nullStr(input.CredentialRef), nullStrPtr(input.JumpHostID), input.ID,
 	)
 	if err != nil {
 		return Host{}, err
 	}
 
-	if input.AuthMethod == AuthPassword && input.Password != "" {
+	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
+	if input.AuthMethod == AuthPassword && credSrc == credstore.SourceInline && input.Password != "" {
 		if err := keychainSet(input.ID, input.Password); err != nil {
 			if errors.Is(err, ErrKeychainUnavailable) {
 				log.Warn().Str("hostID", input.ID).Msg("keychain unavailable, storing password in DB as fallback")
@@ -445,8 +476,12 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		} else {
 			s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 		}
+	} else if input.AuthMethod == AuthPassword && credSrc != credstore.SourceInline {
+		// Switching to external PM — clear any inline keychain entry.
+		keychainDelete(input.ID)                                         //nolint:errcheck
+		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 	} else if input.AuthMethod != AuthPassword {
-		keychainDelete(input.ID) //nolint:errcheck
+		keychainDelete(input.ID)                                         //nolint:errcheck
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 	}
 
@@ -457,10 +492,10 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	}
 
 	var h Host
-	var lastConn, gid, color, tags, profileID, keyPath, jumpHostID sql.NullString
+	var lastConn, gid, color, tags, profileID, keyPath, credSrcCol, credRefCol, jumpHostID sql.NullString
 	err = s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, jump_host_id FROM hosts WHERE id=?`, input.ID,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &jumpHostID)
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id FROM hosts WHERE id=?`, input.ID,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrcCol, &credRefCol, &jumpHostID)
 	if err != nil {
 		return Host{}, err
 	}
@@ -476,6 +511,12 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	if keyPath.Valid {
 		h.KeyPath = &keyPath.String
 	}
+	if credSrcCol.Valid {
+		h.CredentialSource = credstore.Source(credSrcCol.String)
+	}
+	if credRefCol.Valid {
+		h.CredentialRef = credRefCol.String
+	}
 	if jumpHostID.Valid {
 		h.JumpHostID = &jumpHostID.String
 	}
@@ -485,27 +526,34 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 
 // DeleteHost removes a saved host by ID and cleans up its keychain entries.
 func (s *Store) DeleteHost(id string) error {
-	keychainDelete(id)                  //nolint:errcheck
-	keychainDelete(id + ":passphrase")  //nolint:errcheck
+	keychainDelete(id)                 //nolint:errcheck
+	keychainDelete(id + ":passphrase") //nolint:errcheck
 	_, err := s.db.Exec(`DELETE FROM hosts WHERE id = ?`, id)
 	return err
 }
 
 // GetHostForConnect returns the host and its secret (password or key passphrase) for use during connection.
-// For password auth: reads from keychain, falling back to the DB column.
+// For password auth with inline source: reads from keychain, falling back to the DB column.
+// For password auth with external PM source: fetches from the configured password manager.
 // For key auth: reads the passphrase from keychain (empty string if unset).
 // For agent auth: returns an empty secret.
 func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	var h Host
-	var dbPassword, keyPath, jumpHostID sql.NullString
+	var dbPassword, keyPath, credSrc, credRef, jumpHostID sql.NullString
 	err := s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, password, key_path, jump_host_id FROM hosts WHERE id = ?`, id,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath, &jumpHostID)
+		`SELECT id, label, hostname, port, username, auth_method, password, key_path, credential_source, credential_ref, jump_host_id FROM hosts WHERE id = ?`, id,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath, &credSrc, &credRef, &jumpHostID)
 	if err != nil {
 		return Host{}, "", fmt.Errorf("host not found: %w", err)
 	}
 	if keyPath.Valid {
 		h.KeyPath = &keyPath.String
+	}
+	if credSrc.Valid {
+		h.CredentialSource = credstore.Source(credSrc.String)
+	}
+	if credRef.Valid {
+		h.CredentialRef = credRef.String
 	}
 	if jumpHostID.Valid {
 		h.JumpHostID = &jumpHostID.String
@@ -513,12 +561,29 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 
 	switch h.AuthMethod {
 	case AuthPassword:
-		pw, err := keychainGet(id)
-		if err == nil && pw != "" {
+		switch h.CredentialSource {
+		case credstore.Source1Password:
+			pw, err := credstore.FetchFrom1Password(h.CredentialRef)
+			if err != nil {
+				log.Warn().Err(err).Str("hostID", id).Msg("1Password fetch failed")
+				return h, "", fmt.Errorf("1Password: %w", err)
+			}
 			return h, pw, nil
+		case credstore.SourceBitwarden:
+			pw, err := credstore.FetchFromBitwarden(h.CredentialRef)
+			if err != nil {
+				log.Warn().Err(err).Str("hostID", id).Msg("Bitwarden fetch failed")
+				return h, "", fmt.Errorf("Bitwarden: %w", err)
+			}
+			return h, pw, nil
+		default: // SourceInline or empty
+			pw, err := keychainGet(id)
+			if err == nil && pw != "" {
+				return h, pw, nil
+			}
+			// Keychain unavailable or no entry — fall back to DB column.
+			return h, dbPassword.String, nil
 		}
-		// Keychain unavailable or no entry — fall back to DB column.
-		return h, dbPassword.String, nil
 	case AuthKey:
 		passphrase, _ := keychainGet(id + ":passphrase")
 		return h, passphrase, nil

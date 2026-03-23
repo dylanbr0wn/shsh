@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isEditHostOpenAtom,
@@ -10,8 +10,13 @@ import {
   terminalProfilesAtom,
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
-import type { UpdateHostInput, Host } from '../../types'
-import { UpdateHost, BrowseKeyFile } from '../../../wailsjs/go/main/App'
+import type { UpdateHostInput, Host, CredentialSource, PasswordManagersStatus } from '../../types'
+import {
+  UpdateHost,
+  BrowseKeyFile,
+  CheckPasswordManagers,
+  TestCredentialRef,
+} from '../../../wailsjs/go/main/App'
 import {
   Dialog,
   DialogBody,
@@ -28,10 +33,11 @@ import { TagInput } from '../ui/tag-input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select'
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
-import { Field, FieldError, FieldGroup, FieldLabel } from '../ui/field'
+import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
+import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
 
-interface FieldError {
+interface FormErrors {
   label?: string
   hostname?: string
   username?: string
@@ -73,11 +79,16 @@ export function EditHostModal() {
     username: '',
     authMethod: 'password',
     password: '',
+    credentialSource: 'inline',
   })
-  const [errors, setErrors] = useState<FieldError>({})
+  const [errors, setErrors] = useState<FormErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [browsingKey, setBrowsingKey] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
+  const [pmStatus, setPmStatus] = useState<PasswordManagersStatus | null>(null)
+  const [testing, setTesting] = useState(false)
+
+  const credSrc = form.credentialSource ?? 'inline'
 
   useEffect(() => {
     if (editingHost) {
@@ -96,18 +107,33 @@ export function EditHostModal() {
         tags: editingHost.tags,
         terminalProfileId: editingHost.terminalProfileId,
         jumpHostId: editingHost.jumpHostId,
+        credentialSource: editingHost.credentialSource ?? 'inline',
+        credentialRef: editingHost.credentialRef ?? '',
       })
       setErrors({})
+      setPmStatus(null)
     }
   }, [editingHost])
+
+  useEffect(() => {
+    if (credSrc === 'inline') {
+      setPmStatus(null)
+      return
+    }
+    if (isOpen && form.authMethod === 'password') {
+      CheckPasswordManagers()
+        .then(setPmStatus)
+        .catch(() => {})
+    }
+  }, [isOpen, form.authMethod, credSrc])
 
   function close() {
     setIsOpen(false)
     setErrors({})
   }
 
-  function validate(): FieldError {
-    const e: FieldError = {}
+  function validate(): FormErrors {
+    const e: FormErrors = {}
     if (!form.label.trim()) e.label = 'Label is required'
     if (!form.hostname.trim()) e.hostname = 'Hostname is required'
     if (!form.username.trim()) e.username = 'Username is required'
@@ -130,6 +156,18 @@ export function EditHostModal() {
       toast.error('Failed to update host', { description: String(err) })
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  async function handleTestCredential() {
+    setTesting(true)
+    try {
+      await TestCredentialRef(credSrc, form.credentialRef ?? '')
+      toast.success('Credential fetched successfully')
+    } catch (err) {
+      toast.error('Credential test failed', { description: String(err) })
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -195,6 +233,7 @@ export function EditHostModal() {
                   />
                 </Field>
               </div>
+
               <Field>
                 <FieldLabel htmlFor="eh-username">
                   Username
@@ -220,6 +259,8 @@ export function EditHostModal() {
                       password: '',
                       keyPath: undefined,
                       keyPassphrase: '',
+                      credentialSource: 'inline',
+                      credentialRef: '',
                     }))
                   }
                 >
@@ -235,19 +276,96 @@ export function EditHostModal() {
               </Field>
 
               {form.authMethod === 'password' && (
-                <Field>
-                  <FieldLabel htmlFor="eh-password">
-                    Password
-                    <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
-                  </FieldLabel>
-                  <Input
-                    id="eh-password"
-                    type="password"
-                    placeholder="Leave blank to keep unchanged"
-                    value={form.password ?? ''}
-                    onChange={field('password')}
-                  />
-                </Field>
+                <>
+                  <Field>
+                    <FieldLabel htmlFor="eh-cred-source">
+                      Credential Source
+                      <FieldHint>
+                        Where to fetch the password at connect time. Use a password manager to avoid
+                        storing credentials in shsh.
+                      </FieldHint>
+                    </FieldLabel>
+                    <Select
+                      value={credSrc}
+                      onValueChange={(val) => {
+                        setForm((f) => ({
+                          ...f,
+                          credentialSource: val as CredentialSource,
+                          password: '',
+                          credentialRef: val === 'inline' ? '' : f.credentialRef,
+                        }))
+                        if (val === 'inline') {
+                          setPmStatus(null)
+                        } else {
+                          CheckPasswordManagers()
+                            .then(setPmStatus)
+                            .catch(() => {})
+                        }
+                      }}
+                    >
+                      <SelectTrigger id="eh-cred-source" className="h-9">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="inline">Inline (macOS Keychain)</SelectItem>
+                        <SelectItem value="1password">1Password</SelectItem>
+                        <SelectItem value="bitwarden">Bitwarden</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+
+                  {credSrc === 'inline' && (
+                    <Field>
+                      <FieldLabel htmlFor="eh-password">
+                        Password
+                        <FieldHint>Leave blank to keep the current password unchanged.</FieldHint>
+                      </FieldLabel>
+                      <Input
+                        id="eh-password"
+                        type="password"
+                        placeholder="Leave blank to keep unchanged"
+                        value={form.password ?? ''}
+                        onChange={field('password')}
+                      />
+                    </Field>
+                  )}
+
+                  {(credSrc === '1password' || credSrc === 'bitwarden') && (
+                    <Field>
+                      <FieldLabel htmlFor="eh-cred-ref">
+                        {credSrc === '1password' ? '1Password Reference' : 'Bitwarden Item'}
+                        <FieldHint>
+                          {credSrc === '1password'
+                            ? 'An op:// URI (e.g. op://vault/item/password), item UUID, or item name'
+                            : 'The Bitwarden item name or UUID'}
+                        </FieldHint>
+                      </FieldLabel>
+                      <div className="flex gap-2">
+                        <Input
+                          id="eh-cred-ref"
+                          placeholder={
+                            credSrc === '1password' ? 'op://Personal/MyServer/password' : 'MyServer'
+                          }
+                          value={form.credentialRef ?? ''}
+                          onChange={field('credentialRef')}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={testing || !form.credentialRef}
+                          onClick={handleTestCredential}
+                        >
+                          {testing && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                          Test
+                        </Button>
+                      </div>
+                      <FieldDescription className="flex items-center justify-between">
+                        <PMStatusBadge status={pmStatus} source={credSrc} />
+                      </FieldDescription>
+                    </Field>
+                  )}
+                </>
               )}
 
               {form.authMethod === 'key' && (
@@ -283,7 +401,7 @@ export function EditHostModal() {
                           }
                         }}
                       >
-                        <FolderOpen className="size-3.5" />
+                        <FolderOpen data-icon="inline-start" />
                         Browse
                       </Button>
                       <Button
@@ -291,7 +409,7 @@ export function EditHostModal() {
                         variant="outline"
                         onClick={() => setGenerateKeyOpen(true)}
                       >
-                        <KeyRound className="size-3.5" />
+                        <KeyRound data-icon="inline-start" />
                         Generate…
                       </Button>
                     </div>
@@ -453,7 +571,7 @@ export function EditHostModal() {
           </form>
         </DialogBody>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={close}>
+          <Button type="button" variant="ghost" onClick={close}>
             Cancel
           </Button>
           <Button type="submit" form="eh-form" disabled={submitting}>

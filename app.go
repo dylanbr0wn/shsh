@@ -27,6 +27,8 @@ import (
 	"github.com/rs/zerolog/log"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
+
+	"github.com/dylanbr0wn/shsh/internal/credstore"
 )
 
 // App is the Wails application coordinator.
@@ -129,6 +131,29 @@ func (a *App) UpdateHost(input store.UpdateHostInput) (store.Host, error) {
 
 func (a *App) DeleteHost(id string) error {
 	return a.store.DeleteHost(id)
+}
+
+// --- Password Manager Integration ---
+
+// CheckPasswordManagers returns the availability and lock status of each
+// supported external password manager CLI.
+func (a *App) CheckPasswordManagers() credstore.PasswordManagersStatus {
+	return credstore.Check()
+}
+
+// TestHostCredential attempts to fetch the credential for the given host
+// using its configured credential source. Returns nil on success or an
+// error describing the failure.
+func (a *App) TestHostCredential(hostID string) error {
+	_, _, err := a.store.GetHostForConnect(hostID)
+	return err
+}
+
+// TestCredentialRef fetches a credential directly by source and ref,
+// without requiring the host to be saved first.
+func (a *App) TestCredentialRef(source string, ref string) error {
+	_, err := credstore.Fetch(credstore.Source(source), ref)
+	return err
 }
 
 // --- Terminal Profile CRUD ---
