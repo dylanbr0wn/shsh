@@ -64,3 +64,6 @@ export const addPortForwardSessionIdAtom = atom<string | null>(null)
 
 // hostId → latencyMs (-1 = unreachable, key absent = not yet checked)
 export const hostHealthAtom = atom<Record<string, number>>({})
+
+// Set of sessionIds that have received output while not active (unread activity)
+export const sessionActivityAtom = atom<Set<string>>(new Set<string>())
