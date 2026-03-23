@@ -44,7 +44,17 @@ export function useTerminal(
   // useLayoutEffect runs synchronously after commit (before paint), eliminating
   // the post-paint async gap that useEffect would leave.
   const isActiveRef = useRef(isActive)
+  // Timestamp (ms) of when this session last became inactive. Used to suppress
+  // activity indicators for output that arrives in the brief window right after
+  // a tab switch (e.g. shell prompt redraws triggered by the switch itself).
+  const becameInactiveAtRef = useRef<number>(0)
   useLayoutEffect(() => {
+    if (isActive) {
+      becameInactiveAtRef.current = 0
+    } else if (isActiveRef.current) {
+      // Transitioning active → inactive
+      becameInactiveAtRef.current = Date.now()
+    }
     isActiveRef.current = isActive
   }, [isActive])
 
@@ -53,10 +63,10 @@ export function useTerminal(
   useEffect(() => {
     if (!isActive) return
     setSessionActivity((prev) => {
-      if (!prev.has(sessionId)) return prev
       const next = new Set(prev)
+      if (!next.has(sessionId)) return prev
       next.delete(sessionId)
-      return next
+      return [...next]
     })
   }, [isActive, sessionId, setSessionActivity])
 
@@ -116,15 +126,25 @@ export function useTerminal(
     fitRef.current = fitAddon
     setSearchAddons((prev) => ({ ...prev, [sessionId]: searchAddon }))
 
+    // How long (ms) to suppress the activity indicator after a tab becomes
+    // inactive. This absorbs prompt redraws / echoes that the server sends
+    // immediately in response to the focus/resize triggered by switching tabs.
+    const ACTIVITY_GRACE_MS = 150
+
     // Pipe Go → terminal
     const cancelOutput = EventsOn(`session:output:${sessionId}`, (data: string) => {
       term.write(data)
       if (!isActiveRef.current) {
-        setSessionActivity((prev) => {
-          const next = new Set(prev)
-          next.add(sessionId)
-          return next
-        })
+        const msSinceInactive = becameInactiveAtRef.current
+          ? Date.now() - becameInactiveAtRef.current
+          : Infinity
+        if (msSinceInactive > ACTIVITY_GRACE_MS) {
+          setSessionActivity((prev) => {
+            const next = new Set(prev)
+            next.add(sessionId)
+            return [...next]
+          })
+        }
       }
     })
 

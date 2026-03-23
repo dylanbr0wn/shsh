@@ -56,7 +56,7 @@ export function TabBar() {
     setSessionActivity((prev) => {
       const next = new Set(prev)
       ids.forEach((id) => next.delete(id))
-      return next
+      return [...next]
     })
   }
 
@@ -73,7 +73,7 @@ export function TabBar() {
       setSessionActivity((prev) => {
         const next = new Set(prev)
         next.delete(sessionId)
-        return next
+        return [...next]
       })
     }, 1)
   }
@@ -111,6 +111,8 @@ export function TabBar() {
     }, sessions.length)
   }
 
+  console.log('TabBar render', { sessions, activeSessionId, sessionActivity })
+
   return (
     <>
       <div className="border-border bg-muted/30 flex h-8 shrink-0 items-stretch overflow-x-auto border-b">
@@ -120,7 +122,7 @@ export function TabBar() {
             session={session}
             host={hostById[session.hostId]}
             isActive={session.id === activeSessionId}
-            hasActivity={sessionActivity.has(session.id)}
+            hasActivity={sessionActivity.includes(session.id)}
             isFirst={idx === 0}
             isLast={idx === sessions.length - 1}
             onActivate={() => {
@@ -128,7 +130,7 @@ export function TabBar() {
               setSessionActivity((prev) => {
                 const next = new Set(prev)
                 next.delete(session.id)
-                return next
+                return [...next]
               })
             }}
             onClose={() => handleClose(session.id)}
