@@ -189,10 +189,12 @@ func (a *App) BulkConnectGroup(groupID string) ([]BulkConnectResult, error) {
 		var jumpPassword string
 		if host.JumpHostID != nil {
 			jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
-			if err == nil {
-				jumpHost = &jh
-				jumpPassword = jp
+			if err != nil {
+				log.Warn().Err(err).Str("hostID", h.ID).Msg("skipping bulk connect: could not resolve jump host")
+				continue
 			}
+			jumpHost = &jh
+			jumpPassword = jp
 		}
 		sessionID := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
 			a.store.TouchLastConnected(h.ID)

@@ -212,7 +212,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			jumpSSHConfig := &ssh.ClientConfig{
 				User:            jumpHost.Username,
 				Auth:            jumpAuth,
-				HostKeyCallback: ssh.InsecureIgnoreHostKey(), //nolint:gosec
+				HostKeyCallback: m.hostKeyCallback(sessionID),
 				Timeout:         timeout,
 			}
 			jumpTCPConn, err := net.DialTimeout("tcp",
@@ -316,6 +316,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			if jumpSSHClient != nil {
 				jumpSSHClient.Close()
 			}
+			emitErr("Failed to get stdout pipe", err)
 			return
 		}
 

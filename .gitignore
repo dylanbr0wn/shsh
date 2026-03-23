@@ -1,4 +1,4 @@
 build/bin
 frontend/node_modules
 frontend/dist
-!frontend/dist/.keep
+frontend/dist/.keep
