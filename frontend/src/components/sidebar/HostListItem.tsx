@@ -36,6 +36,7 @@ interface Props {
   onConnect: () => void
   onDelete: () => void
   onEdit: () => void
+  onDeployKey: () => void
   onMoveToGroup?: (hostId: string, groupId: string | null) => void
 }
 
@@ -70,6 +71,7 @@ export function HostListItem({
   onConnect,
   onDelete,
   onEdit,
+  onDeployKey,
   onMoveToGroup,
 }: Props) {
   const groups = useAtomValue(groupsAtom)
@@ -210,6 +212,7 @@ export function HostListItem({
                     </>
                   )}
                   <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+                  <DropdownMenuItem onClick={onDeployKey}>Deploy Public Key…</DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem variant="destructive" onClick={onDelete}>
                     Delete
@@ -245,6 +248,7 @@ export function HostListItem({
           </ContextMenuSub>
         )}
         <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
+        <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={onDelete}>
           Delete
