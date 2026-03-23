@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -24,6 +26,7 @@ import (
 	"github.com/dylanbr0wn/shsh/internal/store"
 
 	"github.com/google/uuid"
+	"github.com/melbahja/goph"
 	"github.com/rs/zerolog/log"
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
@@ -746,6 +749,188 @@ func (a *App) ReadPublicKeyText(path string) (string, error) {
 	}
 	line := strings.SplitN(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n", 2)[0]
 	return line, nil
+}
+
+// DeployPublicKey installs a public key on the remote host's ~/.ssh/authorized_keys,
+// equivalent to running ssh-copy-id. The operation is idempotent.
+// publicKeyPath may be the private key path; ".pub" is appended if missing.
+// Returns the SHA256 fingerprint of the deployed key on success.
+func (a *App) DeployPublicKey(hostID string, publicKeyPath string) (string, error) {
+	// 1. Derive and read the public key file.
+	pubPath := publicKeyPath
+	if !strings.HasSuffix(pubPath, ".pub") {
+		pubPath = publicKeyPath + ".pub"
+	}
+	pubKeyBytes, err := os.ReadFile(pubPath)
+	if err != nil {
+		return "", fmt.Errorf("read public key file: %w", err)
+	}
+
+	// 2. Parse for fingerprint and canonical form (type + base64, no comment).
+	parsed, _, _, _, err := ssh.ParseAuthorizedKey(pubKeyBytes)
+	if err != nil {
+		return "", fmt.Errorf("parse public key: %w", err)
+	}
+	fingerprint := ssh.FingerprintSHA256(parsed)
+	canonical := strings.TrimRight(string(ssh.MarshalAuthorizedKey(parsed)), "\n")
+
+	// 3. Resolve credentials — error if no saved credential.
+	host, secret, err := a.store.GetHostForConnect(hostID)
+	if err != nil {
+		return "", fmt.Errorf("get credentials: %w", err)
+	}
+
+	// 4. Build known-hosts callback.
+	hostKeyCallback, err := goph.DefaultKnownHosts()
+	if err != nil {
+		return "", fmt.Errorf("load known_hosts: %w", err)
+	}
+
+	const dialTimeout = 30 * time.Second
+
+	// 5. Dial SSH (direct or via jump host).
+	var client *goph.Client
+
+	if host.JumpHostID != nil {
+		jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
+		if err != nil {
+			return "", fmt.Errorf("get jump host credentials: %w", err)
+		}
+		jumpAuth, err := buildGophAuth(jh, jp)
+		if err != nil {
+			return "", fmt.Errorf("jump host auth: %w", err)
+		}
+		jumpSSHCfg := &ssh.ClientConfig{
+			User:            jh.Username,
+			Auth:            jumpAuth,
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         dialTimeout,
+		}
+		jumpConn, err := net.DialTimeout("tcp",
+			net.JoinHostPort(jh.Hostname, fmt.Sprintf("%d", jh.Port)), dialTimeout)
+		if err != nil {
+			return "", fmt.Errorf("dial jump host: %w", err)
+		}
+		ncc, chans, reqs, err := ssh.NewClientConn(jumpConn, jh.Hostname, jumpSSHCfg)
+		if err != nil {
+			jumpConn.Close()
+			return "", fmt.Errorf("connect jump host: %w", err)
+		}
+		jumpClient := ssh.NewClient(ncc, chans, reqs)
+		defer jumpClient.Close()
+
+		targetAuth, err := buildGophAuth(host, secret)
+		if err != nil {
+			return "", fmt.Errorf("target host auth: %w", err)
+		}
+		targetSSHCfg := &ssh.ClientConfig{
+			User:            host.Username,
+			Auth:            targetAuth,
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         dialTimeout,
+		}
+		tunnelConn, err := jumpClient.Dial("tcp",
+			net.JoinHostPort(host.Hostname, fmt.Sprintf("%d", host.Port)))
+		if err != nil {
+			return "", fmt.Errorf("dial target through jump host: %w", err)
+		}
+		targetNCC, targetChans, targetReqs, err := ssh.NewClientConn(
+			tunnelConn, host.Hostname, targetSSHCfg)
+		if err != nil {
+			tunnelConn.Close()
+			return "", fmt.Errorf("connect target via jump host: %w", err)
+		}
+		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs), Config: &goph.Config{}}
+	} else {
+		auth, err := buildGophAuth(host, secret)
+		if err != nil {
+			return "", fmt.Errorf("host auth: %w", err)
+		}
+		client, err = goph.NewConn(&goph.Config{
+			User:     host.Username,
+			Addr:     host.Hostname,
+			Port:     uint(host.Port),
+			Auth:     auth,
+			Timeout:  dialTimeout,
+			Callback: hostKeyCallback,
+		})
+		if err != nil {
+			return "", fmt.Errorf(
+				"connect to host (host key unknown? connect via terminal first): %w", err)
+		}
+	}
+	defer client.Close()
+
+	// 6. Ensure ~/.ssh exists with correct permissions.
+	if _, err := client.Run("mkdir -p ~/.ssh && chmod 700 ~/.ssh"); err != nil {
+		return "", fmt.Errorf("create ~/.ssh on remote: %w", err)
+	}
+
+	// 7. Idempotent append via SFTP (avoids shell injection from key comment field).
+	sftpClient, err := client.NewSftp()
+	if err != nil {
+		return "", fmt.Errorf("open sftp: %w", err)
+	}
+	defer sftpClient.Close()
+
+	const akPath = ".ssh/authorized_keys"
+	existing, err := func() ([]byte, error) {
+		f, err := sftpClient.Open(akPath)
+		if err != nil {
+			if os.IsNotExist(err) {
+				return nil, nil
+			}
+			return nil, err
+		}
+		defer f.Close()
+		return io.ReadAll(f)
+	}()
+	if err != nil {
+		return "", fmt.Errorf("read authorized_keys: %w", err)
+	}
+
+	if !bytes.Contains(existing, []byte(canonical)) {
+		newContent := append(existing, []byte(canonical+"\n")...)
+		f, err := sftpClient.OpenFile(akPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+		if err != nil {
+			return "", fmt.Errorf("open authorized_keys for writing: %w", err)
+		}
+		if _, writeErr := f.Write(newContent); writeErr != nil {
+			f.Close()
+			return "", fmt.Errorf("write authorized_keys: %w", writeErr)
+		}
+		f.Close()
+	}
+
+	// 8. Fix permissions on authorized_keys.
+	if _, err := client.Run("chmod 600 ~/.ssh/authorized_keys"); err != nil {
+		return "", fmt.Errorf("chmod authorized_keys: %w", err)
+	}
+
+	return fingerprint, nil
+}
+
+// buildGophAuth constructs a goph.Auth value for the given host and secret.
+// Mirrors the resolveAuth logic in internal/session but operates on App-level
+// code without importing the session package's unexported helper.
+func buildGophAuth(host store.Host, secret string) (goph.Auth, error) {
+	switch host.AuthMethod {
+	case store.AuthPassword:
+		return goph.Password(secret), nil
+	case store.AuthKey:
+		if host.KeyPath == nil || *host.KeyPath == "" {
+			return nil, fmt.Errorf("no key file configured for this host")
+		}
+		return goph.Key(*host.KeyPath, secret)
+	case store.AuthAgent:
+		return goph.UseAgent()
+	default:
+		ag, err := goph.UseAgent()
+		if err != nil {
+			return goph.Password(secret), nil
+		}
+		return ag, nil
+	}
 }
 
 // validateLogPath ensures the given path is within the shsh logs directory.

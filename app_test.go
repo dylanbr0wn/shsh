@@ -50,3 +50,24 @@ func TestReadPublicKeyText(t *testing.T) {
 		}
 	})
 }
+
+func TestDeployPublicKeyErrors(t *testing.T) {
+	t.Run("missing public key file returns error", func(t *testing.T) {
+		app := &App{}
+		_, err := app.DeployPublicKey("any-id", "/nonexistent/id_ed25519")
+		if err == nil {
+			t.Fatal("expected error for missing pub key file, got nil")
+		}
+	})
+
+	t.Run("invalid pub key content returns error", func(t *testing.T) {
+		dir := t.TempDir()
+		pubPath := filepath.Join(dir, "bad.pub")
+		os.WriteFile(pubPath, []byte("not a valid key\n"), 0600)
+		app := &App{}
+		_, err := app.DeployPublicKey("any-id", pubPath)
+		if err == nil {
+			t.Fatal("expected error for invalid key content, got nil")
+		}
+	})
+}
