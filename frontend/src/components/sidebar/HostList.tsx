@@ -11,6 +11,8 @@ import {
   isAddHostOpenAtom,
   isQuickConnectOpenAtom,
   isNewGroupOpenAtom,
+  isDeployKeyOpenAtom,
+  deployKeyHostAtom,
 } from '../../store/atoms'
 import { pendingConnects } from '../../store/useAppInit'
 import { useHostHealth } from '../../store/useHostHealth'
@@ -87,6 +89,8 @@ export function HostList() {
   const setEditingHost = useSetAtom(editingHostAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
+  const setIsDeployKeyOpen = useSetAtom(isDeployKeyOpenAtom)
+  const setDeployKeyHost = useSetAtom(deployKeyHostAtom)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('az')
@@ -205,6 +209,11 @@ export function HostList() {
   function handleEdit(host: Host) {
     setEditingHost(host)
     setIsEditOpen(true)
+  }
+
+  function handleDeployKey(host: Host) {
+    setDeployKeyHost(host)
+    setIsDeployKeyOpen(true)
   }
 
   async function handleMoveToGroup(hostId: string, groupId: string | null) {
@@ -398,6 +407,7 @@ export function HostList() {
                       onConnect={() => handleConnect(host.id, host.label)}
                       onDelete={() => handleDelete(host.id)}
                       onEdit={() => handleEdit(host)}
+                      onDeployKey={() => handleDeployKey(host)}
                       onMoveToGroup={handleMoveToGroup}
                     />
                   </div>
@@ -417,6 +427,7 @@ export function HostList() {
                   onConnect={handleConnect}
                   onDelete={handleDelete}
                   onEdit={handleEdit}
+                  onDeployKey={handleDeployKey}
                   onMoveToGroup={handleMoveToGroup}
                   onGroupDeleted={handleGroupDeleted}
                 />
@@ -439,6 +450,7 @@ export function HostList() {
                       onConnect={() => handleConnect(host.id, host.label)}
                       onDelete={() => handleDelete(host.id)}
                       onEdit={() => handleEdit(host)}
+                      onDeployKey={() => handleDeployKey(host)}
                       onMoveToGroup={handleMoveToGroup}
                     />
                   ))}

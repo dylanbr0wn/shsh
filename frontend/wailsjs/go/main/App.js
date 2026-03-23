@@ -54,6 +54,10 @@ export function DeleteTerminalProfile(arg1) {
   return window['go']['main']['App']['DeleteTerminalProfile'](arg1);
 }
 
+export function DeployPublicKey(arg1, arg2) {
+  return window['go']['main']['App']['DeployPublicKey'](arg1, arg2);
+}
+
 export function DisconnectSession(arg1) {
   return window['go']['main']['App']['DisconnectSession'](arg1);
 }
@@ -116,6 +120,10 @@ export function PingHosts(arg1) {
 
 export function QuickConnect(arg1) {
   return window['go']['main']['App']['QuickConnect'](arg1);
+}
+
+export function ReadPublicKeyText(arg1) {
+  return window['go']['main']['App']['ReadPublicKeyText'](arg1);
 }
 
 export function ReadSessionLog(arg1) {

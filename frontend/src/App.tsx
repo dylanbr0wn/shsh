@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -17,13 +18,17 @@ import { QuickConnectModal } from './components/modals/QuickConnectModal'
 import { LogViewerModal } from './components/modals/LogViewerModal'
 import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
+import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
+import { isDeployKeyOpenAtom, deployKeyHostAtom } from './store/atoms'
 
 export default function App() {
   useAppInit()
   const { resolvedTheme } = useTheme()
   const sidebarRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
+  const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -64,6 +69,12 @@ export default function App() {
         <LogViewerModal />
         <AddPortForwardModal />
         <TerminalProfilesModal />
+        <DeployKeyModal
+          open={isDeployKeyOpen}
+          onClose={() => setIsDeployKeyOpen(false)}
+          hostId={deployKeyHost?.id ?? ''}
+          hostLabel={deployKeyHost?.label ?? ''}
+        />
       </div>
       <Toaster position="bottom-right" theme={resolvedTheme as 'light' | 'dark'} />
     </TooltipProvider>

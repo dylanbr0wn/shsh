@@ -33,6 +33,8 @@ export function DeleteSessionLog(arg1:string):Promise<void>;
 
 export function DeleteTerminalProfile(arg1:string):Promise<void>;
 
+export function DeployPublicKey(arg1:string,arg2:string):Promise<string>;
+
 export function DisconnectSession(arg1:string):Promise<void>;
 
 export function ExportHosts(arg1:main.ExportInput):Promise<string>;
@@ -64,6 +66,8 @@ export function OpenSFTP(arg1:string):Promise<void>;
 export function PingHosts(arg1:Array<string>):Promise<Array<main.PingResult>>;
 
 export function QuickConnect(arg1:main.QuickConnectInput):Promise<string>;
+
+export function ReadPublicKeyText(arg1:string):Promise<string>;
 
 export function ReadSessionLog(arg1:string):Promise<string>;
 

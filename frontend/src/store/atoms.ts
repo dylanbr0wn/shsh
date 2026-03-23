@@ -67,3 +67,6 @@ export const hostHealthAtom = atom<Record<string, number>>({})
 
 // Set of sessionIds that have received output while not active (unread activity)
 export const sessionActivityAtom = atom<string[]>([])
+
+export const isDeployKeyOpenAtom = atom<boolean>(false)
+export const deployKeyHostAtom = atom<Host | null>(null)

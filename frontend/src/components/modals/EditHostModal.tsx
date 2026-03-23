@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Info, FolderOpen, KeyRound, Loader2 } from 'lucide-react'
+import { Info, FolderOpen, KeyRound, Loader2, Upload } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isEditHostOpenAtom,
@@ -36,6 +36,7 @@ import { cn } from '../../lib/utils'
 import { Field, FieldError, FieldGroup, FieldLabel, FieldDescription } from '../ui/field'
 import { PMStatusBadge } from '../ui/pm-status-badge'
 import { GenerateKeyModal } from './GenerateKeyModal'
+import { DeployKeyModal } from './DeployKeyModal'
 
 interface FormErrors {
   label?: string
@@ -85,6 +86,7 @@ export function EditHostModal() {
   const [submitting, setSubmitting] = useState(false)
   const [browsingKey, setBrowsingKey] = useState(false)
   const [generateKeyOpen, setGenerateKeyOpen] = useState(false)
+  const [deployKeyOpen, setDeployKeyOpen] = useState(false)
   const [pmStatus, setPmStatus] = useState<PasswordManagersStatus | null>(null)
   const [testing, setTesting] = useState(false)
 
@@ -375,7 +377,7 @@ export function EditHostModal() {
                       Private Key File
                       <FieldHint>Path to your private key, e.g. ~/.ssh/id_ed25519</FieldHint>
                     </FieldLabel>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2">
                       <Input
                         id="eh-key-path"
                         placeholder="~/.ssh/id_ed25519"
@@ -383,35 +385,44 @@ export function EditHostModal() {
                         onChange={(e) =>
                           setForm((f) => ({ ...f, keyPath: e.target.value || undefined }))
                         }
-                        className="flex-1"
                       />
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={browsingKey}
-                        onClick={async () => {
-                          setBrowsingKey(true)
-                          try {
-                            const path = await BrowseKeyFile()
-                            if (path) setForm((f) => ({ ...f, keyPath: path }))
-                          } catch {
-                            // user cancelled or error
-                          } finally {
-                            setBrowsingKey(false)
-                          }
-                        }}
-                      >
-                        <FolderOpen data-icon="inline-start" />
-                        Browse
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => setGenerateKeyOpen(true)}
-                      >
-                        <KeyRound data-icon="inline-start" />
-                        Generate…
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          disabled={browsingKey}
+                          onClick={async () => {
+                            setBrowsingKey(true)
+                            try {
+                              const path = await BrowseKeyFile()
+                              if (path) setForm((f) => ({ ...f, keyPath: path }))
+                            } catch {
+                              // user cancelled or error
+                            } finally {
+                              setBrowsingKey(false)
+                            }
+                          }}
+                        >
+                          <FolderOpen data-icon="inline-start" />
+                          Browse
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setGenerateKeyOpen(true)}
+                        >
+                          <KeyRound data-icon="inline-start" />
+                          Generate…
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setDeployKeyOpen(true)}
+                        >
+                          <Upload data-icon="inline-start" />
+                          Deploy…
+                        </Button>
+                      </div>
                     </div>
                   </Field>
                   <GenerateKeyModal
@@ -421,6 +432,12 @@ export function EditHostModal() {
                       setForm((f) => ({ ...f, keyPath: path }))
                       setGenerateKeyOpen(false)
                     }}
+                  />
+                  <DeployKeyModal
+                    open={deployKeyOpen}
+                    onClose={() => setDeployKeyOpen(false)}
+                    hostId={form.id}
+                    hostLabel={form.label}
                   />
                   <Field>
                     <FieldLabel htmlFor="eh-passphrase">
