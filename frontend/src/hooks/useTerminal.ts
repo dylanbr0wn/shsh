@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useLayoutEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { useTheme } from 'next-themes'
@@ -40,9 +40,11 @@ export function useTerminal(
   const setSessionActivity = useSetAtom(sessionActivityAtom)
   const { resolvedTheme } = useTheme()
 
-  // Track isActive in a ref so the output event handler always sees the current value
+  // Sync ref before paint so the output handler always reads the current value.
+  // useLayoutEffect runs synchronously after commit (before paint), eliminating
+  // the post-paint async gap that useEffect would leave.
   const isActiveRef = useRef(isActive)
-  useEffect(() => {
+  useLayoutEffect(() => {
     isActiveRef.current = isActive
   }, [isActive])
 
