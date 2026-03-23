@@ -840,7 +840,7 @@ func (a *App) DeployPublicKey(hostID string, publicKeyPath string) (string, erro
 			tunnelConn.Close()
 			return "", fmt.Errorf("connect target via jump host: %w", err)
 		}
-		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs), Config: &goph.Config{}}
+		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
 	} else {
 		auth, err := buildGophAuth(host, secret)
 		if err != nil {
@@ -925,11 +925,7 @@ func buildGophAuth(host store.Host, secret string) (goph.Auth, error) {
 	case store.AuthAgent:
 		return goph.UseAgent()
 	default:
-		ag, err := goph.UseAgent()
-		if err != nil {
-			return goph.Password(secret), nil
-		}
-		return ag, nil
+		return nil, fmt.Errorf("unknown auth method %q", host.AuthMethod)
 	}
 }
 
