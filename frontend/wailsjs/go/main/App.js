@@ -26,6 +26,10 @@ export function BulkConnectGroup(arg1) {
   return window['go']['main']['App']['BulkConnectGroup'](arg1);
 }
 
+export function CheckPasswordManagers() {
+  return window['go']['main']['App']['CheckPasswordManagers']();
+}
+
 export function CloseSFTP(arg1) {
   return window['go']['main']['App']['CloseSFTP'](arg1);
 }
@@ -168,6 +172,10 @@ export function StartSessionLog(arg1) {
 
 export function StopSessionLog(arg1) {
   return window['go']['main']['App']['StopSessionLog'](arg1);
+}
+
+export function TestHostCredential(arg1) {
+  return window['go']['main']['App']['TestHostCredential'](arg1);
 }
 
 export function UpdateConfig(arg1) {

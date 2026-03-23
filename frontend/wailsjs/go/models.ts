@@ -1,15 +1,15 @@
 export namespace config {
-	
+
 	export class LogConfig {
 	    level: string;
 	    max_size_mb: number;
 	    max_backups: number;
 	    max_age_days: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new LogConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.level = source["level"];
@@ -21,11 +21,11 @@ export namespace config {
 	export class WindowConfig {
 	    width: number;
 	    height: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new WindowConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.width = source["width"];
@@ -34,11 +34,11 @@ export namespace config {
 	}
 	export class SFTPConfig {
 	    buffer_size_kb: number;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SFTPConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.buffer_size_kb = source["buffer_size_kb"];
@@ -51,11 +51,11 @@ export namespace config {
 	    default_rsa_key_bits: number;
 	    terminal_type: string;
 	    port_forward_bind_address: string;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new SSHConfig(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.connection_timeout_seconds = source["connection_timeout_seconds"];
@@ -71,11 +71,11 @@ export namespace config {
 	    sftp: SFTPConfig;
 	    window: WindowConfig;
 	    log: LogConfig;
-	
+
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
 	    }
-	
+
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.ssh = this.convertValues(source["ssh"], SSHConfig);
@@ -83,7 +83,7 @@ export namespace config {
 	        this.window = this.convertValues(source["window"], WindowConfig);
 	        this.log = this.convertValues(source["log"], LogConfig);
 	    }
-	
+
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
 		    if (!a) {
 		        return a;
@@ -102,9 +102,59 @@ export namespace config {
 		    return a;
 		}
 	}
-	
-	
-	
+
+}
+
+export namespace credstore {
+
+	export class PMStatus {
+	    available: boolean;
+	    locked: boolean;
+	    error?: string;
+
+	    static createFrom(source: any = {}) {
+	        return new PMStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.locked = source["locked"];
+	        this.error = source["error"];
+	    }
+	}
+	export class PasswordManagersStatus {
+	    onePassword: PMStatus;
+	    bitwarden: PMStatus;
+
+	    static createFrom(source: any = {}) {
+	        return new PasswordManagersStatus(source);
+	    }
+
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.onePassword = this.convertValues(source["onePassword"], PMStatus);
+	        this.bitwarden = this.convertValues(source["bitwarden"], PMStatus);
+	    }
+
+		convertValues(a: any, classs: any, asMap: boolean = false): any {
+		    if (!a) {
+		        return a;
+		    }
+		    if (a.slice && a.map) {
+		        return (a as any[]).map(elem => this.convertValues(elem, classs));
+		    } else if ("object" === typeof a) {
+		        if (asMap) {
+		            for (const key of Object.keys(a)) {
+		                a[key] = new classs(a[key]);
+		            }
+		            return a;
+		        }
+		        return new classs(a);
+		    }
+		    return a;
+		}
+	}
 
 }
 
@@ -328,6 +378,8 @@ export namespace store {
 	    color?: string;
 	    tags?: string[];
 	    terminalProfileId?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new CreateHostInput(source);
@@ -347,6 +399,8 @@ export namespace store {
 	        this.color = source["color"];
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class CreateProfileInput {
@@ -405,6 +459,8 @@ export namespace store {
 	    tags?: string[];
 	    terminalProfileId?: string;
 	    keyPath?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Host(source);
@@ -425,6 +481,8 @@ export namespace store {
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
 	        this.keyPath = source["keyPath"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class TerminalProfile {
@@ -485,6 +543,8 @@ export namespace store {
 	    color?: string;
 	    tags?: string[];
 	    terminalProfileId?: string;
+	    credentialSource?: string;
+	    credentialRef?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateHostInput(source);
@@ -505,6 +565,8 @@ export namespace store {
 	        this.color = source["color"];
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
+	        this.credentialSource = source["credentialSource"];
+	        this.credentialRef = source["credentialRef"];
 	    }
 	}
 	export class UpdateProfileInput {

@@ -4,6 +4,7 @@ import {store} from '../models';
 import {session} from '../models';
 import {main} from '../models';
 import {config} from '../models';
+import {credstore} from '../models';
 import {sshconfig} from '../models';
 
 export function AddGroup(arg1:store.CreateGroupInput):Promise<store.Group>;
@@ -17,6 +18,8 @@ export function AddTerminalProfile(arg1:store.CreateProfileInput):Promise<store.
 export function BrowseKeyFile():Promise<string>;
 
 export function BulkConnectGroup(arg1:string):Promise<Array<main.BulkConnectResult>>;
+
+export function CheckPasswordManagers():Promise<credstore.PasswordManagersStatus>;
 
 export function CloseSFTP(arg1:string):Promise<void>;
 
@@ -89,6 +92,8 @@ export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;
+
+export function TestHostCredential(arg1:string):Promise<void>;
 
 export function UpdateConfig(arg1:config.Config):Promise<void>;
 
