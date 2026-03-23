@@ -18,6 +18,7 @@ import {
   groupsAtom,
   terminalProfilesAtom,
   sessionProfileOverridesAtom,
+  sessionActivityAtom,
 } from '../store/atoms'
 import { resolveTheme } from '../lib/terminalThemes'
 
@@ -36,7 +37,14 @@ export function useTerminal(
   const profiles = useAtomValue(terminalProfilesAtom)
   const sessionOverrides = useAtomValue(sessionProfileOverridesAtom)
   const setSearchAddons = useSetAtom(searchAddonsAtom)
+  const setSessionActivity = useSetAtom(sessionActivityAtom)
   const { resolvedTheme } = useTheme()
+
+  // Track isActive in a ref so the output event handler always sees the current value
+  const isActiveRef = useRef(isActive)
+  useEffect(() => {
+    isActiveRef.current = isActive
+  }, [isActive])
 
   // Resolve: session override → host profile → group profile → global settings
   const session = sessions.find((s) => s.id === sessionId)
@@ -97,6 +105,13 @@ export function useTerminal(
     // Pipe Go → terminal
     const cancelOutput = EventsOn(`session:output:${sessionId}`, (data: string) => {
       term.write(data)
+      if (!isActiveRef.current) {
+        setSessionActivity((prev) => {
+          const next = new Set(prev)
+          next.add(sessionId)
+          return next
+        })
+      }
     })
 
     // Pipe terminal → Go
@@ -133,6 +148,7 @@ export function useTerminal(
     resolvedTheme,
     sessionId,
     setSearchAddons,
+    setSessionActivity,
     colorTheme,
     settings.cursorBlink,
     settings.cursorStyle,
