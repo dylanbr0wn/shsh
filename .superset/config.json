@@ -1,0 +1,9 @@
+{
+  "setup": [
+    "cd frontend\npnpm i\ncd ..\ngo mod tidy"
+  ],
+  "teardown": [],
+  "run": [
+    "wails dev"
+  ]
+}

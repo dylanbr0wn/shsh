@@ -7,6 +7,7 @@ import {
   isAddHostOpenAtom,
   closeConfirmPrefAtom,
   hostsAtom,
+  sessionActivityAtom,
 } from '../../store/atoms'
 import { DisconnectSession } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
@@ -21,6 +22,7 @@ export function TabBar() {
   const [closeConfirmPref, setCloseConfirmPref] = useAtom(closeConfirmPrefAtom)
   const hosts = useAtomValue(hostsAtom)
   const hostById = useMemo(() => Object.fromEntries(hosts.map((h) => [h.id, h])), [hosts])
+  const [sessionActivity, setSessionActivity] = useAtom(sessionActivityAtom)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -51,6 +53,11 @@ export function TabBar() {
   function disconnectAndRemove(ids: string[]) {
     ids.forEach((id) => DisconnectSession(id).catch(() => {}))
     setSessions((prev) => prev.filter((s) => !ids.includes(s.id)))
+    setSessionActivity((prev) => {
+      const next = new Set(prev)
+      ids.forEach((id) => next.delete(id))
+      return [...next]
+    })
   }
 
   function handleClose(sessionId: string) {
@@ -62,6 +69,11 @@ export function TabBar() {
           setActiveSessionId(next.length > 0 ? next[next.length - 1].id : null)
         }
         return next
+      })
+      setSessionActivity((prev) => {
+        const next = new Set(prev)
+        next.delete(sessionId)
+        return [...next]
       })
     }, 1)
   }
@@ -99,6 +111,8 @@ export function TabBar() {
     }, sessions.length)
   }
 
+  console.log('TabBar render', { sessions, activeSessionId, sessionActivity })
+
   return (
     <>
       <div className="border-border bg-muted/30 flex h-8 shrink-0 items-stretch overflow-x-auto border-b">
@@ -108,9 +122,17 @@ export function TabBar() {
             session={session}
             host={hostById[session.hostId]}
             isActive={session.id === activeSessionId}
+            hasActivity={sessionActivity.includes(session.id)}
             isFirst={idx === 0}
             isLast={idx === sessions.length - 1}
-            onActivate={() => setActiveSessionId(session.id)}
+            onActivate={() => {
+              setActiveSessionId(session.id)
+              setSessionActivity((prev) => {
+                const next = new Set(prev)
+                next.delete(session.id)
+                return [...next]
+              })
+            }}
             onClose={() => handleClose(session.id)}
             onCloseOthers={() => handleCloseOthers(session.id)}
             onCloseToLeft={() => handleCloseToLeft(session.id)}
