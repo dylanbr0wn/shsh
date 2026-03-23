@@ -744,7 +744,7 @@ func (a *App) ReadPublicKeyText(path string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("read public key: %w", err)
 	}
-	line := strings.SplitN(strings.TrimRight(string(data), "\n"), "\n", 2)[0]
+	line := strings.SplitN(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n", 2)[0]
 	return line, nil
 }
 

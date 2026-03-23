@@ -37,8 +37,8 @@ func TestReadPublicKeyText(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if got == "" {
-			t.Fatal("expected non-empty key text")
+		if got != content[:len(content)-1] {
+			t.Fatalf("got %q, want %q", got, content[:len(content)-1])
 		}
 	})
 
