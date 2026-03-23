@@ -41,9 +41,12 @@ interface ParsedQuery {
 ### Parsing rules
 
 - Tokens matching `tag:value`, `tags:value`, `group:value`, `groups:value` are extracted from the query string
+- A token is a whitespace-delimited word whose value is the substring after the first colon. Values containing spaces are not supported in this iteration (see out-of-scope exact-match quoting).
+- Tokens with an empty value (e.g., `group:` with no following text) are discarded and their text is passed through to `plain`.
 - The remainder (whitespace-trimmed) becomes `plain`
 - All comparisons are case-insensitive substring matches
 - `tag:` and `tags:` are synonyms; `group:` and `groups:` are synonyms
+- The `ParsedQuery` interface is a file-local type and is not exported.
 
 ### Examples
 
@@ -61,7 +64,7 @@ interface ParsedQuery {
 
 The existing `filteredHosts` useMemo is updated to use the parsed query. A host passes the filter when **all present conditions** are satisfied:
 
-1. **`groups` tokens** — host's group name must contain every group term (AND). A host with no group never matches a `group:` term.
+1. **`groups` tokens** — host's group name must contain every group term (AND). A host with no group, or whose `groupId` cannot be resolved to a group in the current `groups` array, never matches a `group:` term.
 2. **`tags` tokens** — host must have at least one tag containing each tag term (AND). A host with no tags never matches a `tag:` term.
 3. **`plain` text** — must match any of: `label`, `hostname`, `username`, `tags` (any tag), or group name (OR).
 
