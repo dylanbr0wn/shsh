@@ -381,6 +381,7 @@ export namespace store {
 	    color?: string;
 	    tags?: string[];
 	    terminalProfileId?: string;
+	    jumpHostId?: string;
 	    credentialSource?: string;
 	    credentialRef?: string;
 	
@@ -402,6 +403,7 @@ export namespace store {
 	        this.color = source["color"];
 	        this.tags = source["tags"];
 	        this.terminalProfileId = source["terminalProfileId"];
+	        this.jumpHostId = source["jumpHostId"];
 	        this.credentialSource = source["credentialSource"];
 	        this.credentialRef = source["credentialRef"];
 	    }
@@ -464,6 +466,7 @@ export namespace store {
 	    keyPath?: string;
 	    credentialSource?: string;
 	    credentialRef?: string;
+	    jumpHostId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new Host(source);
@@ -486,6 +489,7 @@ export namespace store {
 	        this.keyPath = source["keyPath"];
 	        this.credentialSource = source["credentialSource"];
 	        this.credentialRef = source["credentialRef"];
+	        this.jumpHostId = source["jumpHostId"];
 	    }
 	}
 	export class TerminalProfile {
@@ -548,6 +552,7 @@ export namespace store {
 	    terminalProfileId?: string;
 	    credentialSource?: string;
 	    credentialRef?: string;
+	    jumpHostId?: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateHostInput(source);
@@ -570,6 +575,7 @@ export namespace store {
 	        this.terminalProfileId = source["terminalProfileId"];
 	        this.credentialSource = source["credentialSource"];
 	        this.credentialRef = source["credentialRef"];
+	        this.jumpHostId = source["jumpHostId"];
 	    }
 	}
 	export class UpdateProfileInput {

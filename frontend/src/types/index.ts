@@ -58,6 +58,7 @@ export interface Host {
   tags?: string[]
   terminalProfileId?: string
   keyPath?: string
+  jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
 }
@@ -83,6 +84,7 @@ export interface CreateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
 }
@@ -101,6 +103,7 @@ export interface UpdateHostInput {
   color?: string
   tags?: string[]
   terminalProfileId?: string
+  jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
 }

@@ -66,6 +66,7 @@ export function EditHostModal() {
   const [isOpen, setIsOpen] = useAtom(isEditHostOpenAtom)
   const editingHost = useAtomValue(editingHostAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)
   const profiles = useAtomValue(terminalProfilesAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
@@ -105,6 +106,7 @@ export function EditHostModal() {
         color: editingHost.color,
         tags: editingHost.tags,
         terminalProfileId: editingHost.terminalProfileId,
+        jumpHostId: editingHost.jumpHostId,
         credentialSource: editingHost.credentialSource ?? 'inline',
         credentialRef: editingHost.credentialRef ?? '',
       })
@@ -497,6 +499,40 @@ export function EditHostModal() {
                   </SelectContent>
                 </Select>
               </Field>
+
+              {hosts.filter((h) => h.id !== form.id).length > 0 && (
+                <Field>
+                  <FieldLabel htmlFor="eh-jump-host">
+                    Jump Host
+                    <FieldHint>
+                      Connect through this saved host first (ProxyJump / bastion server).
+                    </FieldHint>
+                  </FieldLabel>
+                  <Select
+                    value={form.jumpHostId ?? '__none__'}
+                    onValueChange={(val) =>
+                      setForm((f) => ({
+                        ...f,
+                        jumpHostId: val === '__none__' ? undefined : val,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="eh-jump-host" className="h-9">
+                      <SelectValue placeholder="None (direct connection)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None (direct connection)</SelectItem>
+                      {hosts
+                        .filter((h) => h.id !== form.id)
+                        .map((h) => (
+                          <SelectItem key={h.id} value={h.id}>
+                            {h.label} ({h.hostname})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
               <Field>
                 <FieldLabel>Color</FieldLabel>

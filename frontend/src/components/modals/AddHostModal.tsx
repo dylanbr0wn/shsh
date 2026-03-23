@@ -43,6 +43,7 @@ const defaultForm: CreateHostInput = {
   username: '',
   authMethod: 'password',
   password: '',
+  jumpHostId: undefined,
   credentialSource: 'inline',
 }
 
@@ -66,6 +67,7 @@ function FieldHint({ children }: { children: React.ReactNode }) {
 export function AddHostModal() {
   const [isAddHostOpen, setIsAddHostOpen] = useAtom(isAddHostOpenAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)
   const profiles = useAtomValue(terminalProfilesAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
@@ -465,6 +467,38 @@ export function AddHostModal() {
                   </SelectContent>
                 </Select>
               </Field>
+
+              {hosts.length > 0 && (
+                <Field>
+                  <FieldLabel htmlFor="ah-jump-host">
+                    Jump Host
+                    <FieldHint>
+                      Connect through this saved host first (ProxyJump / bastion server).
+                    </FieldHint>
+                  </FieldLabel>
+                  <Select
+                    value={form.jumpHostId ?? '__none__'}
+                    onValueChange={(val) =>
+                      setForm((f) => ({
+                        ...f,
+                        jumpHostId: val === '__none__' ? undefined : val,
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="ah-jump-host" className="h-9">
+                      <SelectValue placeholder="None (direct connection)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None (direct connection)</SelectItem>
+                      {hosts.map((h) => (
+                        <SelectItem key={h.id} value={h.id}>
+                          {h.label} ({h.hostname})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
 
               <Field>
                 <FieldLabel>Color</FieldLabel>

@@ -13,6 +13,8 @@ import (
 	"sync"
 	"time"
 
+	"strconv"
+
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
@@ -82,6 +84,7 @@ type sshSession struct {
 	hostID       string
 	hostLabel    string
 	client       *goph.Client
+	jumpClient   *ssh.Client // non-nil when connected via a jump host; closed after client
 	sshSess      *ssh.Session
 	stdin        io.WriteCloser
 	ctx          context.Context
@@ -151,9 +154,31 @@ func NewManager(ctx context.Context, cfg *config.Config) *Manager {
 	}
 }
 
+// resolveAuth builds a goph.Auth for the given host and secret (password or key passphrase).
+func resolveAuth(host store.Host, secret string) (goph.Auth, error) {
+	switch host.AuthMethod {
+	case store.AuthPassword:
+		return goph.Password(secret), nil
+	case store.AuthKey:
+		if host.KeyPath == nil || *host.KeyPath == "" {
+			return nil, fmt.Errorf("no key file configured for this host")
+		}
+		return goph.Key(*host.KeyPath, secret)
+	case store.AuthAgent:
+		return goph.UseAgent()
+	default:
+		agent, err := goph.UseAgent()
+		if err != nil {
+			return goph.Password(secret), nil
+		}
+		return agent, nil
+	}
+}
+
 // Connect dials SSH for the given host and returns a session ID immediately.
+// When jumpHost is non-nil, the connection is tunnelled through it.
 // The actual connection runs in a goroutine; onConnected is called once connected.
-func (m *Manager) Connect(host store.Host, password string, onConnected func()) string {
+func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host, jumpPassword string, onConnected func()) string {
 	sessionID := uuid.New().String()
 
 	runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
@@ -161,98 +186,126 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 		Status:    StatusConnecting,
 	})
 
-	m.wg.Go(func() {
-		var auth goph.Auth
-		switch host.AuthMethod {
-		case store.AuthPassword:
-			auth = goph.Password(password)
-		case store.AuthKey:
-			if host.KeyPath == nil || *host.KeyPath == "" {
-				runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-					SessionID: sessionID,
-					Status:    StatusError,
-					Error:     "no key file configured for this host",
-				})
-				return
-			}
-			var err error
-			auth, err = goph.Key(*host.KeyPath, password) // password param = passphrase
-			if err != nil {
-				log.Error().Err(err).Str("keyPath", *host.KeyPath).Msg("Failed to load SSH key")
-				runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-					SessionID: sessionID,
-					Status:    StatusError,
-					Error:     "failed to load SSH key: " + err.Error(),
-				})
-				return
-			}
-		case store.AuthAgent:
-			var err error
-			auth, err = goph.UseAgent()
-			if err != nil {
-				log.Error().Err(err).Msg("SSH agent unavailable")
-				runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-					SessionID: sessionID,
-					Status:    StatusError,
-					Error:     "SSH agent unavailable: " + err.Error(),
-				})
-				return
-			}
-		default:
-			var err error
-			auth, err = goph.UseAgent()
-			if err != nil {
-				auth = goph.Password(password)
-			}
-		}
-
-		client, err := goph.NewConn(&goph.Config{
-			User:     host.Username,
-			Addr:     host.Hostname,
-			Port:     uint(host.Port),
-			Auth:     auth,
-			Timeout:  time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second,
-			Callback: m.hostKeyCallback(sessionID),
+	emitErr := func(msg string, err error) {
+		log.Error().Err(err).Msg(msg)
+		runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+			SessionID: sessionID,
+			Status:    StatusError,
+			Error:     err.Error(),
 		})
-		if err != nil {
-			log.Error().Err(err).Msg("Failed to connect to host")
-			runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-				SessionID: sessionID,
-				Status:    StatusError,
-				Error:     err.Error(),
+	}
+
+	m.wg.Go(func() {
+		timeout := time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second
+
+		var client *goph.Client
+		var jumpSSHClient *ssh.Client
+
+		if jumpHost != nil {
+			// --- Jump host path ---
+			jumpAuth, err := resolveAuth(*jumpHost, jumpPassword)
+			if err != nil {
+				emitErr("Failed to build jump host auth", err)
+				return
+			}
+
+			jumpSSHConfig := &ssh.ClientConfig{
+				User:            jumpHost.Username,
+				Auth:            jumpAuth,
+				HostKeyCallback: m.hostKeyCallback(sessionID),
+				Timeout:         timeout,
+			}
+			jumpTCPConn, err := net.DialTimeout("tcp",
+				net.JoinHostPort(jumpHost.Hostname, strconv.Itoa(jumpHost.Port)),
+				timeout)
+			if err != nil {
+				emitErr("Failed to dial jump host", err)
+				return
+			}
+			jumpNCC, chans, reqs, err := ssh.NewClientConn(jumpTCPConn, jumpHost.Hostname, jumpSSHConfig)
+			if err != nil {
+				jumpTCPConn.Close()
+				emitErr("Failed to establish SSH connection to jump host", err)
+				return
+			}
+			jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
+
+			targetAuth, err := resolveAuth(host, password)
+			if err != nil {
+				jumpSSHClient.Close()
+				emitErr("Failed to build target host auth", err)
+				return
+			}
+			targetSSHConfig := &ssh.ClientConfig{
+				User:            host.Username,
+				Auth:            targetAuth,
+				HostKeyCallback: m.hostKeyCallback(sessionID),
+				Timeout:         timeout,
+			}
+			tunnelConn, err := jumpSSHClient.Dial("tcp",
+				net.JoinHostPort(host.Hostname, strconv.Itoa(host.Port)))
+			if err != nil {
+				jumpSSHClient.Close()
+				emitErr("Failed to dial target through jump host", err)
+				return
+			}
+			targetNCC, targetChans, targetReqs, err := ssh.NewClientConn(tunnelConn, host.Hostname, targetSSHConfig)
+			if err != nil {
+				tunnelConn.Close()
+				jumpSSHClient.Close()
+				emitErr("Failed to establish SSH connection to target via jump host", err)
+				return
+			}
+			client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
+		} else {
+			// --- Direct connection path ---
+			auth, err := resolveAuth(host, password)
+			if err != nil {
+				emitErr("Failed to build auth", err)
+				return
+			}
+			client, err = goph.NewConn(&goph.Config{
+				User:     host.Username,
+				Addr:     host.Hostname,
+				Port:     uint(host.Port),
+				Auth:     auth,
+				Timeout:  timeout,
+				Callback: m.hostKeyCallback(sessionID),
 			})
-			return
+			if err != nil {
+				emitErr("Failed to connect to host", err)
+				return
+			}
 		}
 
 		sshSess, err := client.NewSession()
 		if err != nil {
 			client.Close()
-			log.Error().Err(err).Msg("Failed to create SSH session")
-			runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-				SessionID: sessionID,
-				Status:    StatusError,
-				Error:     err.Error(),
-			})
+			if jumpSSHClient != nil {
+				jumpSSHClient.Close()
+			}
+			emitErr("Failed to create SSH session", err)
 			return
 		}
 
 		if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 			sshSess.Close()
 			client.Close()
-			log.Error().Err(err).Msg("Failed to request PTY")
-			runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-				SessionID: sessionID,
-				Status:    StatusError,
-				Error:     err.Error(),
-			})
+			if jumpSSHClient != nil {
+				jumpSSHClient.Close()
+			}
+			emitErr("Failed to request PTY", err)
 			return
 		}
 
 		stdin, err := sshSess.StdinPipe()
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to get stdin pipe")
 			sshSess.Close()
 			client.Close()
+			if jumpSSHClient != nil {
+				jumpSSHClient.Close()
+			}
+			emitErr("Failed to get stdin pipe", err)
 			return
 		}
 
@@ -260,17 +313,20 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 		if err != nil {
 			sshSess.Close()
 			client.Close()
+			if jumpSSHClient != nil {
+				jumpSSHClient.Close()
+			}
+			emitErr("Failed to get stdout pipe", err)
 			return
 		}
 
 		if err := sshSess.Shell(); err != nil {
 			sshSess.Close()
 			client.Close()
-			runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
-				SessionID: sessionID,
-				Status:    StatusError,
-				Error:     err.Error(),
-			})
+			if jumpSSHClient != nil {
+				jumpSSHClient.Close()
+			}
+			emitErr("Failed to start shell", err)
 			return
 		}
 
@@ -280,6 +336,7 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 			hostID:       host.ID,
 			hostLabel:    host.Label,
 			client:       client,
+			jumpClient:   jumpSSHClient,
 			sshSess:      sshSess,
 			stdin:        stdin,
 			ctx:          sessCtx,
@@ -316,6 +373,9 @@ func (m *Manager) Connect(host store.Host, password string, onConnected func()) 
 		sess.pfMu.Unlock()
 		sshSess.Close()
 		client.Close()
+		if sess.jumpClient != nil {
+			sess.jumpClient.Close()
+		}
 		sess.wg.Wait()
 
 		m.mu.Lock()
