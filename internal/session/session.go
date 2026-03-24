@@ -107,7 +107,6 @@ type sshSession struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
-	ownsClient   bool // true = this session owns the SSH client and must close it on disconnect
 }
 
 func (s *sshSession) start(emitter EventEmitter, stdout io.Reader) {
@@ -154,6 +153,8 @@ type Manager struct {
 	pendingKeys map[string]chan bool
 	mu          sync.Mutex
 	wg          sync.WaitGroup
+	clientRefs  map[*goph.Client]int
+	jumpRefs    map[*ssh.Client]int
 }
 
 // NewManager creates a new Manager with the given app context, config, and event emitter.
@@ -164,6 +165,57 @@ func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *
 		emitter:     emitter,
 		sessions:    make(map[string]*sshSession),
 		pendingKeys: make(map[string]chan bool),
+		clientRefs:  make(map[*goph.Client]int),
+		jumpRefs:    make(map[*ssh.Client]int),
+	}
+}
+
+// incrClientRefs increments ref counts for client and jumpClient (if non-nil).
+// Caller MUST hold m.mu.
+func (m *Manager) incrClientRefs(client *goph.Client, jumpClient *ssh.Client) {
+	m.clientRefs[client]++
+	if jumpClient != nil {
+		m.jumpRefs[jumpClient]++
+	}
+}
+
+// releaseClient decrements ref counts and closes resources whose count hits zero.
+// Caller must NOT hold m.mu. Closes are performed outside mu.
+// Panics if called for a client that was never retained (programming error).
+func (m *Manager) releaseClient(client *goph.Client, jumpClient *ssh.Client) {
+	m.mu.Lock()
+	count, ok := m.clientRefs[client]
+	if !ok {
+		m.mu.Unlock()
+		panic(fmt.Sprintf("releaseClient: client %p was never retained", client))
+	}
+	count--
+	if count == 0 {
+		delete(m.clientRefs, client)
+	} else {
+		m.clientRefs[client] = count
+	}
+	var jumpCount int
+	if jumpClient != nil {
+		jCount, jOk := m.jumpRefs[jumpClient]
+		if !jOk {
+			m.mu.Unlock()
+			panic(fmt.Sprintf("releaseClient: jumpClient %p was never retained", jumpClient))
+		}
+		jumpCount = jCount - 1
+		if jumpCount == 0 {
+			delete(m.jumpRefs, jumpClient)
+		} else {
+			m.jumpRefs[jumpClient] = jumpCount
+		}
+	}
+	m.mu.Unlock()
+
+	if count == 0 {
+		client.Close()
+	}
+	if jumpClient != nil && jumpCount == 0 {
+		jumpClient.Close()
 	}
 }
 
@@ -355,10 +407,10 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			ctx:          sessCtx,
 			cancel:       cancel,
 			portForwards: make(map[string]*portForward),
-			ownsClient:   true,
 		}
 
 		m.mu.Lock()
+		m.incrClientRefs(client, jumpSSHClient)
 		m.sessions[sessionID] = sess
 		m.mu.Unlock()
 
@@ -386,12 +438,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 		}
 		sess.pfMu.Unlock()
 		sshSess.Close()
-		if sess.ownsClient {
-			client.Close()
-			if sess.jumpClient != nil {
-				sess.jumpClient.Close()
-			}
-		}
+		m.releaseClient(client, sess.jumpClient)
 		sess.wg.Wait()
 
 		m.mu.Lock()
@@ -442,39 +489,50 @@ func (m *Manager) Disconnect(sessionID string) error {
 func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, error) {
 	m.mu.Lock()
 	parent, ok := m.sessions[existingSessionID]
-	m.mu.Unlock()
 	if !ok {
+		m.mu.Unlock()
 		return SplitSessionResult{}, fmt.Errorf("session %s not found", existingSessionID)
 	}
+	m.incrClientRefs(parent.client, parent.jumpClient)
+	parentClient := parent.client
+	parentJumpClient := parent.jumpClient
+	parentHostID := parent.hostID
+	parentHostLabel := parent.hostLabel
+	m.mu.Unlock()
 
 	// Use the inner *ssh.Client, not the outer goph.Client wrapper.
 	// This correctly targets the destination host even for jump-host connections.
-	targetClient := parent.client.Client
+	targetClient := parentClient.Client
 
 	sshSess, err := targetClient.NewSession()
 	if err != nil {
+		m.releaseClient(parentClient, parentJumpClient)
 		return SplitSessionResult{}, fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
 	if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
 		return SplitSessionResult{}, fmt.Errorf("failed to request PTY: %w", err)
 	}
 
 	stdin, err := sshSess.StdinPipe()
 	if err != nil {
 		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
 		return SplitSessionResult{}, fmt.Errorf("failed to get stdin pipe: %w", err)
 	}
 
 	stdout, err := sshSess.StdoutPipe()
 	if err != nil {
 		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
 		return SplitSessionResult{}, fmt.Errorf("failed to get stdout pipe: %w", err)
 	}
 
 	if err := sshSess.Shell(); err != nil {
 		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
 		return SplitSessionResult{}, fmt.Errorf("failed to start shell: %w", err)
 	}
 
@@ -482,15 +540,15 @@ func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, er
 	sessCtx, cancel := context.WithCancel(context.Background())
 	newSess := &sshSession{
 		id:           newID,
-		hostID:       parent.hostID,
-		hostLabel:    parent.hostLabel,
-		client:       parent.client,
+		hostID:       parentHostID,
+		hostLabel:    parentHostLabel,
+		client:       parentClient,
+		jumpClient:   parentJumpClient,
 		sshSess:      sshSess,
 		stdin:        stdin,
 		ctx:          sessCtx,
 		cancel:       cancel,
 		portForwards: make(map[string]*portForward),
-		ownsClient:   false, // parent owns the client
 	}
 
 	m.mu.Lock()
@@ -518,7 +576,7 @@ func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, er
 		}
 		newSess.pfMu.Unlock()
 		sshSess.Close()
-		// Do NOT close parent.client — parent session owns it.
+		m.releaseClient(newSess.client, newSess.jumpClient)
 		newSess.wg.Wait()
 
 		m.mu.Lock()
