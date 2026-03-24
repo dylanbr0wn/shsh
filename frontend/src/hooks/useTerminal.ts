@@ -9,42 +9,41 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
 import { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'
-import { WriteToSession, ResizeSession } from '../../wailsjs/go/main/App'
+import { WriteToChannel, ResizeChannel } from '../../wailsjs/go/main/App'
 import { terminalSettingsAtom } from '../atoms/terminalSettings'
 import {
   searchAddonsAtom,
-  sessionsAtom,
   hostsAtom,
   groupsAtom,
   terminalProfilesAtom,
-  sessionProfileOverridesAtom,
-  sessionActivityAtom,
+  channelProfileOverridesAtom,
+  channelActivityAtom,
 } from '../store/atoms'
 import { resolveTheme } from '../lib/terminalThemes'
 
 export function useTerminal(
   containerRef: RefObject<HTMLDivElement | null>,
-  sessionId: string,
+  channelId: string,
+  hostId: string,
   isActive: boolean
 ) {
   const fitRef = useRef<FitAddon | null>(null)
   const termRef = useRef<Terminal | null>(null)
 
   const globalSettings = useAtomValue(terminalSettingsAtom)
-  const sessions = useAtomValue(sessionsAtom)
   const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)
   const profiles = useAtomValue(terminalProfilesAtom)
-  const sessionOverrides = useAtomValue(sessionProfileOverridesAtom)
+  const channelOverrides = useAtomValue(channelProfileOverridesAtom)
   const setSearchAddons = useSetAtom(searchAddonsAtom)
-  const setSessionActivity = useSetAtom(sessionActivityAtom)
+  const setChannelActivity = useSetAtom(channelActivityAtom)
   const { resolvedTheme } = useTheme()
 
   // Sync ref before paint so the output handler always reads the current value.
   // useLayoutEffect runs synchronously after commit (before paint), eliminating
   // the post-paint async gap that useEffect would leave.
   const isActiveRef = useRef(isActive)
-  // Timestamp (ms) of when this session last became inactive. Used to suppress
+  // Timestamp (ms) of when this channel last became inactive. Used to suppress
   // activity indicators for output that arrives in the brief window right after
   // a tab switch (e.g. shell prompt redraws triggered by the switch itself).
   const becameInactiveAtRef = useRef<number>(0)
@@ -58,29 +57,28 @@ export function useTerminal(
     isActiveRef.current = isActive
   }, [isActive])
 
-  // Clear activity flag whenever this session becomes active (handles programmatic
+  // Clear activity flag whenever this channel becomes active (handles programmatic
   // activation from useAppInit in addition to user tab clicks in TabBar)
   useEffect(() => {
     if (!isActive) return
-    setSessionActivity((prev) => {
+    setChannelActivity((prev) => {
       const next = new Set(prev)
-      if (!next.has(sessionId)) return prev
-      next.delete(sessionId)
+      if (!next.has(channelId)) return prev
+      next.delete(channelId)
       return [...next]
     })
-  }, [isActive, sessionId, setSessionActivity])
+  }, [isActive, channelId, setChannelActivity])
 
-  // Resolve: session override → host profile → group profile → global settings
-  const session = sessions.find((s) => s.id === sessionId)
-  const host = hosts.find((h) => h.id === session?.hostId)
+  // Resolve: channel override → host profile → group profile → global settings
+  const host = hosts.find((h) => h.id === hostId)
   const group = groups.find((g) => g.id === host?.groupId)
   const profileId =
-    sessionOverrides[sessionId] ?? host?.terminalProfileId ?? group?.terminalProfileId
+    channelOverrides[channelId] ?? host?.terminalProfileId ?? group?.terminalProfileId
   const profile = profiles.find((p) => p.id === profileId)
   const settings = profile ?? globalSettings
   const colorTheme = profile?.colorTheme ?? 'auto'
 
-  // Mount once per sessionId
+  // Mount once per channelId
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -124,7 +122,7 @@ export function useTerminal(
 
     termRef.current = term
     fitRef.current = fitAddon
-    setSearchAddons((prev) => ({ ...prev, [sessionId]: searchAddon }))
+    setSearchAddons((prev) => ({ ...prev, [channelId]: searchAddon }))
 
     // How long (ms) to suppress the activity indicator after a tab becomes
     // inactive. This absorbs prompt redraws / echoes that the server sends
@@ -132,16 +130,16 @@ export function useTerminal(
     const ACTIVITY_GRACE_MS = 150
 
     // Pipe Go → terminal
-    const cancelOutput = EventsOn(`session:output:${sessionId}`, (data: string) => {
+    const cancelOutput = EventsOn(`channel:output:${channelId}`, (data: string) => {
       term.write(data)
       if (!isActiveRef.current) {
         const msSinceInactive = becameInactiveAtRef.current
           ? Date.now() - becameInactiveAtRef.current
           : Infinity
         if (msSinceInactive > ACTIVITY_GRACE_MS) {
-          setSessionActivity((prev) => {
+          setChannelActivity((prev) => {
             const next = new Set(prev)
-            next.add(sessionId)
+            next.add(channelId)
             return [...next]
           })
         }
@@ -150,14 +148,14 @@ export function useTerminal(
 
     // Pipe terminal → Go
     const onData = term.onData((data: string) => {
-      WriteToSession(sessionId, data).catch(() => {})
+      WriteToChannel(channelId, data).catch(() => {})
     })
 
     // Resize observer
     const observer = new ResizeObserver(() => {
       try {
         fitAddon.fit()
-        ResizeSession(sessionId, term.cols, term.rows).catch(() => {})
+        ResizeChannel(channelId, term.cols, term.rows).catch(() => {})
       } catch {
         // container may not be visible yet
       }
@@ -173,16 +171,16 @@ export function useTerminal(
       fitRef.current = null
       setSearchAddons((prev) => {
         const next = { ...prev }
-        delete next[sessionId]
+        delete next[channelId]
         return next
       })
     }
   }, [
     containerRef,
     resolvedTheme,
-    sessionId,
+    channelId,
     setSearchAddons,
-    setSessionActivity,
+    setChannelActivity,
     colorTheme,
     settings.cursorBlink,
     settings.cursorStyle,
@@ -222,14 +220,14 @@ export function useTerminal(
     const id = requestAnimationFrame(() => {
       try {
         fit.fit()
-        ResizeSession(sessionId, term.cols, term.rows).catch(() => {})
+        ResizeChannel(channelId, term.cols, term.rows).catch(() => {})
       } catch {
         // ignore
       }
       term.focus()
     })
     return () => cancelAnimationFrame(id)
-  }, [isActive, sessionId])
+  }, [isActive, channelId])
 }
 
 // Re-export EventsEmit so TerminalInstance doesn't need a separate runtime import

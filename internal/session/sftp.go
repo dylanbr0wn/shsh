@@ -12,73 +12,21 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
 )
 
-// OpenSFTP opens an SFTP subsystem on an existing SSH session.
-func (m *Manager) OpenSFTP(sessionID string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
-	}
-
-	sess.sftpMu.Lock()
-	defer sess.sftpMu.Unlock()
-
-	if sess.sftpClient != nil {
-		return nil
-	}
-
-	sc, err := sftp.NewClient(sess.client.Client)
-	if err != nil {
-		log.Error().Err(err).Str("sessionID", sessionID).Msg("SFTP negotiation failed")
-		m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "negotiation failed: "+err.Error(), nil)
-		return fmt.Errorf("sftp negotiation failed: %w", err)
-	}
-	log.Debug().Str("sessionID", sessionID).Msg("SFTP session opened")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "subsystem opened", nil)
-	sess.sftpClient = sc
-	return nil
-}
-
-// CloseSFTP closes the SFTP subsystem for a session.
-func (m *Manager) CloseSFTP(sessionID string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return nil
-	}
-
-	sess.sftpMu.Lock()
-	defer sess.sftpMu.Unlock()
-
-	if sess.sftpClient != nil {
-		sess.sftpClient.Close()
-		sess.sftpClient = nil
-		log.Debug().Str("sessionID", sessionID).Msg("SFTP session closed")
-	}
-	return nil
-}
-
 // SFTPListDir lists entries in the given remote directory, dirs first then files.
-func (m *Manager) SFTPListDir(sessionID string, path string) ([]SFTPEntry, error) {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPListDir(channelId string, path string) ([]SFTPEntry, error) {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return nil, err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
-
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return nil, fmt.Errorf("sftp not open for session %s", sessionID)
+		return nil, fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	if path == "~" {
@@ -91,10 +39,10 @@ func (m *Manager) SFTPListDir(sessionID string, path string) ([]SFTPEntry, error
 
 	infos, err := sc.ReadDir(path)
 	if err != nil {
-		m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "readdir failed: "+err.Error(), map[string]any{"path": path})
+		m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "readdir failed: "+err.Error(), map[string]any{"path": path})
 		return nil, err
 	}
-	m.emitDebug("sftp", "debug", sessionID, sess.hostLabel, "readdir", map[string]any{"path": path, "entries": len(infos)})
+	m.emitDebug("sftp", "debug", channelId, m.connLabel(sftpCh.connectionID), "readdir", map[string]any{"path": path, "entries": len(infos)})
 
 	entries := make([]SFTPEntry, 0, len(infos))
 	for _, fi := range infos {
@@ -120,29 +68,26 @@ func (m *Manager) SFTPListDir(sessionID string, path string) ([]SFTPEntry, error
 }
 
 // SFTPDownload downloads the remote file to localPath.
-// The caller is responsible for resolving localPath (e.g. via a save dialog).
-func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath string) error {
+func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath string) error {
 	if localPath == "" {
 		return nil
 	}
 
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	remoteFile, err := sc.Open(remotePath)
 	if err != nil {
-		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP download failed to open remote file")
+		log.Error().Err(err).Str("channelId", channelId).Str("remote", remotePath).Msg("SFTP download failed to open remote file")
 		return err
 	}
 	defer remoteFile.Close()
@@ -159,8 +104,8 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath st
 	}
 	defer localFile.Close()
 
-	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Str("local", localPath).Int64("size", total).Msg("SFTP download started")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "download started", map[string]any{"remote": remotePath, "size": total})
+	log.Info().Str("channelId", channelId).Str("remote", remotePath).Str("local", localPath).Int64("size", total).Msg("SFTP download started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "download started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -168,7 +113,7 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath st
 		if nr > 0 {
 			nw, werr := localFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -181,31 +126,33 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath st
 			break
 		}
 		if rerr != nil {
-			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "download error: "+rerr.Error(), map[string]any{"remote": remotePath})
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "download error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
-	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP download complete")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "download complete", map[string]any{"remote": remotePath, "bytes": written})
+	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP download complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "download complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
 // SFTPDownloadDir tars a remote directory, downloads it, and unpacks it locally.
-// localDir is the destination directory; the caller is responsible for resolving it
-// (e.g. via an open-directory dialog).
-func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string, localDir string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPDownloadDir(channelId string, remotePath string, localDir string) error {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
+	}
+
+	// Get the goph.Client from the connection for running remote commands.
+	conn, err := m.getConnection(sftpCh.connectionID)
+	if err != nil {
+		return err
 	}
 
 	if localDir == "" {
@@ -216,7 +163,7 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string, localDir 
 	parentDir := filepath.Dir(remotePath)
 	tempRemote := fmt.Sprintf("/tmp/shsh_%s.tar.gz", uuid.New().String())
 	tarCmd := fmt.Sprintf("tar czf %s -C %s %s", tempRemote, parentDir, dirName)
-	if _, err := sess.client.Run(tarCmd); err != nil {
+	if _, err := conn.client.Run(tarCmd); err != nil {
 		return fmt.Errorf("tar failed (is tar installed on remote?): %w", err)
 	}
 
@@ -241,7 +188,7 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string, localDir 
 
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
-	eventKey := "sftp:progress:" + sessionID
+	eventKey := "channel:sftp-progress:" + channelId
 	for {
 		nr, rerr := remoteFile.Read(buf)
 		if nr > 0 {
@@ -267,30 +214,27 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string, localDir 
 	}
 	localTmp.Close()
 
-	sess.client.Run("rm " + tempRemote) //nolint:errcheck
+	conn.client.Run("rm " + tempRemote) //nolint:errcheck
 
 	return extractTarGz(localTmpPath, localDir)
 }
 
 // SFTPUpload uploads localPath to remoteDir.
-// The caller is responsible for resolving localPath (e.g. via a file picker dialog).
-func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath string) error {
+func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath string) error {
 	if localPath == "" {
 		return nil
 	}
 
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	localFile, err := os.Open(localPath)
@@ -308,13 +252,13 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath strin
 	remotePath := remoteDir + "/" + filepath.Base(localPath)
 	remoteFile, err := sc.Create(remotePath)
 	if err != nil {
-		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
+		log.Error().Err(err).Str("channelId", channelId).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
 		return err
 	}
 	defer remoteFile.Close()
 
-	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload started", map[string]any{"remote": remotePath, "size": total})
+	log.Info().Str("channelId", channelId).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -322,7 +266,7 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath strin
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -335,29 +279,27 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath strin
 			break
 		}
 		if rerr != nil {
-			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
-	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload complete", map[string]any{"remote": remotePath, "bytes": written})
+	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
 // SFTPUploadPath uploads a local file at localPath to the given remotePath.
-func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath string) error {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	info, err := os.Stat(localPath)
@@ -378,13 +320,13 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 
 	remoteFile, err := sc.Create(remotePath)
 	if err != nil {
-		log.Error().Err(err).Str("sessionID", sessionID).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
+		log.Error().Err(err).Str("channelId", channelId).Str("remote", remotePath).Msg("SFTP upload failed to create remote file")
 		return err
 	}
 	defer remoteFile.Close()
 
-	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload started", map[string]any{"remote": remotePath, "size": total})
+	log.Info().Str("channelId", channelId).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -392,7 +334,7 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -405,48 +347,44 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 			break
 		}
 		if rerr != nil {
-			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
-	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
-	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload complete", map[string]any{"remote": remotePath, "bytes": written})
+	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
 // SFTPMkdir creates a directory at the given remote path.
-func (m *Manager) SFTPMkdir(sessionID string, path string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPMkdir(channelId string, path string) error {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	return sc.Mkdir(path)
 }
 
 // SFTPDelete removes a file or directory at the given remote path.
-func (m *Manager) SFTPDelete(sessionID string, path string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPDelete(channelId string, path string) error {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	fi, err := sc.Stat(path)
@@ -460,19 +398,17 @@ func (m *Manager) SFTPDelete(sessionID string, path string) error {
 }
 
 // SFTPRename renames/moves a remote file or directory.
-func (m *Manager) SFTPRename(sessionID string, oldPath string, newPath string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) SFTPRename(channelId string, oldPath string, newPath string) error {
+	sftpCh, err := m.getSFTPChannel(channelId)
+	if err != nil {
+		return err
 	}
 
-	sess.sftpMu.Lock()
-	sc := sess.sftpClient
-	sess.sftpMu.Unlock()
+	sftpCh.mu.Lock()
+	sc := sftpCh.client
+	sftpCh.mu.Unlock()
 	if sc == nil {
-		return fmt.Errorf("sftp not open for session %s", sessionID)
+		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	return sc.Rename(oldPath, newPath)

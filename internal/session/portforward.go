@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -18,19 +19,17 @@ type PortForwardInfo struct {
 }
 
 // AddPortForward starts a local TCP listener on localPort and forwards connections
-// to remoteHost:remotePort through the SSH session.
-func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost string, remotePort int) (PortForwardInfo, error) {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return PortForwardInfo{}, fmt.Errorf("session %s not found", sessionID)
+// to remoteHost:remotePort through the SSH connection.
+func (m *Manager) AddPortForward(connectionId string, localPort int, remoteHost string, remotePort int) (PortForwardInfo, error) {
+	conn, err := m.getConnection(connectionId)
+	if err != nil {
+		return PortForwardInfo{}, err
 	}
 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.cfg.SSH.PortForwardBindAddress, localPort))
 	if err != nil {
-		log.Error().Err(err).Str("sessionID", sessionID).Int("localPort", localPort).Msg("port forward failed to bind")
-		m.emitDebug("portfwd", "error", sessionID, sess.hostLabel, "bind failed: "+err.Error(), map[string]any{"localPort": localPort})
+		log.Error().Err(err).Str("connectionId", connectionId).Int("localPort", localPort).Msg("port forward failed to bind")
+		m.emitDebug("portfwd", "error", connectionId, conn.hostLabel, "bind failed: "+err.Error(), map[string]any{"localPort": localPort})
 		return PortForwardInfo{}, fmt.Errorf("failed to listen on port %d: %w", localPort, err)
 	}
 
@@ -42,25 +41,30 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 		listener:   listener,
 	}
 
-	sess.pfMu.Lock()
-	sess.portForwards[pf.id] = pf
-	sess.pfMu.Unlock()
+	conn.pfMu.Lock()
+	conn.portForwards[pf.id] = pf
+	conn.pfMu.Unlock()
 
-	log.Info().Str("sessionID", sessionID).Int("localPort", localPort).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward started")
-	m.emitDebug("portfwd", "info", sessionID, sess.hostLabel, "listening", map[string]any{"localPort": localPort, "remoteHost": remoteHost, "remotePort": remotePort})
-	sess.wg.Go(func() {
+	log.Info().Str("connectionId", connectionId).Int("localPort", localPort).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward started")
+	m.emitDebug("portfwd", "info", connectionId, conn.hostLabel, "listening", map[string]any{"localPort": localPort, "remoteHost": remoteHost, "remotePort": remotePort})
+
+	var wg sync.WaitGroup
+
+	go func() {
 		defer listener.Close()
 		for {
 			local, err := listener.Accept()
 			if err != nil {
 				return // closed by disconnect or RemovePortForward
 			}
-			sess.wg.Go(func() {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
 				defer local.Close()
-				remote, err := sess.client.Client.Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
+				remote, err := conn.SSHClient().Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
 				if err != nil {
-					log.Error().Err(err).Str("sessionID", sessionID).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward dial failed")
-					m.emitDebug("portfwd", "error", sessionID, sess.hostLabel, "dial failed: "+err.Error(), map[string]any{"remoteHost": remoteHost, "remotePort": remotePort})
+					log.Error().Err(err).Str("connectionId", connectionId).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward dial failed")
+					m.emitDebug("portfwd", "error", connectionId, conn.hostLabel, "dial failed: "+err.Error(), map[string]any{"remoteHost": remoteHost, "remotePort": remotePort})
 					return
 				}
 				defer remote.Close()
@@ -71,9 +75,9 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 				}()
 				io.Copy(local, remote) //nolint:errcheck
 				<-done
-			})
+			}()
 		}
-	})
+	}()
 
 	return PortForwardInfo{
 		ID:         pf.id,
@@ -84,42 +88,38 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 }
 
 // RemovePortForward closes the listener for the given forward, stopping new connections.
-func (m *Manager) RemovePortForward(sessionID, forwardID string) error {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return fmt.Errorf("session %s not found", sessionID)
+func (m *Manager) RemovePortForward(connectionId, forwardID string) error {
+	conn, err := m.getConnection(connectionId)
+	if err != nil {
+		return err
 	}
 
-	sess.pfMu.Lock()
-	pf, exists := sess.portForwards[forwardID]
+	conn.pfMu.Lock()
+	pf, exists := conn.portForwards[forwardID]
 	if exists {
 		pf.listener.Close()
-		delete(sess.portForwards, forwardID)
+		delete(conn.portForwards, forwardID)
 	}
-	sess.pfMu.Unlock()
+	conn.pfMu.Unlock()
 
 	if !exists {
 		return fmt.Errorf("forward %s not found", forwardID)
 	}
-	log.Info().Str("sessionID", sessionID).Str("forwardID", forwardID).Int("localPort", pf.localPort).Msg("port forward stopped")
-	m.emitDebug("portfwd", "info", sessionID, sess.hostLabel, "closed", map[string]any{"localPort": pf.localPort, "forwardID": forwardID})
+	log.Info().Str("connectionId", connectionId).Str("forwardID", forwardID).Int("localPort", pf.localPort).Msg("port forward stopped")
+	m.emitDebug("portfwd", "info", connectionId, conn.hostLabel, "closed", map[string]any{"localPort": pf.localPort, "forwardID": forwardID})
 	return nil
 }
 
-// ListPortForwards returns all active port forwards for the given session.
-func (m *Manager) ListPortForwards(sessionID string) ([]PortForwardInfo, error) {
-	m.mu.Lock()
-	sess, ok := m.sessions[sessionID]
-	m.mu.Unlock()
-	if !ok {
-		return nil, fmt.Errorf("session %s not found", sessionID)
+// ListPortForwards returns all active port forwards for the given connection.
+func (m *Manager) ListPortForwards(connectionId string) ([]PortForwardInfo, error) {
+	conn, err := m.getConnection(connectionId)
+	if err != nil {
+		return nil, err
 	}
 
-	sess.pfMu.Lock()
-	result := make([]PortForwardInfo, 0, len(sess.portForwards))
-	for _, pf := range sess.portForwards {
+	conn.pfMu.Lock()
+	result := make([]PortForwardInfo, 0, len(conn.portForwards))
+	for _, pf := range conn.portForwards {
 		result = append(result, PortForwardInfo{
 			ID:         pf.id,
 			LocalPort:  pf.localPort,
@@ -127,7 +127,7 @@ func (m *Manager) ListPortForwards(sessionID string) ([]PortForwardInfo, error) 
 			RemotePort: pf.remotePort,
 		})
 	}
-	sess.pfMu.Unlock()
+	conn.pfMu.Unlock()
 
 	return result, nil
 }

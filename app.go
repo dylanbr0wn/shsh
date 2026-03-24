@@ -230,13 +230,14 @@ func (a *App) DeleteGroup(id string) error {
 	return a.store.DeleteGroup(id)
 }
 
-// BulkConnectResult pairs a session ID with the host that initiated it.
+// BulkConnectResult pairs connection/channel IDs with the host that initiated it.
 type BulkConnectResult struct {
-	SessionID string `json:"sessionId"`
-	HostID    string `json:"hostId"`
+	ConnectionID string `json:"connectionId"`
+	ChannelID    string `json:"channelId"`
+	HostID       string `json:"hostId"`
 }
 
-// BulkConnectGroup dials SSH for all hosts in the given group and returns the resulting session/host pairs.
+// BulkConnectGroup dials SSH for all hosts in the given group and returns the resulting connection/channel pairs.
 func (a *App) BulkConnectGroup(groupID string) ([]BulkConnectResult, error) {
 	hosts, err := a.store.GetHostsByGroup(groupID)
 	if err != nil {
@@ -259,10 +260,19 @@ func (a *App) BulkConnectGroup(groupID string) ([]BulkConnectResult, error) {
 			jumpHost = &jh
 			jumpPassword = jp
 		}
-		sessionID := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
+		connResult, err := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
 			a.store.TouchLastConnected(h.ID)
 		})
-		results = append(results, BulkConnectResult{SessionID: sessionID, HostID: h.ID})
+		if err != nil {
+			log.Warn().Err(err).Str("hostID", h.ID).Msg("skipping bulk connect: connection failed")
+			continue
+		}
+		channelID, err := a.manager.OpenTerminal(connResult.ConnectionID)
+		if err != nil {
+			log.Warn().Err(err).Str("hostID", h.ID).Msg("skipping bulk connect: terminal open failed")
+			continue
+		}
+		results = append(results, BulkConnectResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID, HostID: h.ID})
 	}
 	if results == nil {
 		results = []BulkConnectResult{}
@@ -431,7 +441,7 @@ type QuickConnectInput struct {
 }
 
 // QuickConnect dials SSH with the given credentials without saving a host record.
-func (a *App) QuickConnect(input QuickConnectInput) (string, error) {
+func (a *App) QuickConnect(input QuickConnectInput) (session.ConnectHostResult, error) {
 	port := input.Port
 	if port == 0 {
 		port = 22
@@ -444,15 +454,22 @@ func (a *App) QuickConnect(input QuickConnectInput) (string, error) {
 		Username:   input.Username,
 		AuthMethod: input.AuthMethod,
 	}
-	sessionID := a.manager.Connect(host, input.Password, nil, "", nil)
-	return sessionID, nil
+	connResult, err := a.manager.Connect(host, input.Password, nil, "", nil)
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	channelID, err := a.manager.OpenTerminal(connResult.ConnectionID)
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
 }
 
-// ConnectHost dials SSH for the given host and returns a session ID.
-func (a *App) ConnectHost(hostID string) (string, error) {
+// ConnectHost dials SSH for the given host and returns a connection+channel result.
+func (a *App) ConnectHost(hostID string) (session.ConnectHostResult, error) {
 	host, password, err := a.store.GetHostForConnect(hostID)
 	if err != nil {
-		return "", err
+		return session.ConnectHostResult{}, err
 	}
 
 	log.Info().Str("hostID", hostID).Str("hostname", host.Hostname).Int("port", host.Port).Str("username", host.Username).Msg("Connecting to host")
@@ -462,54 +479,90 @@ func (a *App) ConnectHost(hostID string) (string, error) {
 	if host.JumpHostID != nil {
 		jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
 		if err != nil {
-			return "", fmt.Errorf("resolving jump host: %w", err)
+			return session.ConnectHostResult{}, fmt.Errorf("resolving jump host: %w", err)
 		}
 		jumpHost = &jh
 		jumpPassword = jp
 	}
 
-	sessionID := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
+	connResult, err := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
 		a.store.TouchLastConnected(hostID)
 	})
-	return sessionID, nil
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	channelID, err := a.manager.OpenTerminal(connResult.ConnectionID)
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
 }
 
-func (a *App) WriteToSession(sessionID string, data string) error {
-	return a.manager.Write(sessionID, data)
+// ConnectForSFTP dials SSH for the given host and opens an SFTP channel.
+func (a *App) ConnectForSFTP(hostID string) (session.ConnectHostResult, error) {
+	host, password, err := a.store.GetHostForConnect(hostID)
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+
+	var jumpHost *store.Host
+	var jumpPassword string
+	if host.JumpHostID != nil {
+		jh, jp, err := a.store.GetHostForConnect(*host.JumpHostID)
+		if err != nil {
+			return session.ConnectHostResult{}, fmt.Errorf("resolving jump host: %w", err)
+		}
+		jumpHost = &jh
+		jumpPassword = jp
+	}
+
+	connResult, err := a.manager.Connect(host, password, jumpHost, jumpPassword, func() {
+		a.store.TouchLastConnected(hostID)
+	})
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	channelID, err := a.manager.OpenSFTPChannel(connResult.ConnectionID)
+	if err != nil {
+		return session.ConnectHostResult{}, err
+	}
+	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
 }
 
-func (a *App) ResizeSession(sessionID string, cols int, rows int) error {
-	return a.manager.Resize(sessionID, cols, rows)
+func (a *App) WriteToChannel(channelID string, data string) error {
+	return a.manager.Write(channelID, data)
 }
 
-func (a *App) DisconnectSession(sessionID string) error {
-	return a.manager.Disconnect(sessionID)
+func (a *App) ResizeChannel(channelID string, cols int, rows int) error {
+	return a.manager.Resize(channelID, cols, rows)
 }
 
-// SplitSession opens a new PTY on the same SSH connection as existingSessionID.
-func (a *App) SplitSession(existingSessionID string) (session.SplitSessionResult, error) {
-	return a.manager.SplitSession(existingSessionID)
+// CloseChannel closes a terminal or SFTP channel.
+func (a *App) CloseChannel(channelID string) error {
+	return a.manager.CloseChannel(channelID)
 }
 
-func (a *App) RespondHostKey(sessionID string, accepted bool) {
-	a.manager.RespondHostKey(sessionID, accepted)
+// OpenTerminal opens a new terminal channel on an existing connection.
+func (a *App) OpenTerminal(connectionID string) (string, error) {
+	return a.manager.OpenTerminal(connectionID)
+}
+
+// OpenSFTPChannel opens a new SFTP channel on an existing connection.
+func (a *App) OpenSFTPChannel(connectionID string) (string, error) {
+	return a.manager.OpenSFTPChannel(connectionID)
+}
+
+func (a *App) RespondHostKey(connectionID string, accepted bool) {
+	a.manager.RespondConnHostKey(connectionID, accepted)
 }
 
 // --- SFTP ---
 
-func (a *App) OpenSFTP(sessionID string) error {
-	return a.manager.OpenSFTP(sessionID)
+func (a *App) SFTPListDir(channelID string, path string) ([]session.SFTPEntry, error) {
+	return a.manager.SFTPListDir(channelID, path)
 }
 
-func (a *App) CloseSFTP(sessionID string) error {
-	return a.manager.CloseSFTP(sessionID)
-}
-
-func (a *App) SFTPListDir(sessionID string, path string) ([]session.SFTPEntry, error) {
-	return a.manager.SFTPListDir(sessionID, path)
-}
-
-func (a *App) SFTPDownload(sessionID string, remotePath string) error {
+func (a *App) SFTPDownload(channelID string, remotePath string) error {
 	localPath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
 		DefaultFilename: filepath.Base(remotePath),
 		Title:           "Save file",
@@ -517,57 +570,62 @@ func (a *App) SFTPDownload(sessionID string, remotePath string) error {
 	if err != nil || localPath == "" {
 		return nil
 	}
-	return a.manager.SFTPDownload(sessionID, remotePath, localPath)
+	return a.manager.SFTPDownload(channelID, remotePath, localPath)
 }
 
-func (a *App) SFTPDownloadDir(sessionID string, remotePath string) error {
+func (a *App) SFTPDownloadDir(channelID string, remotePath string) error {
 	localDir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "Save folder to",
 	})
 	if err != nil || localDir == "" {
 		return nil
 	}
-	return a.manager.SFTPDownloadDir(sessionID, remotePath, localDir)
+	return a.manager.SFTPDownloadDir(channelID, remotePath, localDir)
 }
 
-func (a *App) SFTPUpload(sessionID string, remoteDir string) error {
+func (a *App) SFTPUpload(channelID string, remoteDir string) error {
 	localPath, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title: "Upload file",
 	})
 	if err != nil || localPath == "" {
 		return nil
 	}
-	return a.manager.SFTPUpload(sessionID, remoteDir, localPath)
+	return a.manager.SFTPUpload(channelID, remoteDir, localPath)
 }
 
-func (a *App) SFTPUploadPath(sessionID string, localPath string, remotePath string) error {
-	return a.manager.SFTPUploadPath(sessionID, localPath, remotePath)
+func (a *App) SFTPUploadPath(channelID string, localPath string, remotePath string) error {
+	return a.manager.SFTPUploadPath(channelID, localPath, remotePath)
 }
 
-func (a *App) SFTPMkdir(sessionID string, path string) error {
-	return a.manager.SFTPMkdir(sessionID, path)
+func (a *App) SFTPMkdir(channelID string, path string) error {
+	return a.manager.SFTPMkdir(channelID, path)
 }
 
-func (a *App) SFTPDelete(sessionID string, path string) error {
-	return a.manager.SFTPDelete(sessionID, path)
+func (a *App) SFTPDelete(channelID string, path string) error {
+	return a.manager.SFTPDelete(channelID, path)
 }
 
-func (a *App) SFTPRename(sessionID string, oldPath string, newPath string) error {
-	return a.manager.SFTPRename(sessionID, oldPath, newPath)
+func (a *App) SFTPRename(channelID string, oldPath string, newPath string) error {
+	return a.manager.SFTPRename(channelID, oldPath, newPath)
+}
+
+// TransferBetweenHosts copies a file between two SFTP channels (cross-host transfer).
+func (a *App) TransferBetweenHosts(srcChannelID string, srcPath string, dstChannelID string, dstPath string) error {
+	return a.manager.TransferBetweenHosts(srcChannelID, srcPath, dstChannelID, dstPath)
 }
 
 // --- Port Forwarding ---
 
-func (a *App) AddPortForward(sessionID string, localPort int, remoteHost string, remotePort int) (session.PortForwardInfo, error) {
-	return a.manager.AddPortForward(sessionID, localPort, remoteHost, remotePort)
+func (a *App) AddPortForward(connectionID string, localPort int, remoteHost string, remotePort int) (session.PortForwardInfo, error) {
+	return a.manager.AddPortForward(connectionID, localPort, remoteHost, remotePort)
 }
 
-func (a *App) RemovePortForward(sessionID string, forwardID string) error {
-	return a.manager.RemovePortForward(sessionID, forwardID)
+func (a *App) RemovePortForward(connectionID string, forwardID string) error {
+	return a.manager.RemovePortForward(connectionID, forwardID)
 }
 
-func (a *App) ListPortForwards(sessionID string) ([]session.PortForwardInfo, error) {
-	return a.manager.ListPortForwards(sessionID)
+func (a *App) ListPortForwards(connectionID string) ([]session.PortForwardInfo, error) {
+	return a.manager.ListPortForwards(connectionID)
 }
 
 // --- Session Logging ---
@@ -581,16 +639,16 @@ type LogFileInfo struct {
 	SizeBytes int64  `json:"sizeBytes"`
 }
 
-func (a *App) StartSessionLog(sessionID string) (string, error) {
-	return a.manager.StartSessionLog(sessionID)
+func (a *App) StartSessionLog(channelID string) (string, error) {
+	return a.manager.StartSessionLog(channelID)
 }
 
-func (a *App) StopSessionLog(sessionID string) error {
-	return a.manager.StopSessionLog(sessionID)
+func (a *App) StopSessionLog(channelID string) error {
+	return a.manager.StopSessionLog(channelID)
 }
 
-func (a *App) GetSessionLogPath(sessionID string) (string, error) {
-	return a.manager.GetSessionLogPath(sessionID)
+func (a *App) GetSessionLogPath(channelID string) (string, error) {
+	return a.manager.GetSessionLogPath(channelID)
 }
 
 // ListSessionLogs returns metadata for all log files in the shsh logs directory.

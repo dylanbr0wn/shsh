@@ -5,7 +5,12 @@ import { ChevronRight, Loader2, MoreHorizontal, Plug2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
 import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
-import { workspacesAtom, activeWorkspaceIdAtom, type Workspace } from '../../store/workspaces'
+import {
+  workspacesAtom,
+  activeWorkspaceIdAtom,
+  type Workspace,
+  type TerminalLeaf,
+} from '../../store/workspaces'
 import { DeleteGroup, UpdateGroup, BulkConnectGroup } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -48,6 +53,7 @@ interface Props {
   onMoveToGroup: (hostId: string, groupId: string | null) => void
   onDeployKey: (host: Host) => void
   onGroupDeleted?: () => void
+  onOpenFiles?: (hostId: string, hostLabel: string) => void
 }
 
 export function HostGroupSection({
@@ -61,6 +67,7 @@ export function HostGroupSection({
   onMoveToGroup,
   onDeployKey,
   onGroupDeleted,
+  onOpenFiles,
 }: Props) {
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
@@ -128,24 +135,37 @@ export function HostGroupSection({
     try {
       const results = await BulkConnectGroup(group.id)
       const newWorkspaces: Workspace[] = results
-        .map(({ sessionId, hostId }: { sessionId: string; hostId: string }) => {
-          const host = hosts.find((h) => h.id === hostId)
-          if (!host) return null
-          const paneId = crypto.randomUUID()
-          return {
-            id: crypto.randomUUID(),
-            label: host.label,
-            layout: {
-              type: 'leaf' as const,
+        .map(
+          ({
+            connectionId,
+            channelId,
+            hostId,
+          }: {
+            connectionId: string
+            channelId: string
+            hostId: string
+          }) => {
+            const host = hosts.find((h) => h.id === hostId)
+            if (!host) return null
+            const paneId = crypto.randomUUID()
+            const leaf: TerminalLeaf = {
+              type: 'leaf',
+              kind: 'terminal',
               paneId,
-              sessionId,
+              connectionId,
+              channelId,
               hostId,
               hostLabel: host.label,
-              status: 'connecting' as const,
-            },
-            focusedPaneId: paneId,
+              status: 'connecting',
+            }
+            return {
+              id: crypto.randomUUID(),
+              label: host.label,
+              layout: leaf,
+              focusedPaneId: paneId,
+            }
           }
-        })
+        )
         .filter(Boolean) as Workspace[]
       if (newWorkspaces.length === 0) return
       setWorkspaces((prev) => [...prev, ...newWorkspaces])
@@ -309,6 +329,7 @@ export function HostGroupSection({
                 onEdit={() => onEdit(host)}
                 onDeployKey={() => onDeployKey(host)}
                 onMoveToGroup={onMoveToGroup}
+                onOpenFiles={onOpenFiles ? () => onOpenFiles(host.id, host.label) : undefined}
               />
             ))}
           </div>

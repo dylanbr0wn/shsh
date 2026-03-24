@@ -6,10 +6,10 @@ import {
   isAddHostOpenAtom,
   closeConfirmPrefAtom,
   hostsAtom,
-  sessionActivityAtom,
+  channelActivityAtom,
 } from '../../store/atoms'
 import { collectLeaves } from '../../lib/paneTree'
-import { DisconnectSession } from '../../../wailsjs/go/main/App'
+import { CloseChannel } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { TabItem } from './TabItem'
@@ -23,7 +23,7 @@ export function TabBar() {
   const [closeConfirmPref, setCloseConfirmPref] = useAtom(closeConfirmPrefAtom)
   const hosts = useAtomValue(hostsAtom)
   const hostById = useMemo(() => Object.fromEntries(hosts.map((h) => [h.id, h])), [hosts])
-  const [sessionActivity, setSessionActivity] = useAtom(sessionActivityAtom)
+  const [channelActivity, setChannelActivity] = useAtom(channelActivityAtom)
 
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
@@ -51,13 +51,13 @@ export function TabBar() {
     setPendingAction(null)
   }
 
-  /** Disconnect all sessions in a workspace and remove it from the list. */
+  /** Close all channels in a workspace and remove it from the list. */
   function closeWorkspace(workspaceId: string) {
     const ws = workspaces.find((w) => w.id === workspaceId)
     if (!ws) return
     const leaves = collectLeaves(ws.layout)
-    leaves.forEach((leaf) => DisconnectSession(leaf.sessionId).catch(() => {}))
-    const sessionIds = new Set(leaves.map((l) => l.sessionId))
+    leaves.forEach((leaf) => CloseChannel(leaf.channelId).catch(() => {}))
+    const channelIds = new Set(leaves.map((l) => l.channelId))
     setWorkspaces((prev) => {
       const next = prev.filter((w) => w.id !== workspaceId)
       if (activeWorkspaceId === workspaceId) {
@@ -65,7 +65,7 @@ export function TabBar() {
       }
       return next
     })
-    setSessionActivity((prev) => prev.filter((id) => !sessionIds.has(id)))
+    setChannelActivity((prev) => prev.filter((id) => !channelIds.has(id)))
   }
 
   function handleClose(workspaceId: string) {
@@ -104,7 +104,7 @@ export function TabBar() {
     }, workspaces.length)
   }
 
-  // Derive a "session" for TabItem from the first leaf's hostId
+  // Derive a tab session object from the first leaf's data
   function workspaceToTabSession(ws: Workspace) {
     const leaves = collectLeaves(ws.layout)
     const primaryLeaf = leaves[0]
@@ -113,12 +113,13 @@ export function TabBar() {
       hostId: primaryLeaf?.hostId ?? '',
       hostLabel: ws.label,
       status: primaryLeaf?.status ?? 'disconnected',
-      connectedAt: primaryLeaf?.connectedAt,
+      connectedAt:
+        primaryLeaf && 'connectedAt' in primaryLeaf ? primaryLeaf.connectedAt : undefined,
     }
   }
 
   const workspaceHasActivity = (ws: Workspace) =>
-    collectLeaves(ws.layout).some((l) => sessionActivity.includes(l.sessionId))
+    collectLeaves(ws.layout).some((l) => channelActivity.includes(l.channelId))
 
   return (
     <>
@@ -134,8 +135,8 @@ export function TabBar() {
             isLast={idx === workspaces.length - 1}
             onActivate={() => {
               setActiveWorkspaceId(ws.id)
-              const ids = new Set(collectLeaves(ws.layout).map((l) => l.sessionId))
-              setSessionActivity((prev) => prev.filter((id) => !ids.has(id)))
+              const ids = new Set(collectLeaves(ws.layout).map((l) => l.channelId))
+              setChannelActivity((prev) => prev.filter((id) => !ids.has(id)))
             }}
             onClose={() => handleClose(ws.id)}
             onCloseOthers={() => handleCloseOthers(ws.id)}

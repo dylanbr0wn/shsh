@@ -14,7 +14,7 @@ export function HostKeyDialog() {
 
   async function respond(accepted: boolean) {
     if (!pending) return
-    await RespondHostKey(pending.sessionId, accepted)
+    await RespondHostKey(pending.connectionId, accepted)
     setPending(null)
   }
 

@@ -6,7 +6,7 @@ import {
   ListHosts,
   ListGroups,
   ListTerminalProfiles,
-  DisconnectSession,
+  CloseChannel,
   StartSessionLog,
   StopSessionLog,
   OpenLogsDirectory,
@@ -26,13 +26,13 @@ import {
   isTerminalProfilesOpenAtom,
   isLogViewerOpenAtom,
   isNewGroupOpenAtom,
-  addPortForwardSessionIdAtom,
+  addPortForwardConnectionIdAtom,
   activeLogsAtom,
   portForwardsAtom,
   type PendingHostKey,
 } from './atoms'
 import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
-import { updateLeafBySessionId, collectLeaves } from '../lib/paneTree'
+import { updateLeafByChannelId, collectLeaves } from '../lib/paneTree'
 import { useDebugEvents } from '../hooks/useDebugEvents'
 import { debugPanelOpenAtom } from './debugStore'
 
@@ -53,7 +53,7 @@ export function useAppInit() {
   const setIsTerminalProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
   const setIsLogViewerOpen = useSetAtom(isLogViewerOpenAtom)
   const setIsNewGroupOpen = useSetAtom(isNewGroupOpenAtom)
-  const setAddPortForwardSessionId = useSetAtom(addPortForwardSessionIdAtom)
+  const setAddPortForwardConnectionId = useSetAtom(addPortForwardConnectionIdAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
   const setPortForwards = useSetAtom(portForwardsAtom)
   const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
@@ -82,15 +82,21 @@ export function useAppInit() {
 
   useEffect(() => {
     const cancel = EventsOn(
-      'session:status',
-      (event: { sessionId: string; status: SessionStatus; error?: string }) => {
-        const { sessionId, status } = event
+      'channel:status',
+      (event: {
+        channelId: string
+        connectionId: string
+        kind: string
+        status: SessionStatus
+        error?: string
+      }) => {
+        const { channelId, status } = event
 
         if (status === 'connecting') return
 
         if (status === 'connected') {
           const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
-          const leaf = allLeaves.find((l) => l.sessionId === sessionId)
+          const leaf = allLeaves.find((l) => l.channelId === channelId)
           if (leaf) {
             setConnectingIds((prev) => {
               const next = new Set(prev)
@@ -101,7 +107,7 @@ export function useAppInit() {
           setWorkspaces((prev) =>
             prev.map((w) => ({
               ...w,
-              layout: updateLeafBySessionId(w.layout, sessionId, {
+              layout: updateLeafByChannelId(w.layout, channelId, {
                 status: 'connected',
                 connectedAt: new Date().toISOString(),
               }),
@@ -112,7 +118,7 @@ export function useAppInit() {
 
         if (status === 'error') {
           const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
-          const leaf = allLeaves.find((l) => l.sessionId === sessionId)
+          const leaf = allLeaves.find((l) => l.channelId === channelId)
           if (leaf) {
             setConnectingIds((prev) => {
               const next = new Set(prev)
@@ -123,10 +129,10 @@ export function useAppInit() {
           setWorkspaces((prev) =>
             prev.map((w) => ({
               ...w,
-              layout: updateLeafBySessionId(w.layout, sessionId, { status: 'error' }),
+              layout: updateLeafByChannelId(w.layout, channelId, { status: 'error' }),
             }))
           )
-          toast.error('SSH session error', { description: event.error })
+          toast.error('SSH channel error', { description: event.error })
           return
         }
 
@@ -134,12 +140,12 @@ export function useAppInit() {
           setWorkspaces((prev) =>
             prev.map((w) => ({
               ...w,
-              layout: updateLeafBySessionId(w.layout, sessionId, { status: 'disconnected' }),
+              layout: updateLeafByChannelId(w.layout, channelId, { status: 'disconnected' }),
             }))
           )
           setPortForwards((prev) => {
             const next = { ...prev }
-            delete next[sessionId]
+            delete next[channelId]
             return next
           })
         }
@@ -148,8 +154,42 @@ export function useAppInit() {
     return () => cancel()
   }, [setConnectingIds, setWorkspaces, setPortForwards])
 
+  // When a connection drops, mark all channels on that connection as disconnected.
   useEffect(() => {
-    const cancelHK = EventsOn('session:hostkey', (event: PendingHostKey) => {
+    const cancel = EventsOn(
+      'connection:status',
+      (event: { connectionId: string; status: string }) => {
+        if (event.status !== 'disconnected') return
+        const { connectionId } = event
+        const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
+        const affected = allLeaves.filter((l) => l.connectionId === connectionId)
+        if (affected.length === 0) return
+
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            let layout = w.layout
+            for (const leaf of affected) {
+              layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'disconnected' })
+            }
+            return { ...w, layout }
+          })
+        )
+
+        // Clean up port forwards for all affected channels
+        setPortForwards((prev) => {
+          const next = { ...prev }
+          for (const leaf of affected) {
+            delete next[leaf.channelId]
+          }
+          return next
+        })
+      }
+    )
+    return () => cancel()
+  }, [setWorkspaces, setPortForwards])
+
+  useEffect(() => {
+    const cancelHK = EventsOn('connection:hostkey', (event: PendingHostKey) => {
       setPendingHostKey(event)
     })
     return () => cancelHK()
@@ -183,7 +223,9 @@ export function useAppInit() {
   ])
 
   useEffect(() => {
-    function requireActiveSession(action: (sessionId: string) => void) {
+    function requireActiveLeaf(
+      action: (leaf: { channelId: string; connectionId: string }) => void
+    ) {
       const ws = workspacesRef.current.find((w) => w.id === activeWorkspaceIdRef.current)
       if (!ws || !ws.focusedPaneId) {
         toast.error('No active session')
@@ -194,13 +236,13 @@ export function useAppInit() {
         toast.error('No active session')
         return
       }
-      action(leaf.sessionId)
+      action(leaf)
     }
 
     const c1 = EventsOn('menu:session:disconnect', () => {
-      requireActiveSession(async (id) => {
+      requireActiveLeaf(async (leaf) => {
         try {
-          await DisconnectSession(id)
+          await CloseChannel(leaf.channelId)
         } catch (err) {
           toast.error('Failed to disconnect', { description: String(err) })
         }
@@ -213,20 +255,20 @@ export function useAppInit() {
         toast.error('No active sessions')
         return
       }
-      await Promise.allSettled(connected.map((l) => DisconnectSession(l.sessionId)))
+      await Promise.allSettled(connected.map((l) => CloseChannel(l.channelId)))
     })
     const c3 = EventsOn('menu:session:add-port-forward', () => {
-      requireActiveSession((id) => setAddPortForwardSessionId(id))
+      requireActiveLeaf((leaf) => setAddPortForwardConnectionId(leaf.connectionId))
     })
     const c4 = EventsOn('menu:session:start-log', () => {
-      requireActiveSession(async (id) => {
-        if (activeLogs.get(id)) {
+      requireActiveLeaf(async (leaf) => {
+        if (activeLogs.get(leaf.channelId)) {
           toast.error('Already logging this session')
           return
         }
         try {
-          const path = await StartSessionLog(id)
-          setActiveLogs((prev) => new Map(prev).set(id, path))
+          const path = await StartSessionLog(leaf.channelId)
+          setActiveLogs((prev) => new Map(prev).set(leaf.channelId, path))
           toast.success('Session logging started')
         } catch (err) {
           toast.error('Failed to start logging', { description: String(err) })
@@ -234,16 +276,16 @@ export function useAppInit() {
       })
     })
     const c5 = EventsOn('menu:session:stop-log', () => {
-      requireActiveSession(async (id) => {
-        if (!activeLogs.get(id)) {
+      requireActiveLeaf(async (leaf) => {
+        if (!activeLogs.get(leaf.channelId)) {
           toast.error('Not currently logging this session')
           return
         }
         try {
-          await StopSessionLog(id)
+          await StopSessionLog(leaf.channelId)
           setActiveLogs((prev) => {
             const next = new Map(prev)
-            next.delete(id)
+            next.delete(leaf.channelId)
             return next
           })
           toast.success('Session logging stopped')
@@ -263,7 +305,7 @@ export function useAppInit() {
       c6()
       c7()
     }
-  }, [activeLogs, setAddPortForwardSessionId, setActiveLogs, setIsLogViewerOpen])
+  }, [activeLogs, setAddPortForwardConnectionId, setActiveLogs, setIsLogViewerOpen])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
