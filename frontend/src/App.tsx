@@ -35,7 +35,7 @@ export default function App() {
     } else {
       sidebarRef.current?.expand()
     }
-  }, [sidebarCollapsed])
+  }, [sidebarCollapsed, sidebarRef])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
   return (
