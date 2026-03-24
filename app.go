@@ -34,6 +34,15 @@ import (
 	"github.com/dylanbr0wn/shsh/internal/credstore"
 )
 
+// wailsEventEmitter implements session.EventEmitter using the Wails runtime.
+type wailsEventEmitter struct {
+	ctx context.Context
+}
+
+func (w *wailsEventEmitter) Emit(topic string, data any) {
+	wailsruntime.EventsEmit(w.ctx, topic, data)
+}
+
 // App is the Wails application coordinator.
 type App struct {
 	ctx     context.Context
@@ -83,7 +92,7 @@ func (a *App) startup(ctx context.Context) {
 		log.Warn().Err(err).Msg("keychain migration encountered errors")
 	}
 
-	a.manager = session.NewManager(ctx, a.cfg)
+	a.manager = session.NewManager(ctx, a.cfg, &wailsEventEmitter{ctx: ctx})
 
 	wailsruntime.OnFileDrop(ctx, func(_ int, _ int, paths []string) {
 		wailsruntime.EventsEmit(ctx, "window:filedrop", map[string]interface{}{
@@ -470,15 +479,34 @@ func (a *App) SFTPListDir(sessionID string, path string) ([]session.SFTPEntry, e
 }
 
 func (a *App) SFTPDownload(sessionID string, remotePath string) error {
-	return a.manager.SFTPDownload(sessionID, remotePath)
+	localPath, err := wailsruntime.SaveFileDialog(a.ctx, wailsruntime.SaveDialogOptions{
+		DefaultFilename: filepath.Base(remotePath),
+		Title:           "Save file",
+	})
+	if err != nil || localPath == "" {
+		return nil
+	}
+	return a.manager.SFTPDownload(sessionID, remotePath, localPath)
 }
 
 func (a *App) SFTPDownloadDir(sessionID string, remotePath string) error {
-	return a.manager.SFTPDownloadDir(sessionID, remotePath)
+	localDir, err := wailsruntime.OpenDirectoryDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "Save folder to",
+	})
+	if err != nil || localDir == "" {
+		return nil
+	}
+	return a.manager.SFTPDownloadDir(sessionID, remotePath, localDir)
 }
 
 func (a *App) SFTPUpload(sessionID string, remoteDir string) error {
-	return a.manager.SFTPUpload(sessionID, remoteDir)
+	localPath, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
+		Title: "Upload file",
+	})
+	if err != nil || localPath == "" {
+		return nil
+	}
+	return a.manager.SFTPUpload(sessionID, remoteDir, localPath)
 }
 
 func (a *App) SFTPUploadPath(sessionID string, localPath string, remotePath string) error {

@@ -14,7 +14,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // OpenSFTP opens an SFTP subsystem on an existing SSH session.
@@ -116,8 +115,13 @@ func (m *Manager) SFTPListDir(sessionID string, path string) ([]SFTPEntry, error
 	return entries, nil
 }
 
-// SFTPDownload opens a save dialog and downloads the remote file to the chosen path.
-func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
+// SFTPDownload downloads the remote file to localPath.
+// The caller is responsible for resolving localPath (e.g. via a save dialog).
+func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath string) error {
+	if localPath == "" {
+		return nil
+	}
+
 	m.mu.Lock()
 	sess, ok := m.sessions[sessionID]
 	m.mu.Unlock()
@@ -130,14 +134,6 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 	sess.sftpMu.Unlock()
 	if sc == nil {
 		return fmt.Errorf("sftp not open for session %s", sessionID)
-	}
-
-	localPath, err := runtime.SaveFileDialog(m.ctx, runtime.SaveDialogOptions{
-		DefaultFilename: filepath.Base(remotePath),
-		Title:           "Save file",
-	})
-	if err != nil || localPath == "" {
-		return nil
 	}
 
 	remoteFile, err := sc.Open(remotePath)
@@ -167,7 +163,7 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 		if nr > 0 {
 			nw, werr := localFile.Write(buf[:nr])
 			written += int64(nw)
-			runtime.EventsEmit(m.ctx, "sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -188,7 +184,9 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string) error {
 }
 
 // SFTPDownloadDir tars a remote directory, downloads it, and unpacks it locally.
-func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string) error {
+// localDir is the destination directory; the caller is responsible for resolving it
+// (e.g. via an open-directory dialog).
+func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string, localDir string) error {
 	m.mu.Lock()
 	sess, ok := m.sessions[sessionID]
 	m.mu.Unlock()
@@ -203,10 +201,7 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string) error {
 		return fmt.Errorf("sftp not open for session %s", sessionID)
 	}
 
-	localDir, err := runtime.OpenDirectoryDialog(m.ctx, runtime.OpenDialogOptions{
-		Title: "Save folder to",
-	})
-	if err != nil || localDir == "" {
+	if localDir == "" {
 		return nil
 	}
 
@@ -245,7 +240,7 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string) error {
 		if nr > 0 {
 			nw, werr := localTmp.Write(buf[:nr])
 			written += int64(nw)
-			runtime.EventsEmit(m.ctx, eventKey, SFTPProgressEvent{
+			m.emitter.Emit(eventKey, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -270,8 +265,13 @@ func (m *Manager) SFTPDownloadDir(sessionID string, remotePath string) error {
 	return extractTarGz(localTmpPath, localDir)
 }
 
-// SFTPUpload opens a file picker and uploads the chosen file to remoteDir.
-func (m *Manager) SFTPUpload(sessionID string, remoteDir string) error {
+// SFTPUpload uploads localPath to remoteDir.
+// The caller is responsible for resolving localPath (e.g. via a file picker dialog).
+func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath string) error {
+	if localPath == "" {
+		return nil
+	}
+
 	m.mu.Lock()
 	sess, ok := m.sessions[sessionID]
 	m.mu.Unlock()
@@ -284,13 +284,6 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string) error {
 	sess.sftpMu.Unlock()
 	if sc == nil {
 		return fmt.Errorf("sftp not open for session %s", sessionID)
-	}
-
-	localPath, err := runtime.OpenFileDialog(m.ctx, runtime.OpenDialogOptions{
-		Title: "Upload file",
-	})
-	if err != nil || localPath == "" {
-		return nil
 	}
 
 	localFile, err := os.Open(localPath)
@@ -321,7 +314,7 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string) error {
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			runtime.EventsEmit(m.ctx, "sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -388,7 +381,7 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			runtime.EventsEmit(m.ctx, "sftp:progress:"+sessionID, SFTPProgressEvent{
+			m.emitter.Emit("sftp:progress:"+sessionID, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
