@@ -85,7 +85,7 @@ export function HostListItem({
           onDoubleClick={onConnect}
           className={cn(
             'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
-            isConnected ? 'bg-sidebar-accent hover:bg-sidebar-accent/80' : 'hover:bg-accent/50'
+            isConnected ? 'bg-sidebar-accent hover:bg-sidebar-accent/80' : 'hover:bg-sidebar-accent/30'
           )}
           style={host.color ? { borderLeft: `3px solid ${host.color}`, paddingLeft: 9 } : undefined}
           tabIndex={0}
