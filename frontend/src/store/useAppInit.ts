@@ -34,9 +34,11 @@ import {
 import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
 import { updateLeafBySessionId, collectLeaves } from '../lib/paneTree'
 import { useDebugEvents } from '../hooks/useDebugEvents'
+import { debugPanelOpenAtom } from './debugStore'
 
 export function useAppInit() {
   useDebugEvents()
+  const setDebugPanelOpen = useSetAtom(debugPanelOpenAtom)
   const setHosts = useSetAtom(hostsAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setTerminalProfiles = useSetAtom(terminalProfilesAtom)
@@ -262,4 +264,15 @@ export function useAppInit() {
       c7()
     }
   }, [activeLogs, setAddPortForwardSessionId, setActiveLogs, setIsLogViewerOpen])
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
+        e.preventDefault()
+        setDebugPanelOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [setDebugPanelOpen])
 }

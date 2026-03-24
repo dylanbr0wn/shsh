@@ -1,11 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { Search, Settings, X } from 'lucide-react'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '../ui/popover'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import {
   debugFilterCategoriesAtom,
   debugFilterLevelAtom,
@@ -50,7 +46,10 @@ interface Props {
   categoryLevels: Record<string, string>
 }
 
-export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels: initialCategoryLevels }: Props) {
+export function DebugFilterBar({
+  globalLevel: initialGlobalLevel,
+  categoryLevels: initialCategoryLevels,
+}: Props) {
   const [categories, setCategories] = useAtom(debugFilterCategoriesAtom)
   const [level, setLevel] = useAtom(debugFilterLevelAtom)
   const [search, setSearch] = useAtom(debugFilterSearchAtom)
@@ -63,13 +62,8 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
     initialCategoryLevels as Record<string, DebugLevel>
   )
 
-  useEffect(() => {
-    setPopoverGlobalLevel(initialGlobalLevel)
-    setPopoverCategoryLevels(initialCategoryLevels as Record<string, DebugLevel>)
-  }, [initialGlobalLevel, initialCategoryLevels])
-
   const toggleCategory = (cat: DebugCategory) => {
-    setCategories((prev) => {
+    setCategories((prev: Set<DebugCategory>) => {
       const next = new Set(prev)
       if (next.has(cat)) next.delete(cat)
       else next.add(cat)
@@ -100,8 +94,8 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-border bg-background px-3 py-1.5">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+    <div className="border-border bg-background flex items-center gap-2 border-b px-3 py-1.5">
+      <span className="text-muted-foreground text-[11px] font-semibold tracking-wider uppercase">
         Debug
       </span>
 
@@ -109,17 +103,28 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
       <select
         value={sessionFilter}
         onChange={(e) => setSessionFilter(e.target.value)}
-        className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+        className="border-border bg-muted text-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]"
       >
         <option value="">All Sessions</option>
-        {[...new Set(debugRingBuffer.getAll().map((e) => e.sessionId).filter(Boolean))].map((id) => {
+        {[
+          ...new Set(
+            debugRingBuffer
+              .getAll()
+              .map((e) => e.sessionId)
+              .filter(Boolean)
+          ),
+        ].map((id) => {
           const label = debugRingBuffer.getAll().find((e) => e.sessionId === id)?.sessionLabel ?? id
-          return <option key={id} value={id}>{label}</option>
+          return (
+            <option key={id} value={id}>
+              {label}
+            </option>
+          )
         })}
       </select>
 
       {/* Category pills */}
-      <div className="flex gap-1 ml-1">
+      <div className="ml-1 flex gap-1">
         {ALL_CATEGORIES.map(({ key, label }) => {
           const active = categories.has(key)
           const color = CATEGORY_COLORS[key]
@@ -145,27 +150,29 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
 
       {/* Level display filter */}
       <div className="flex items-center gap-1">
-        <span className="text-[10px] text-muted-foreground">Level:</span>
+        <span className="text-muted-foreground text-[10px]">Level:</span>
         <select
           value={level}
           onChange={(e) => setLevel(e.target.value as DebugLevel)}
-          className="rounded border border-border bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+          className="border-border bg-muted text-foreground rounded border px-1.5 py-0.5 font-mono text-[11px]"
         >
           {ALL_LEVELS.map(({ key, label }) => (
-            <option key={key} value={key}>{label}</option>
+            <option key={key} value={key}>
+              {label}
+            </option>
           ))}
         </select>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-1.5 top-1 h-3 w-3 text-muted-foreground" />
+        <Search className="text-muted-foreground absolute top-1 left-1.5 h-3 w-3" />
         <input
           type="text"
           placeholder="Filter..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-28 rounded border border-border bg-muted pl-5 pr-1.5 py-0.5 font-mono text-[11px] text-foreground placeholder:text-muted-foreground"
+          className="border-border bg-muted text-foreground placeholder:text-muted-foreground w-28 rounded border py-0.5 pr-1.5 pl-5 font-mono text-[11px]"
         />
       </div>
 
@@ -173,7 +180,7 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
       <Popover>
         <PopoverTrigger asChild>
           <button
-            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground rounded p-0.5"
             title="Per-category level controls"
           >
             <Settings className="h-3.5 w-3.5" />
@@ -181,12 +188,12 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
         </PopoverTrigger>
         <PopoverContent align="end" className="w-72 p-3 font-mono text-xs">
           {/* Global level */}
-          <div className="mb-2 border-b border-border pb-2">
+          <div className="border-border mb-2 border-b pb-2">
             <div className="mb-1 font-semibold">Global Level</div>
-            <div className="text-[10px] text-muted-foreground mb-1.5">
+            <div className="text-muted-foreground mb-1.5 text-[10px]">
               Default for all categories
             </div>
-            <div className="flex gap-px rounded bg-muted p-0.5">
+            <div className="bg-muted flex gap-px rounded p-0.5">
               {LEVELS.map((lvl, i) => {
                 const active = popoverGlobalLevel === lvl
                 return (
@@ -207,7 +214,7 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
           </div>
 
           {/* Category overrides */}
-          <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          <div className="text-muted-foreground mb-2 text-[10px] tracking-wider uppercase">
             Category Overrides
           </div>
           <div className="space-y-1.5">
@@ -220,7 +227,7 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
                   />
                   <span>{label}</span>
                 </div>
-                <div className="flex gap-px rounded bg-muted p-0.5">
+                <div className="bg-muted flex gap-px rounded p-0.5">
                   {LEVELS.map((lvl, i) => {
                     const active = popoverCategoryLevels[key] === lvl
                     const activeColor = CATEGORY_COLORS[key]
@@ -244,13 +251,11 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
           </div>
 
           {/* Footer */}
-          <div className="mt-2 flex justify-between border-t border-border pt-2">
-            <span className="text-[10px] text-muted-foreground">
-              Unset inherits global
-            </span>
+          <div className="border-border mt-2 flex justify-between border-t pt-2">
+            <span className="text-muted-foreground text-[10px]">Unset inherits global</span>
             <button
               onClick={handleResetLevels}
-              className="text-[10px] text-primary hover:underline"
+              className="text-primary text-[10px] hover:underline"
             >
               Reset All
             </button>
@@ -261,7 +266,7 @@ export function DebugFilterBar({ globalLevel: initialGlobalLevel, categoryLevels
       {/* Clear */}
       <button
         onClick={handleClear}
-        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+        className="text-muted-foreground hover:text-foreground rounded p-0.5"
         title="Clear"
       >
         <X className="h-3.5 w-3.5" />

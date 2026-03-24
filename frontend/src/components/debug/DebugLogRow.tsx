@@ -1,9 +1,5 @@
 import { memo } from 'react'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '../ui/tooltip'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { DebugLogEntry } from '../../types/debug'
 import { CATEGORY_COLORS } from '../../types/debug'
 
@@ -21,21 +17,15 @@ const levelColors: Record<string, string> = {
   warn: 'text-orange-400 bg-orange-500/5',
 }
 
-export const DebugLogRow = memo(function DebugLogRow({
-  entry,
-}: {
-  entry: DebugLogEntry
-}) {
+export const DebugLogRow = memo(function DebugLogRow({ entry }: { entry: DebugLogEntry }) {
   const levelStyle = levelColors[entry.level] ?? ''
   const catColor = CATEGORY_COLORS[entry.category]
 
   return (
-    <div
-      className={`flex gap-2 px-3 py-px font-mono text-xs leading-relaxed ${levelStyle}`}
-    >
+    <div className={`flex gap-2 px-3 py-px font-mono text-xs leading-relaxed ${levelStyle}`}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="min-w-[72px] shrink-0 text-muted-foreground/50 cursor-default">
+          <span className="text-muted-foreground/50 min-w-[72px] shrink-0 cursor-default">
             {formatCompactTime(entry.timestamp)}
           </span>
         </TooltipTrigger>
@@ -43,16 +33,13 @@ export const DebugLogRow = memo(function DebugLogRow({
           {new Date(entry.timestamp).toISOString()}
         </TooltipContent>
       </Tooltip>
-      <span
-        className="min-w-[52px] shrink-0"
-        style={{ color: catColor }}
-      >
+      <span className="min-w-[52px] shrink-0" style={{ color: catColor }}>
         {entry.category === 'portfwd' ? 'PortFwd' : entry.category.toUpperCase()}
       </span>
-      <span className="min-w-[32px] shrink-0 text-muted-foreground">
+      <span className="text-muted-foreground min-w-[32px] shrink-0">
         {entry.level.toUpperCase().slice(0, 3)}
       </span>
-      <span className="min-w-[100px] shrink-0 text-muted-foreground/60 truncate">
+      <span className="text-muted-foreground/60 min-w-[100px] shrink-0 truncate">
         {entry.sessionLabel}
       </span>
       <span className="text-foreground truncate">{entry.message}</span>

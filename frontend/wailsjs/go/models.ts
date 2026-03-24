@@ -1,5 +1,27 @@
 export namespace config {
 	
+	export class DebugConfig {
+	    default_level: string;
+	    category_levels: Record<string, string>;
+	    ring_buffer_size: number;
+	    persistence_max_size_mb: number;
+	    persistence_max_backups: number;
+	    persistence_max_age_days: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new DebugConfig(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.default_level = source["default_level"];
+	        this.category_levels = source["category_levels"];
+	        this.ring_buffer_size = source["ring_buffer_size"];
+	        this.persistence_max_size_mb = source["persistence_max_size_mb"];
+	        this.persistence_max_backups = source["persistence_max_backups"];
+	        this.persistence_max_age_days = source["persistence_max_age_days"];
+	    }
+	}
 	export class LogConfig {
 	    level: string;
 	    max_size_mb: number;
@@ -71,6 +93,7 @@ export namespace config {
 	    sftp: SFTPConfig;
 	    window: WindowConfig;
 	    log: LogConfig;
+	    debug: DebugConfig;
 	
 	    static createFrom(source: any = {}) {
 	        return new Config(source);
@@ -82,6 +105,7 @@ export namespace config {
 	        this.sftp = this.convertValues(source["sftp"], SFTPConfig);
 	        this.window = this.convertValues(source["window"], WindowConfig);
 	        this.log = this.convertValues(source["log"], LogConfig);
+	        this.debug = this.convertValues(source["debug"], DebugConfig);
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -102,6 +126,7 @@ export namespace config {
 		    return a;
 		}
 	}
+	
 	
 	
 	

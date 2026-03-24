@@ -32,10 +32,7 @@ class RingBuffer {
       return this.buffer.slice(0, this.count)
     }
     // Wrap around: entries from head to end, then 0 to head
-    return [
-      ...this.buffer.slice(this.head),
-      ...this.buffer.slice(0, this.head),
-    ]
+    return [...this.buffer.slice(this.head), ...this.buffer.slice(0, this.head)]
   }
 
   clear() {
@@ -61,7 +58,7 @@ export const debugPanelOpenAtom = atom(false)
 
 // Display filters (client-side only)
 export const debugFilterCategoriesAtom = atom<Set<DebugCategory>>(
-  new Set(['ssh', 'sftp', 'portfwd', 'network', 'app'])
+  new Set<DebugCategory>(['ssh', 'sftp', 'portfwd', 'network', 'app'])
 )
 export const debugFilterLevelAtom = atom<DebugLevel>('trace')
 export const debugFilterSessionAtom = atom<string>('') // empty = all
