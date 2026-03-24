@@ -70,3 +70,5 @@ export const sessionActivityAtom = atom<string[]>([])
 
 export const isDeployKeyOpenAtom = atom<boolean>(false)
 export const deployKeyHostAtom = atom<Host | null>(null)
+
+export const sidebarCollapsedAtom = atom<boolean>(false)
