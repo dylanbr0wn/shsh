@@ -278,7 +278,7 @@ func (m *Manager) teardownConnection(conn *Connection) {
 	delete(m.connByIdent, ident)
 	m.mu.Unlock()
 
-	m.emitter.Emit("connection:status", map[string]interface{}{
+	m.emitter.Emit("connection:status", map[string]any{
 		"connectionId": conn.id,
 		"status":       "disconnected",
 	})
