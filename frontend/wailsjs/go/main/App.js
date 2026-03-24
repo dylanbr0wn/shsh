@@ -178,6 +178,11 @@ export function SFTPUploadPath(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
 }
 
+export function SetDebugLevel(arg1, arg2) {
+  return window['go']['main']['App']['SetDebugLevel'](arg1, arg2);
+}
+
+
 export function StartSessionLog(arg1) {
   return window['go']['main']['App']['StartSessionLog'](arg1);
 }

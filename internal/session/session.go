@@ -22,6 +22,11 @@ type EventEmitter interface {
 	Emit(topic string, data any)
 }
 
+// DebugEmitter emits structured debug log entries. Optional — pass nil to disable.
+type DebugEmitter interface {
+	EmitDebug(category string, level string, channelID, channelLabel, message string, fields map[string]any)
+}
+
 // ansiRe strips ANSI/VT escape sequences from terminal output for log files.
 var ansiRe = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*\x07|.)`)
 
@@ -71,6 +76,7 @@ type Manager struct {
 	ctx     context.Context
 	cfg     *config.Config
 	emitter EventEmitter
+	debug   DebugEmitter
 	mu      sync.Mutex
 	wg      sync.WaitGroup
 
@@ -82,17 +88,37 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with the given app context, config, and event emitter.
-func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *Manager {
+// The debug parameter is optional — pass nil to disable debug emissions.
+func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter, debug DebugEmitter) *Manager {
 	return &Manager{
 		ctx:             ctx,
 		cfg:             cfg,
 		emitter:         emitter,
+		debug:           debug,
 		connections:     make(map[string]*Connection),
 		connByIdent:     make(map[connIdentity]*Connection),
 		channels:        make(map[string]Channel),
 		pending:         make(map[connIdentity]chan struct{}),
 		pendingConnKeys: make(map[string]chan bool),
 	}
+}
+
+// emitDebug sends a debug log entry if a DebugEmitter is configured.
+func (m *Manager) emitDebug(category string, level string, channelID, channelLabel, message string, fields map[string]any) {
+	if m.debug != nil {
+		m.debug.EmitDebug(category, level, channelID, channelLabel, message, fields)
+	}
+}
+
+// connLabel returns the host label for a connection, or "unknown" if not found.
+func (m *Manager) connLabel(connectionID string) string {
+	m.mu.Lock()
+	conn, ok := m.connections[connectionID]
+	m.mu.Unlock()
+	if ok {
+		return conn.hostLabel
+	}
+	return "unknown"
 }
 
 // resolveAuth builds a goph.Auth for the given host and secret (password or key passphrase).

@@ -39,8 +39,10 @@ func (m *Manager) SFTPListDir(channelId string, path string) ([]SFTPEntry, error
 
 	infos, err := sc.ReadDir(path)
 	if err != nil {
+		m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "readdir failed: "+err.Error(), map[string]any{"path": path})
 		return nil, err
 	}
+	m.emitDebug("sftp", "debug", channelId, m.connLabel(sftpCh.connectionID), "readdir", map[string]any{"path": path, "entries": len(infos)})
 
 	entries := make([]SFTPEntry, 0, len(infos))
 	for _, fi := range infos {
@@ -103,6 +105,7 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 	defer localFile.Close()
 
 	log.Info().Str("channelId", channelId).Str("remote", remotePath).Str("local", localPath).Int64("size", total).Msg("SFTP download started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "download started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -123,10 +126,12 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "download error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP download complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "download complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
@@ -253,6 +258,7 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 	defer remoteFile.Close()
 
 	log.Info().Str("channelId", channelId).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -273,10 +279,12 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
@@ -318,6 +326,7 @@ func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath 
 	defer remoteFile.Close()
 
 	log.Info().Str("channelId", channelId).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -338,10 +347,12 @@ func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath 
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", channelId, m.connLabel(sftpCh.connectionID), "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("channelId", channelId).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", channelId, m.connLabel(sftpCh.connectionID), "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 

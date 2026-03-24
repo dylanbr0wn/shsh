@@ -95,6 +95,9 @@ export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function SetDebugLevel(arg1:string,arg2:string):Promise<void>;
+
+
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;
