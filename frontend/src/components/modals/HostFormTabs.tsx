@@ -1,5 +1,11 @@
 import { FolderOpen, Info, KeyRound, Loader2, Upload } from 'lucide-react'
-import type { CredentialSource, Group, Host, PasswordManagersStatus, TerminalProfile } from '../../types'
+import type {
+  CredentialSource,
+  Group,
+  Host,
+  PasswordManagersStatus,
+  TerminalProfile,
+} from '../../types'
 import type { CreateHostInput } from '../../types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '../ui/field'
@@ -30,7 +36,7 @@ export interface HostFormTabsProps {
   onTestCredential: () => void
   onBrowseKeyFile: () => void
   onOpenGenerateKeyModal: () => void
-  onOpenDeployKeyModal?: () => void   // only provided in edit mode
+  onOpenDeployKeyModal?: () => void // only provided in edit mode
   onOpenProfilesModal: () => void
   onCheckPasswordManagers: () => void
 }
@@ -78,9 +84,15 @@ export function HostFormTabs({
   return (
     <Tabs value={activeTab} onValueChange={onTabChange} className="w-full">
       <TabsList className="mb-4 w-full">
-        <TabsTrigger value="connection" className="flex-1">Connection</TabsTrigger>
-        <TabsTrigger value="organization" className="flex-1">Organization</TabsTrigger>
-        <TabsTrigger value="advanced" className="flex-1">Advanced</TabsTrigger>
+        <TabsTrigger value="connection" className="flex-1">
+          Connection
+        </TabsTrigger>
+        <TabsTrigger value="organization" className="flex-1">
+          Organization
+        </TabsTrigger>
+        <TabsTrigger value="advanced" className="flex-1">
+          Advanced
+        </TabsTrigger>
       </TabsList>
 
       {/* ── Connection tab ── */}
@@ -101,7 +113,9 @@ export function HostFormTabs({
             <Field>
               <FieldLabel htmlFor="hf-hostname">
                 Hostname
-                <FieldHint>IP address or domain name — e.g. 192.168.1.10 or myserver.example.com</FieldHint>
+                <FieldHint>
+                  IP address or domain name — e.g. 192.168.1.10 or myserver.example.com
+                </FieldHint>
               </FieldLabel>
               <Input
                 id="hf-hostname"
@@ -210,7 +224,9 @@ export function HostFormTabs({
                   <Input
                     id="hf-password"
                     type="password"
-                    placeholder={form.id ? 'Leave blank to keep unchanged' : 'Leave blank if not required'}
+                    placeholder={
+                      form.id ? 'Leave blank to keep unchanged' : 'Leave blank if not required'
+                    }
                     value={form.password ?? ''}
                     onChange={field('password')}
                   />
@@ -281,20 +297,12 @@ export function HostFormTabs({
                       <FolderOpen data-icon="inline-start" />
                       Browse
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={onOpenGenerateKeyModal}
-                    >
+                    <Button type="button" variant="outline" onClick={onOpenGenerateKeyModal}>
                       <KeyRound data-icon="inline-start" />
                       Generate…
                     </Button>
                     {onOpenDeployKeyModal && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={onOpenDeployKeyModal}
-                      >
+                      <Button type="button" variant="outline" onClick={onOpenDeployKeyModal}>
                         <Upload data-icon="inline-start" />
                         Deploy…
                       </Button>
@@ -314,7 +322,11 @@ export function HostFormTabs({
                 <Input
                   id="hf-passphrase"
                   type="password"
-                  placeholder={form.id ? 'Leave blank to keep unchanged' : 'Leave blank if key has no passphrase'}
+                  placeholder={
+                    form.id
+                      ? 'Leave blank to keep unchanged'
+                      : 'Leave blank if key has no passphrase'
+                  }
                   value={form.keyPassphrase ?? ''}
                   onChange={field('keyPassphrase')}
                 />

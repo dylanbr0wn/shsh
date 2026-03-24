@@ -8,7 +8,12 @@ import {
   Quit,
 } from '../../../wailsjs/runtime/runtime'
 import { cn } from '../../lib/utils'
-import { isSettingsOpenAtom, sidebarCollapsedAtom, isAddHostOpenAtom, isQuickConnectOpenAtom } from '../../store/atoms'
+import {
+  isSettingsOpenAtom,
+  sidebarCollapsedAtom,
+  isAddHostOpenAtom,
+  isQuickConnectOpenAtom,
+} from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
@@ -50,10 +55,11 @@ export function TitleBar() {
               onClick={() => setSidebarCollapsed((c) => !c)}
               aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
             >
-              {sidebarCollapsed
-                ? <PanelLeftOpen className="size-4" />
-                : <PanelLeftClose className="size-4" />
-              }
+              {sidebarCollapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">

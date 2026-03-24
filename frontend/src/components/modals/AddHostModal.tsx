@@ -10,9 +10,20 @@ import {
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
 import type { Host } from '../../types'
-import { AddHost, BrowseKeyFile, CheckPasswordManagers, TestCredentialRef } from '../../../wailsjs/go/main/App'
 import {
-  Dialog, DialogBody, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+  AddHost,
+  BrowseKeyFile,
+  CheckPasswordManagers,
+  TestCredentialRef,
+} from '../../../wailsjs/go/main/App'
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from '../ui/dialog'
 import { Button } from '../ui/button'
 import { GenerateKeyModal } from './GenerateKeyModal'
@@ -54,9 +65,14 @@ export function AddHostModal() {
 
   useEffect(() => {
     const credSrc = form.credentialSource ?? 'inline'
-    if (credSrc === 'inline') { setPmStatus(null); return }
+    if (credSrc === 'inline') {
+      setPmStatus(null)
+      return
+    }
     if (isAddHostOpen && form.authMethod === 'password') {
-      CheckPasswordManagers().then(setPmStatus).catch(() => {})
+      CheckPasswordManagers()
+        .then(setPmStatus)
+        .catch(() => {})
     }
   }, [isAddHostOpen, form.authMethod, form.credentialSource])
 
@@ -114,8 +130,11 @@ export function AddHostModal() {
     try {
       const path = await BrowseKeyFile()
       if (path) setForm((f) => ({ ...f, keyPath: path }))
-    } catch { /* user cancelled */ }
-    finally { setBrowsingKey(false) }
+    } catch {
+      /* user cancelled */
+    } finally {
+      setBrowsingKey(false)
+    }
   }
 
   return (
@@ -146,7 +165,9 @@ export function AddHostModal() {
               onOpenGenerateKeyModal={() => setGenerateKeyOpen(true)}
               onOpenProfilesModal={() => setProfilesOpen(true)}
               onCheckPasswordManagers={() =>
-                CheckPasswordManagers().then(setPmStatus).catch(() => {})
+                CheckPasswordManagers()
+                  .then(setPmStatus)
+                  .catch(() => {})
               }
             />
           </form>
