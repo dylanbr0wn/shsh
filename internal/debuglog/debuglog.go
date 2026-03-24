@@ -51,7 +51,7 @@ type DebugLogEntry struct {
 	SessionID    string                 `json:"sessionId"`
 	SessionLabel string                 `json:"sessionLabel"`
 	Message      string                 `json:"message"`
-	Fields       map[string]interface{} `json:"fields,omitempty"`
+	Fields       map[string]any `json:"fields,omitempty"`
 }
 
 const (
@@ -104,7 +104,7 @@ func NewDebugSink(emitter session.EventEmitter, cfg config.DebugConfig, dataDir 
 
 // Emit records a debug log entry if it passes the current level filter.
 func (s *DebugSink) Emit(category DebugCategory, level string,
-	sessionID, sessionLabel, message string, fields map[string]interface{}) {
+	sessionID, sessionLabel, message string, fields map[string]any) {
 
 	if !s.shouldEmit(category, level) {
 		return
@@ -142,7 +142,7 @@ func (s *DebugSink) Emit(category DebugCategory, level string,
 // EmitDebug is a convenience method that accepts plain strings for use with interfaces
 // that don't import the debuglog package.
 func (s *DebugSink) EmitDebug(category string, level string,
-	sessionID, sessionLabel, message string, fields map[string]interface{}) {
+	sessionID, sessionLabel, message string, fields map[string]any) {
 	s.Emit(DebugCategory(category), level, sessionID, sessionLabel, message, fields)
 }
 

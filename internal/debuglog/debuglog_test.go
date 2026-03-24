@@ -79,7 +79,7 @@ func TestEmit_BatchFlush(t *testing.T) {
 	sink := debuglog.NewDebugSink(emitter, cfg, dir)
 
 	// Emit enough entries to trigger a size-based flush (50 entries)
-	for i := 0; i < 50; i++ {
+	for range 50 {
 		sink.Emit(debuglog.CategoryApp, debuglog.LevelInfo, "", "", "msg", nil)
 	}
 
