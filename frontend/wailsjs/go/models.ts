@@ -328,6 +328,20 @@ export namespace session {
 	        this.mode = source["mode"];
 	    }
 	}
+	export class SplitSessionResult {
+	    sessionId: string;
+	    parentSessionId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SplitSessionResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.sessionId = source["sessionId"];
+	        this.parentSessionId = source["parentSessionId"];
+	    }
+	}
 
 }
 

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
-import { useAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import { isQuickConnectOpenAtom } from '../../store/atoms'
-import { pendingConnects } from '../../store/useAppInit'
+import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/workspaces'
 import { QuickConnect } from '../../../wailsjs/go/main/App'
 import {
   Dialog,
@@ -67,6 +67,8 @@ function parseShorthand(raw: string): { username: string; hostname: string; port
 
 export function QuickConnectModal() {
   const [open, setOpen] = useAtom(isQuickConnectOpenAtom)
+  const setWorkspaces = useSetAtom(workspacesAtom)
+  const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
   const [form, setForm] = useState<FormState>(defaultForm)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [connecting, setConnecting] = useState(false)
@@ -126,10 +128,26 @@ export function QuickConnectModal() {
         password: resolved.authMethod === 'password' ? resolved.password : '',
         authMethod: resolved.authMethod,
       })
-      pendingConnects.set(sessionId, {
-        hostId: sessionId,
-        hostLabel: `${resolved.username}@${resolved.hostname}`,
-      })
+      const paneId = crypto.randomUUID()
+      const workspaceId = crypto.randomUUID()
+      const label = `${resolved.username}@${resolved.hostname}`
+      setWorkspaces((prev) => [
+        ...prev,
+        {
+          id: workspaceId,
+          label,
+          layout: {
+            type: 'leaf',
+            paneId,
+            sessionId,
+            hostId: sessionId,
+            hostLabel: label,
+            status: 'connecting',
+          },
+          focusedPaneId: paneId,
+        },
+      ])
+      setActiveWorkspaceId(workspaceId)
       close()
     } catch (err) {
       toast.error('Connection failed', { description: String(err) })

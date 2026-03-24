@@ -2,7 +2,7 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { SlidersHorizontal } from 'lucide-react'
 import {
   isTerminalProfilesOpenAtom,
-  activeSessionIdAtom,
+  focusedSessionIdAtom,
   sessionsAtom,
   hostsAtom,
   groupsAtom,
@@ -43,7 +43,7 @@ export function TerminalSettings() {
   const [settings, setSettings] = useAtom(terminalSettingsAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
 
-  const activeSessionId = useAtomValue(activeSessionIdAtom)
+  const activeSessionId = useAtomValue(focusedSessionIdAtom)
   const sessions = useAtomValue(sessionsAtom)
   const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)

@@ -9,7 +9,7 @@ import {
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
 } from '../../store/atoms'
-import { pendingConnects } from '../../store/useAppInit'
+import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/workspaces'
 import { ConnectHost } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
@@ -21,6 +21,8 @@ export function WelcomeScreen() {
   const hosts = useAtomValue(hostsAtom)
   const connectingIds = useAtomValue(connectingHostIdsAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
+  const setWorkspaces = useSetAtom(workspacesAtom)
+  const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
@@ -38,7 +40,25 @@ export function WelcomeScreen() {
     setConnectingIds((prev) => new Set([...prev, host.id]))
     try {
       const sessionId = await ConnectHost(host.id)
-      pendingConnects.set(sessionId, { hostId: host.id, hostLabel: host.label })
+      const paneId = crypto.randomUUID()
+      const workspaceId = crypto.randomUUID()
+      setWorkspaces((prev) => [
+        ...prev,
+        {
+          id: workspaceId,
+          label: host.label,
+          layout: {
+            type: 'leaf',
+            paneId,
+            sessionId,
+            hostId: host.id,
+            hostLabel: host.label,
+            status: 'connecting',
+          },
+          focusedPaneId: paneId,
+        },
+      ])
+      setActiveWorkspaceId(workspaceId)
     } catch (err) {
       setConnectingIds((prev) => {
         const next = new Set(prev)

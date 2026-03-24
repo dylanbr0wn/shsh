@@ -460,6 +460,11 @@ func (a *App) DisconnectSession(sessionID string) error {
 	return a.manager.Disconnect(sessionID)
 }
 
+// SplitSession opens a new PTY on the same SSH connection as existingSessionID.
+func (a *App) SplitSession(existingSessionID string) (session.SplitSessionResult, error) {
+	return a.manager.SplitSession(existingSessionID)
+}
+
 func (a *App) RespondHostKey(sessionID string, accepted bool) {
 	a.manager.RespondHostKey(sessionID, accepted)
 }

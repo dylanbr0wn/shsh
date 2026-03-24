@@ -3,7 +3,7 @@ import { useAtomValue, useAtom } from 'jotai'
 import { useState, useEffect, useCallback } from 'react'
 import {
   sessionsAtom,
-  activeSessionIdAtom,
+  focusedSessionIdAtom,
   sftpStateAtom,
   portForwardsAtom,
   activeLogsAtom,
@@ -29,7 +29,7 @@ interface PanelDescriptor {
 
 export function TerminalPane() {
   const sessions = useAtomValue(sessionsAtom)
-  const activeSessionId = useAtomValue(activeSessionIdAtom)
+  const activeSessionId = useAtomValue(focusedSessionIdAtom)
   const [sftpState, setSftpState] = useAtom(sftpStateAtom)
   const [pfState, setPfState] = useAtom(portForwardsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)

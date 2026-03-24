@@ -174,6 +174,10 @@ export function SFTPUploadPath(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
 }
 
+export function SplitSession(arg1) {
+  return window['go']['main']['App']['SplitSession'](arg1);
+}
+
 export function StartSessionLog(arg1) {
   return window['go']['main']['App']['StartSessionLog'](arg1);
 }

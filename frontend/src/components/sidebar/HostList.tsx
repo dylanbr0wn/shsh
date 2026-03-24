@@ -14,7 +14,7 @@ import {
   isDeployKeyOpenAtom,
   deployKeyHostAtom,
 } from '../../store/atoms'
-import { pendingConnects } from '../../store/useAppInit'
+import { workspacesAtom, activeWorkspaceIdAtom, type Workspace } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
 import {
   DeleteHost,
@@ -85,6 +85,8 @@ export function HostList() {
   const setHosts = useSetAtom(hostsAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
+  const setWorkspaces = useSetAtom(workspacesAtom)
+  const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
   const setIsEditOpen = useSetAtom(isEditHostOpenAtom)
   const setEditingHost = useSetAtom(editingHostAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
@@ -186,7 +188,16 @@ export function HostList() {
     setConnectingIds((prev) => new Set([...prev, hostId]))
     try {
       const sessionId = await ConnectHost(hostId)
-      pendingConnects.set(sessionId, { hostId, hostLabel })
+      const paneId = crypto.randomUUID()
+      const workspaceId = crypto.randomUUID()
+      const workspace: Workspace = {
+        id: workspaceId,
+        label: hostLabel,
+        layout: { type: 'leaf', paneId, sessionId, hostId, hostLabel, status: 'connecting' },
+        focusedPaneId: paneId,
+      }
+      setWorkspaces((prev) => [...prev, workspace])
+      setActiveWorkspaceId(workspaceId)
     } catch (err) {
       setConnectingIds((prev) => {
         const next = new Set(prev)

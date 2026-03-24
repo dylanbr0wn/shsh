@@ -9,14 +9,33 @@ import type {
   PortForwardPanelState,
   TerminalProfile,
 } from '../types'
+import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
+import { collectLeaves, leafToSession } from '../lib/paneTree'
+
+export { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
 
 export const hostsAtom = atom<Host[]>([])
 export const groupsAtom = atom<Group[]>([])
 export const terminalProfilesAtom = atom<TerminalProfile[]>([])
 export const isTerminalProfilesOpenAtom = atom<boolean>(false)
 export const groupExpandedAtom = atomWithStorage<Record<string, boolean>>('groupExpanded', {})
-export const sessionsAtom = atom<Session[]>([])
-export const activeSessionIdAtom = atom<string | null>(null)
+
+// Derived: flattens all workspace leaf nodes into the Session shape.
+// Read-only — mutate workspacesAtom instead.
+export const sessionsAtom = atom<Session[]>((get) =>
+  get(workspacesAtom).flatMap((w) => collectLeaves(w.layout).map(leafToSession))
+)
+
+// The sessionId of the focused pane in the active workspace.
+// Replaces activeSessionIdAtom for components that only need the current session.
+export const focusedSessionIdAtom = atom<string | null>((get) => {
+  const id = get(activeWorkspaceIdAtom)
+  if (!id) return null
+  const ws = get(workspacesAtom).find((w) => w.id === id)
+  if (!ws || !ws.focusedPaneId) return null
+  const leaf = collectLeaves(ws.layout).find((l) => l.paneId === ws.focusedPaneId)
+  return leaf?.sessionId ?? null
+})
 export const isAddHostOpenAtom = atom<boolean>(false)
 export const connectingHostIdsAtom = atom<Set<string>>(new Set<string>())
 export const isEditHostOpenAtom = atom<boolean>(false)
