@@ -15,14 +15,14 @@ import (
 
 	"strconv"
 
+	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"github.com/dylanbr0wn/shsh/internal/config"
-	"github.com/dylanbr0wn/shsh/internal/store"
 )
 
 // EventEmitter abstracts event delivery so session logic is not coupled to any UI framework.

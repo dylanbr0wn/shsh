@@ -59,7 +59,6 @@ export function WorkspaceView() {
           hostId: leaf.hostId,
           hostLabel: leaf.hostLabel,
           status: 'connecting',
-          parentSessionId: result.parentSessionId,
         }
         setWorkspaces((prev) =>
           prev.map((w) => {

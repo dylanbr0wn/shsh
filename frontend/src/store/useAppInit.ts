@@ -32,7 +32,7 @@ import {
   type PendingHostKey,
 } from './atoms'
 import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
-import { updateLeafBySessionId, collectLeaves, findSiblingLeaves } from '../lib/paneTree'
+import { updateLeafBySessionId, collectLeaves } from '../lib/paneTree'
 
 export function useAppInit() {
   const setHosts = useSetAtom(hostsAtom)
@@ -127,27 +127,15 @@ export function useAppInit() {
         }
 
         if (status === 'disconnected') {
-          const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
-          const siblings = findSiblingLeaves(allLeaves, sessionId)
-          const allToDisconnect = [sessionId, ...siblings.map((s) => s.sessionId)]
-
           setWorkspaces((prev) =>
-            prev.map((w) => {
-              let layout = w.layout
-              for (const id of allToDisconnect) {
-                layout = updateLeafBySessionId(layout, id, { status: 'disconnected' })
-              }
-              return { ...w, layout }
-            })
+            prev.map((w) => ({
+              ...w,
+              layout: updateLeafBySessionId(w.layout, sessionId, { status: 'disconnected' }),
+            }))
           )
-
-          if (siblings.length > 0) {
-            toast.warning('Connection lost — all panes on this host disconnected')
-          }
-
           setPortForwards((prev) => {
             const next = { ...prev }
-            for (const id of allToDisconnect) delete next[id]
+            delete next[sessionId]
             return next
           })
         }

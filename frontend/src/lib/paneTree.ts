@@ -18,18 +18,6 @@ export function leafToSession(leaf: LeafNode): Session {
   }
 }
 
-/** Find a leaf by sessionId. Returns null if not found. */
-export function findLeafBySessionId(node: PaneNode, sessionId: string): LeafNode | null {
-  if (node.type === 'leaf') return node.sessionId === sessionId ? node : null
-  return findLeafBySessionId(node.left, sessionId) ?? findLeafBySessionId(node.right, sessionId)
-}
-
-/** Find a leaf by paneId. Returns null if not found. */
-export function findLeafByPaneId(node: PaneNode, paneId: string): LeafNode | null {
-  if (node.type === 'leaf') return node.paneId === paneId ? node : null
-  return findLeafByPaneId(node.left, paneId) ?? findLeafByPaneId(node.right, paneId)
-}
-
 /** Return a new tree with the matching leaf updated by patch. */
 export function updateLeafBySessionId(
   node: PaneNode,
@@ -90,18 +78,4 @@ export function removeLeaf(node: PaneNode, paneId: string): PaneNode | null {
 export function firstLeaf(node: PaneNode): LeafNode {
   if (node.type === 'leaf') return node
   return firstLeaf(node.left)
-}
-
-/**
- * Find sibling leaves: leaves that share the same SSH client as sessionId.
- * A sibling is any leaf where leaf.sessionId === parentId OR leaf.parentSessionId === parentId
- * (excluding the target itself).
- */
-export function findSiblingLeaves(allLeaves: LeafNode[], sessionId: string): LeafNode[] {
-  const target = allLeaves.find((l) => l.sessionId === sessionId)
-  if (!target) return []
-  const parentId = target.parentSessionId ?? target.sessionId
-  return allLeaves.filter(
-    (l) => l.sessionId !== sessionId && (l.sessionId === parentId || l.parentSessionId === parentId)
-  )
 }

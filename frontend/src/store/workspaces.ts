@@ -9,9 +9,6 @@ export type LeafNode = {
   hostLabel: string
   status: SessionStatus
   connectedAt?: string
-  // Set when this pane was created via SplitSession.
-  // Points to the sessionId whose SSH client is shared.
-  parentSessionId?: string
 }
 
 export type SplitNode = {
