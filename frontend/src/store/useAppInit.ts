@@ -33,8 +33,10 @@ import {
 } from './atoms'
 import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
 import { updateLeafBySessionId, collectLeaves } from '../lib/paneTree'
+import { useDebugEvents } from '../hooks/useDebugEvents'
 
 export function useAppInit() {
+  useDebugEvents()
   const setHosts = useSetAtom(hostsAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setTerminalProfiles = useSetAtom(terminalProfilesAtom)
