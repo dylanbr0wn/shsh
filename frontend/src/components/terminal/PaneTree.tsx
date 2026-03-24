@@ -1,23 +1,23 @@
 import { useLayoutEffect, useRef } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
-import type { PaneNode, LeafNode, Workspace } from '../../store/workspaces'
-import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
+import type { PaneNode, Workspace } from '../../store/workspaces'
+import { collectLeaves } from '../../lib/paneTree'
 import { leafToSession } from '../../lib/paneTree'
 import { TerminalInstance } from './TerminalInstance'
 import { PaneHeader } from './PaneHeader'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import { hostsAtom } from '../../store/atoms'
-import { DisconnectSession, SplitSession } from '../../../wailsjs/go/main/App'
-import { toast } from 'sonner'
 
 interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
+  onSplit: (paneId: string, direction: 'horizontal' | 'vertical') => void
+  onClose: (paneId: string) => void
 }
 
-export function PaneTree({ node, workspace, isWorkspaceActive }: PaneTreeProps) {
+export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose }: PaneTreeProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
 
@@ -25,54 +25,6 @@ export function PaneTree({ node, workspace, isWorkspaceActive }: PaneTreeProps) 
     setWorkspaces((prev) =>
       prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
     )
-  }
-
-  async function handleSplit(paneId: string, direction: 'horizontal' | 'vertical') {
-    const leaf = collectLeaves(workspace.layout).find((l) => l.paneId === paneId)
-    if (!leaf) return
-    try {
-      const result = await SplitSession(leaf.sessionId)
-      const newPaneId = crypto.randomUUID()
-      const newLeaf: LeafNode = {
-        type: 'leaf',
-        paneId: newPaneId,
-        sessionId: result.sessionId,
-        hostId: leaf.hostId,
-        hostLabel: leaf.hostLabel,
-        status: 'connecting',
-        parentSessionId: result.parentSessionId,
-      }
-      setWorkspaces((prev) =>
-        prev.map((w) => {
-          if (w.id !== workspace.id) return w
-          return {
-            ...w,
-            layout: splitLeaf(w.layout, paneId, direction, newLeaf),
-            focusedPaneId: newPaneId,
-          }
-        })
-      )
-    } catch (err) {
-      toast.error('Split failed', { description: String(err) })
-    }
-  }
-
-  function handleClose(paneId: string) {
-    setWorkspaces((prev) => {
-      const ws = prev.find((w) => w.id === workspace.id)
-      if (!ws) return prev
-      const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
-      if (leaf) DisconnectSession(leaf.sessionId).catch(() => {})
-      const newLayout = removeLeaf(ws.layout, paneId)
-      if (newLayout === null) {
-        return prev.filter((w) => w.id !== workspace.id)
-      }
-      const newFocused =
-        ws.focusedPaneId === paneId ? firstLeaf(newLayout).paneId : ws.focusedPaneId
-      return prev.map((w) =>
-        w.id === workspace.id ? { ...w, layout: newLayout, focusedPaneId: newFocused } : w
-      )
-    })
   }
 
   if (node.type === 'split') {
@@ -84,11 +36,23 @@ export function PaneTree({ node, workspace, isWorkspaceActive }: PaneTreeProps) 
         className="h-full w-full"
       >
         <ResizablePanel defaultSize={leftPct} minSize={15}>
-          <PaneTree node={node.left} workspace={workspace} isWorkspaceActive={isWorkspaceActive} />
+          <PaneTree
+            node={node.left}
+            workspace={workspace}
+            isWorkspaceActive={isWorkspaceActive}
+            onSplit={onSplit}
+            onClose={onClose}
+          />
         </ResizablePanel>
         <ResizableHandle withHandle />
         <ResizablePanel defaultSize={rightPct} minSize={15}>
-          <PaneTree node={node.right} workspace={workspace} isWorkspaceActive={isWorkspaceActive} />
+          <PaneTree
+            node={node.right}
+            workspace={workspace}
+            isWorkspaceActive={isWorkspaceActive}
+            onSplit={onSplit}
+            onClose={onClose}
+          />
         </ResizablePanel>
       </ResizablePanelGroup>
     )
@@ -115,9 +79,9 @@ export function PaneTree({ node, workspace, isWorkspaceActive }: PaneTreeProps) 
       <PaneHeader
         hostLabel={leaf.hostLabel}
         hostColor={host?.color}
-        onSplitVertical={() => handleSplit(leaf.paneId, 'vertical')}
-        onSplitHorizontal={() => handleSplit(leaf.paneId, 'horizontal')}
-        onClose={() => handleClose(leaf.paneId)}
+        onSplitVertical={() => onSplit(leaf.paneId, 'vertical')}
+        onSplitHorizontal={() => onSplit(leaf.paneId, 'horizontal')}
+        onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
       />
       <InitialFitTrigger isActive={isActive} />
