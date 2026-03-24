@@ -9,9 +9,13 @@ import (
 	"github.com/melbahja/goph"
 )
 
+type noopEmitter struct{}
+
+func (noopEmitter) Emit(_ string, _ any) {}
+
 func TestSplitSession_UnknownSession(t *testing.T) {
 	cfg := config.Default()
-	m := session.NewManager(context.Background(), cfg)
+	m := session.NewManager(context.Background(), cfg, noopEmitter{})
 	_, err := m.SplitSession("nonexistent-session-id")
 	if err == nil {
 		t.Fatal("expected error for unknown session, got nil")
@@ -20,7 +24,7 @@ func TestSplitSession_UnknownSession(t *testing.T) {
 
 func TestClientRefCounting(t *testing.T) {
 	cfg := config.Default()
-	m := session.NewManager(context.Background(), cfg)
+	m := session.NewManager(context.Background(), cfg, noopEmitter{})
 
 	// new(goph.Client) allocates a zero-value struct — valid non-nil pointer,
 	// no connection made. Safe as a map key.

@@ -555,16 +555,16 @@ func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, er
 	m.sessions[newID] = newSess
 	m.mu.Unlock()
 
-	runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+	m.emitter.Emit("session:status", StatusEvent{
 		SessionID: newID,
 		Status:    StatusConnecting,
 	})
 
 	// Start the output reader goroutine and cleanup goroutine.
 	m.wg.Go(func() {
-		newSess.start(m.ctx, stdout)
+		newSess.start(m.emitter, stdout)
 
-		runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+		m.emitter.Emit("session:status", StatusEvent{
 			SessionID: newID,
 			Status:    StatusConnected,
 		})
