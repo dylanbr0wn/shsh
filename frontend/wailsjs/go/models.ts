@@ -164,7 +164,8 @@ export namespace credstore {
 export namespace main {
 	
 	export class BulkConnectResult {
-	    sessionId: string;
+	    connectionId: string;
+	    channelId: string;
 	    hostId: string;
 	
 	    static createFrom(source: any = {}) {
@@ -173,7 +174,8 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sessionId = source["sessionId"];
+	        this.connectionId = source["connectionId"];
+	        this.channelId = source["channelId"];
 	        this.hostId = source["hostId"];
 	    }
 	}
@@ -288,6 +290,20 @@ export namespace main {
 
 export namespace session {
 	
+	export class ConnectHostResult {
+	    connectionId: string;
+	    channelId: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ConnectHostResult(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.connectionId = source["connectionId"];
+	        this.channelId = source["channelId"];
+	    }
+	}
 	export class PortForwardInfo {
 	    id: string;
 	    localPort: number;
@@ -326,20 +342,6 @@ export namespace session {
 	        this.size = source["size"];
 	        this.modTime = source["modTime"];
 	        this.mode = source["mode"];
-	    }
-	}
-	export class SplitSessionResult {
-	    sessionId: string;
-	    parentSessionId: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new SplitSessionResult(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.sessionId = source["sessionId"];
-	        this.parentSessionId = source["parentSessionId"];
 	    }
 	}
 

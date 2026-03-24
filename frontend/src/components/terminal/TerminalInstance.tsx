@@ -1,16 +1,16 @@
 import '@xterm/xterm/css/xterm.css'
 import { useRef } from 'react'
-import type { Session } from '../../types'
 import { useTerminal } from '../../hooks/useTerminal'
 
 interface Props {
-  session: Session
+  channelId: string
+  hostId: string
   isActive: boolean
 }
 
-export function TerminalInstance({ session, isActive }: Props) {
+export function TerminalInstance({ channelId, hostId, isActive }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
-  useTerminal(containerRef, session.id, isActive)
+  useTerminal(containerRef, channelId, hostId, isActive)
 
   return <div ref={containerRef} className="h-full w-full" />
 }

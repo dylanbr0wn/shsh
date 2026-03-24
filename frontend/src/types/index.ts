@@ -63,14 +63,6 @@ export interface Host {
   credentialRef?: string
 }
 
-export interface Session {
-  id: string
-  hostId: string
-  hostLabel: string
-  status: SessionStatus
-  connectedAt?: string
-}
-
 export interface CreateHostInput {
   label: string
   hostname: string
@@ -118,7 +110,6 @@ export interface SFTPEntry {
 }
 
 export interface SFTPState {
-  isOpen: boolean
   currentPath: string
   entries: SFTPEntry[]
   isLoading: boolean
@@ -133,7 +124,6 @@ export interface PortForward {
 }
 
 export interface PortForwardPanelState {
-  isOpen: boolean
   forwards: PortForward[]
 }
 

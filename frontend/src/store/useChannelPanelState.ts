@@ -2,20 +2,20 @@ import { useAtom } from 'jotai'
 import { useCallback } from 'react'
 import type { PrimitiveAtom } from 'jotai'
 
-export function useSessionPanelState<T>(
+export function useChannelPanelState<T>(
   atom: PrimitiveAtom<Record<string, T>>,
-  sessionId: string,
+  channelId: string,
   defaultState: T
 ): [T, (patch: Partial<T>) => void] {
   const [map, setMap] = useAtom(atom)
-  const state = map[sessionId] ?? defaultState
+  const state = map[channelId] ?? defaultState
   const setState = useCallback(
     (patch: Partial<T>) =>
       setMap((prev) => ({
         ...prev,
-        [sessionId]: { ...(prev[sessionId] ?? defaultState), ...patch },
+        [channelId]: { ...(prev[channelId] ?? defaultState), ...patch },
       })),
-    [setMap, sessionId, defaultState]
+    [setMap, channelId, defaultState]
   )
   return [state, setState]
 }

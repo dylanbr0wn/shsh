@@ -1,5 +1,5 @@
 import { cn } from '../../lib/utils'
-import { Loader2, MoreHorizontal, Plug, SquareTerminal, TagIcon } from 'lucide-react'
+import { Loader2, MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
 import { useAtomValue } from 'jotai'
 import { groupsAtom, hostHealthAtom } from '../../store/atoms'
@@ -38,6 +38,7 @@ interface Props {
   onEdit: () => void
   onDeployKey: () => void
   onMoveToGroup?: (hostId: string, groupId: string | null) => void
+  onOpenFiles?: () => void
 }
 
 // function relativeTime(iso: string): string {
@@ -73,6 +74,7 @@ export function HostListItem({
   onEdit,
   onDeployKey,
   onMoveToGroup,
+  onOpenFiles,
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
@@ -188,6 +190,12 @@ export function HostListItem({
                   <DropdownMenuItem onClick={onConnect} disabled={isConnecting}>
                     {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
                   </DropdownMenuItem>
+                  {onOpenFiles && (
+                    <DropdownMenuItem onClick={onOpenFiles}>
+                      <FolderOpen className="mr-2 size-4" />
+                      Open Files
+                    </DropdownMenuItem>
+                  )}
                   {onMoveToGroup && groups.length > 0 && (
                     <>
                       <DropdownMenuSeparator />
@@ -229,6 +237,12 @@ export function HostListItem({
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
         </ContextMenuItem>
+        {onOpenFiles && (
+          <ContextMenuItem onClick={onOpenFiles}>
+            <FolderOpen className="mr-2 size-4" />
+            Open Files
+          </ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         {onMoveToGroup && groups.length > 0 && (
           <ContextMenuSub>

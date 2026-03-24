@@ -30,8 +30,12 @@ export function CheckPasswordManagers() {
   return window['go']['main']['App']['CheckPasswordManagers']();
 }
 
-export function CloseSFTP(arg1) {
-  return window['go']['main']['App']['CloseSFTP'](arg1);
+export function CloseChannel(arg1) {
+  return window['go']['main']['App']['CloseChannel'](arg1);
+}
+
+export function ConnectForSFTP(arg1) {
+  return window['go']['main']['App']['ConnectForSFTP'](arg1);
 }
 
 export function ConnectHost(arg1) {
@@ -56,10 +60,6 @@ export function DeleteTerminalProfile(arg1) {
 
 export function DeployPublicKey(arg1, arg2) {
   return window['go']['main']['App']['DeployPublicKey'](arg1, arg2);
-}
-
-export function DisconnectSession(arg1) {
-  return window['go']['main']['App']['DisconnectSession'](arg1);
 }
 
 export function ExportHosts(arg1) {
@@ -110,8 +110,12 @@ export function OpenLogsDirectory() {
   return window['go']['main']['App']['OpenLogsDirectory']();
 }
 
-export function OpenSFTP(arg1) {
-  return window['go']['main']['App']['OpenSFTP'](arg1);
+export function OpenSFTPChannel(arg1) {
+  return window['go']['main']['App']['OpenSFTPChannel'](arg1);
+}
+
+export function OpenTerminal(arg1) {
+  return window['go']['main']['App']['OpenTerminal'](arg1);
 }
 
 export function PingHosts(arg1) {
@@ -134,8 +138,8 @@ export function RemovePortForward(arg1, arg2) {
   return window['go']['main']['App']['RemovePortForward'](arg1, arg2);
 }
 
-export function ResizeSession(arg1, arg2, arg3) {
-  return window['go']['main']['App']['ResizeSession'](arg1, arg2, arg3);
+export function ResizeChannel(arg1, arg2, arg3) {
+  return window['go']['main']['App']['ResizeChannel'](arg1, arg2, arg3);
 }
 
 export function RespondHostKey(arg1, arg2) {
@@ -174,10 +178,6 @@ export function SFTPUploadPath(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
 }
 
-export function SplitSession(arg1) {
-  return window['go']['main']['App']['SplitSession'](arg1);
-}
-
 export function StartSessionLog(arg1) {
   return window['go']['main']['App']['StartSessionLog'](arg1);
 }
@@ -192,6 +192,10 @@ export function TestCredentialRef(arg1, arg2) {
 
 export function TestHostCredential(arg1) {
   return window['go']['main']['App']['TestHostCredential'](arg1);
+}
+
+export function TransferBetweenHosts(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['TransferBetweenHosts'](arg1, arg2, arg3, arg4);
 }
 
 export function UpdateConfig(arg1) {
@@ -210,6 +214,6 @@ export function UpdateTerminalProfile(arg1) {
   return window['go']['main']['App']['UpdateTerminalProfile'](arg1);
 }
 
-export function WriteToSession(arg1, arg2) {
-  return window['go']['main']['App']['WriteToSession'](arg1, arg2);
+export function WriteToChannel(arg1, arg2) {
+  return window['go']['main']['App']['WriteToChannel'](arg1, arg2);
 }

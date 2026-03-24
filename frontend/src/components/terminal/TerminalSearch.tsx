@@ -7,14 +7,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { searchAddonsAtom } from '../../store/atoms'
 
 interface Props {
-  sessionId: string
+  channelId: string
   onClose: () => void
 }
 
-export function TerminalSearch({ sessionId, onClose }: Props) {
+export function TerminalSearch({ channelId, onClose }: Props) {
   const [query, setQuery] = useState('')
   const searchAddons = useAtomValue(searchAddonsAtom)
-  const addon = searchAddons[sessionId]
+  const addon = searchAddons[channelId]
 
   function findNext() {
     if (!query) return

@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { useAtom, useSetAtom } from 'jotai'
 import { isQuickConnectOpenAtom } from '../../store/atoms'
-import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/workspaces'
+import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
 import { QuickConnect } from '../../../wailsjs/go/main/App'
 import {
   Dialog,
@@ -90,13 +90,6 @@ export function QuickConnectModal() {
     }))
   }
 
-  // function validate(): FieldErrors {
-  //   const e: FieldErrors = {}
-  //   if (!form.hostname.trim()) e.hostname = 'Hostname is required'
-  //   if (!form.username.trim()) e.username = 'Username is required'
-  //   return e
-  // }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
@@ -121,7 +114,7 @@ export function QuickConnectModal() {
 
     setConnecting(true)
     try {
-      const sessionId = await QuickConnect({
+      const result = await QuickConnect({
         hostname: resolved.hostname,
         port: resolved.port,
         username: resolved.username,
@@ -131,19 +124,22 @@ export function QuickConnectModal() {
       const paneId = crypto.randomUUID()
       const workspaceId = crypto.randomUUID()
       const label = `${resolved.username}@${resolved.hostname}`
+      const leaf: TerminalLeaf = {
+        type: 'leaf',
+        kind: 'terminal',
+        paneId,
+        connectionId: result.connectionId,
+        channelId: result.channelId,
+        hostId: result.channelId, // quick-connect has no persisted hostId; use channelId as fallback
+        hostLabel: label,
+        status: 'connecting',
+      }
       setWorkspaces((prev) => [
         ...prev,
         {
           id: workspaceId,
           label,
-          layout: {
-            type: 'leaf',
-            paneId,
-            sessionId,
-            hostId: sessionId,
-            hostLabel: label,
-            status: 'connecting',
-          },
+          layout: leaf,
           focusedPaneId: paneId,
         },
       ])

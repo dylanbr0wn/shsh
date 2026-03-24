@@ -2,13 +2,15 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { SlidersHorizontal } from 'lucide-react'
 import {
   isTerminalProfilesOpenAtom,
-  focusedSessionIdAtom,
-  sessionsAtom,
+  focusedChannelIdAtom,
   hostsAtom,
   groupsAtom,
   terminalProfilesAtom,
-  sessionProfileOverridesAtom,
+  channelProfileOverridesAtom,
+  workspacesAtom,
+  activeWorkspaceIdAtom,
 } from '@/store/atoms'
+import { collectLeaves } from '@/lib/paneTree'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
@@ -43,33 +45,37 @@ export function TerminalSettings() {
   const [settings, setSettings] = useAtom(terminalSettingsAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
 
-  const activeSessionId = useAtomValue(focusedSessionIdAtom)
-  const sessions = useAtomValue(sessionsAtom)
+  const activeChannelId = useAtomValue(focusedChannelIdAtom)
+  const workspaces = useAtomValue(workspacesAtom)
+  const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
   const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)
   const profiles = useAtomValue(terminalProfilesAtom)
-  const [sessionOverrides, setSessionOverrides] = useAtom(sessionProfileOverridesAtom)
+  const [channelOverrides, setChannelOverrides] = useAtom(channelProfileOverridesAtom)
 
-  // Resolve what profile is active for this session (without override)
-  const session = sessions.find((s) => s.id === activeSessionId)
-  const host = hosts.find((h) => h.id === session?.hostId)
+  // Resolve the focused leaf's hostId from the active workspace
+  const activeWs = workspaces.find((w) => w.id === activeWorkspaceId)
+  const focusedLeaf = activeWs?.focusedPaneId
+    ? collectLeaves(activeWs.layout).find((l) => l.paneId === activeWs.focusedPaneId)
+    : null
+  const host = hosts.find((h) => h.id === focusedLeaf?.hostId)
   const group = groups.find((g) => g.id === host?.groupId)
   const hostProfileId = host?.terminalProfileId ?? group?.terminalProfileId
   const hostProfile = profiles.find((p) => p.id === hostProfileId)
 
-  const overrideId = activeSessionId ? sessionOverrides[activeSessionId] : undefined
+  const overrideId = activeChannelId ? channelOverrides[activeChannelId] : undefined
   const selectValue = overrideId ?? '__auto__'
 
   function setProfileOverride(val: string) {
-    if (!activeSessionId) return
+    if (!activeChannelId) return
     if (val === '__auto__') {
-      setSessionOverrides((prev) => {
+      setChannelOverrides((prev) => {
         const next = { ...prev }
-        delete next[activeSessionId]
+        delete next[activeChannelId]
         return next
       })
     } else {
-      setSessionOverrides((prev) => ({ ...prev, [activeSessionId]: val }))
+      setChannelOverrides((prev) => ({ ...prev, [activeChannelId]: val }))
     }
   }
 
@@ -113,7 +119,7 @@ export function TerminalSettings() {
             <FieldDescription>Customize your terminal</FieldDescription>
             <FieldSeparator />
             <FieldGroup>
-              {activeSessionId && (
+              {activeChannelId && (
                 <Field>
                   <FieldLabel htmlFor="ts-profile">Profile</FieldLabel>
                   <Select value={selectValue} onValueChange={setProfileOverride}>

@@ -7,10 +7,10 @@ idk just do it
   ---
   High-Impact / Table-Stakes
 
-  Jump Hosts / Bastion
-  - ProxyJump support (connect through an intermediate host)
-  - Chain multiple hops
-  - Reference saved hosts as jump hosts
+  ~~Jump Hosts / Bastion~~ *(done — #3)*
+  - ~~ProxyJump support (connect through an intermediate host)~~
+  - ~~Chain multiple hops~~
+  - ~~Reference saved hosts as jump hosts~~
 
   Snippets / Quick Commands
   - Save frequently used commands
@@ -25,9 +25,9 @@ idk just do it
   - Free-text notes attached to a saved host
   - Shown in sidebar or connection modal
 
-  Host Search / Filter
-  - Search input in sidebar that filters hosts by name, hostname, username, or group in real time
-  - Critical as host list grows
+  ~~Host Search / Filter~~ *(done — #11)*
+  - ~~Search input in sidebar that filters hosts by name, hostname, username, or group in real time~~
+  - ~~Critical as host list grows~~
 
   Favorites / Starred Hosts
   - Star icon per host; starred hosts float to top of sidebar or get a dedicated "Favorites" section
@@ -37,9 +37,9 @@ idk just do it
   - last_connected_at already exists on Host; expose a "Recent" sidebar section or Cmd+K-style quick picker
   - Quick access to the last N connected hosts
 
-  Tags for Hosts
-  - Color-coded tags as an alternative/supplement to groups (used in Termius, MobaXterm)
-  - Filter sidebar by tag; many-to-many relationship (host can have multiple tags)
+  ~~Tags for Hosts~~ *(done — #11)*
+  - ~~Color-coded tags as an alternative/supplement to groups (used in Termius, MobaXterm)~~
+  - ~~Filter sidebar by tag; many-to-many relationship (host can have multiple tags)~~
 
   ---
   Credentials & Keys
@@ -55,13 +55,13 @@ idk just do it
   ---
   Terminal UX
 
-  Terminal Scrollback Search
-  - Ctrl+F search within the terminal buffer
-  - xterm.js ships SearchAddon for this; every major SSH client has it
+  ~~Terminal Scrollback Search~~ *(done)*
+  - ~~Ctrl+F search within the terminal buffer~~
+  - ~~xterm.js ships SearchAddon for this; every major SSH client has it~~
 
-  Split Panes
-  - Horizontal/vertical terminal splits within a session
-  - Independent scrollback per pane
+  ~~Split Panes~~ *(done — #14)*
+  - ~~Horizontal/vertical terminal splits within a session~~
+  - ~~Independent scrollback per pane~~
 
   Broadcast Input
   - Type the same command into multiple sessions simultaneously
@@ -77,10 +77,14 @@ idk just do it
   Dual-Pane File Manager
   - Local filesystem on the left, remote on the right (like FileZilla)
 
-  Drag-and-Drop File Transfers
-  - Drop local files onto the SFTP panel to upload
-  - Drag remote files to a local destination to download
-  - Wails supports native drag-drop events
+  Cross-Host File Transfer (SCP)
+  - Remote-to-remote file transfer without streaming through the app process
+  - Direct SCP/SFTP relay between two hosts when both support it
+
+  ~~Drag-and-Drop File Transfers~~ *(done)*
+  - ~~Drop local files onto the SFTP panel to upload~~
+  - ~~Drag remote files to a local destination to download~~
+  - ~~Wails supports native drag-drop events~~
 
   Remote File Quick-Edit
   - Right-click a remote file → open in local $EDITOR
@@ -89,6 +93,10 @@ idk just do it
   Transfer Queue / History
   - View queued and completed transfers
   - Retry failed transfers
+
+  Tabbed SFTP
+  - Multiple directory tabs within a single SFTP pane
+  - Navigate different directories without losing your place
 
   File Preview
   - Preview text/image files without downloading
@@ -109,6 +117,10 @@ idk just do it
   Keybinding Customization
   - Remappable keyboard shortcuts (new tab, snippets picker, split pane, etc.)
   - Saved to app config JSON
+
+  Pane Drag-and-Drop Reordering
+  - Drag panes within the split tree to rearrange layout
+  - Drag a pane from one workspace into another
 
   X11 Forwarding
   - Forward X11 display so remote GUI apps render locally

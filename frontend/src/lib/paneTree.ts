@@ -1,36 +1,24 @@
-import type { LeafNode, PaneNode } from '../store/workspaces'
-import type { Session } from '../types'
+import type { PaneLeaf, PaneNode } from '../store/workspaces'
 
 /** Flatten all leaf nodes from a pane tree. */
-export function collectLeaves(node: PaneNode): LeafNode[] {
+export function collectLeaves(node: PaneNode): PaneLeaf[] {
   if (node.type === 'leaf') return [node]
   return [...collectLeaves(node.left), ...collectLeaves(node.right)]
 }
 
-/** Convert a LeafNode to the Session shape expected by existing consumers. */
-export function leafToSession(leaf: LeafNode): Session {
-  return {
-    id: leaf.sessionId,
-    hostId: leaf.hostId,
-    hostLabel: leaf.hostLabel,
-    status: leaf.status,
-    connectedAt: leaf.connectedAt,
-  }
-}
-
 /** Return a new tree with the matching leaf updated by patch. */
-export function updateLeafBySessionId(
+export function updateLeafByChannelId(
   node: PaneNode,
-  sessionId: string,
-  patch: Partial<LeafNode>
+  channelId: string,
+  patch: Partial<PaneLeaf>
 ): PaneNode {
   if (node.type === 'leaf') {
-    return node.sessionId === sessionId ? { ...node, ...patch } : node
+    return node.channelId === channelId ? { ...node, ...patch } : node
   }
   return {
     ...node,
-    left: updateLeafBySessionId(node.left, sessionId, patch),
-    right: updateLeafBySessionId(node.right, sessionId, patch),
+    left: updateLeafByChannelId(node.left, channelId, patch),
+    right: updateLeafByChannelId(node.right, channelId, patch),
   }
 }
 
@@ -42,7 +30,7 @@ export function splitLeaf(
   node: PaneNode,
   paneId: string,
   direction: 'horizontal' | 'vertical',
-  newLeaf: LeafNode
+  newLeaf: PaneLeaf
 ): PaneNode {
   if (node.type === 'leaf') {
     if (node.paneId !== paneId) return node
@@ -75,7 +63,7 @@ export function removeLeaf(node: PaneNode, paneId: string): PaneNode | null {
 }
 
 /** Return the first (leftmost) leaf in a tree. Used for focus fallback. */
-export function firstLeaf(node: PaneNode): LeafNode {
+export function firstLeaf(node: PaneNode): PaneLeaf {
   if (node.type === 'leaf') return node
   return firstLeaf(node.left)
 }

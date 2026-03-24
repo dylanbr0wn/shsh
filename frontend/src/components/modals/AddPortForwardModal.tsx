@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useSetAtom } from 'jotai'
-import { addPortForwardSessionIdAtom, portForwardsAtom } from '../../store/atoms'
+import { addPortForwardConnectionIdAtom, portForwardsAtom } from '../../store/atoms'
 import { AddPortForward, ListPortForwards } from '../../../wailsjs/go/main/App'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { Input } from '../ui/input'
@@ -10,7 +10,7 @@ import { InputGroup, InputGroupInput } from '../ui/input-group'
 import { Field, FieldGroup, FieldLabel } from '../ui/field'
 
 export function AddPortForwardModal() {
-  const [sessionId, setSessionId] = useAtom(addPortForwardSessionIdAtom)
+  const [connectionId, setConnectionId] = useAtom(addPortForwardConnectionIdAtom)
   const setPfState = useSetAtom(portForwardsAtom)
 
   const [localPort, setLocalPort] = useState('')
@@ -18,10 +18,10 @@ export function AddPortForwardModal() {
   const [remotePort, setRemotePort] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const isOpen = sessionId !== null
+  const isOpen = connectionId !== null
 
   function close() {
-    setSessionId(null)
+    setConnectionId(null)
     setLocalPort('')
     setRemoteHost('')
     setRemotePort('')
@@ -29,7 +29,7 @@ export function AddPortForwardModal() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!sessionId) return
+    if (!connectionId) return
     const lp = parseInt(localPort, 10)
     const rp = parseInt(remotePort, 10)
     if (!lp || !remoteHost.trim() || !rp) {
@@ -38,12 +38,12 @@ export function AddPortForwardModal() {
     }
     setSubmitting(true)
     try {
-      await AddPortForward(sessionId, lp, remoteHost.trim(), rp)
-      const forwards = await ListPortForwards(sessionId)
+      await AddPortForward(connectionId, lp, remoteHost.trim(), rp)
+      const forwards = await ListPortForwards(connectionId)
       setPfState((prev) => ({
         ...prev,
-        [sessionId]: {
-          ...(prev[sessionId] ?? { isOpen: true, forwards: [] }),
+        [connectionId]: {
+          ...(prev[connectionId] ?? { forwards: [] }),
           forwards: forwards ?? [],
         },
       }))

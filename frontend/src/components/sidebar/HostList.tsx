@@ -4,7 +4,6 @@ import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   groupsAtom,
-  sessionsAtom,
   connectingHostIdsAtom,
   isEditHostOpenAtom,
   editingHostAtom,
@@ -14,11 +13,18 @@ import {
   isDeployKeyOpenAtom,
   deployKeyHostAtom,
 } from '../../store/atoms'
-import { workspacesAtom, activeWorkspaceIdAtom, type Workspace } from '../../store/workspaces'
+import {
+  workspacesAtom,
+  activeWorkspaceIdAtom,
+  type Workspace,
+  type TerminalLeaf,
+  type SFTPLeaf,
+} from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
 import {
   DeleteHost,
   ConnectHost,
+  ConnectForSFTP,
   UpdateHost,
   AddGroup,
   ListHosts,
@@ -32,6 +38,7 @@ import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { Group, Host } from '../../types'
+import { collectLeaves } from '../../lib/paneTree'
 
 type SortMode = 'az' | 'za' | 'recent'
 
@@ -80,7 +87,7 @@ function comparator(sortMode: SortMode) {
 export function HostList() {
   const hosts = useAtomValue(hostsAtom)
   const groups = useAtomValue(groupsAtom)
-  const sessions = useAtomValue(sessionsAtom)
+  const workspaces = useAtomValue(workspacesAtom)
   const connectingHostIds = useAtomValue(connectingHostIdsAtom)
   const setHosts = useSetAtom(hostsAtom)
   const setGroups = useSetAtom(groupsAtom)
@@ -101,7 +108,15 @@ export function HostList() {
   const [creatingGroup, setCreatingGroup] = useState(false)
   const newGroupInputRef = useRef<HTMLInputElement>(null)
 
-  const connectedHostIds = useMemo(() => new Set(sessions.map((s) => s.hostId)), [sessions])
+  const connectedHostIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const ws of workspaces) {
+      for (const leaf of collectLeaves(ws.layout)) {
+        if (leaf.hostId) ids.add(leaf.hostId)
+      }
+    }
+    return ids
+  }, [workspaces])
 
   useHostHealth(hosts)
 
@@ -187,17 +202,33 @@ export function HostList() {
   async function handleConnect(hostId: string, hostLabel: string) {
     setConnectingIds((prev) => new Set([...prev, hostId]))
     try {
-      const sessionId = await ConnectHost(hostId)
+      const result = await ConnectHost(hostId)
       const paneId = crypto.randomUUID()
       const workspaceId = crypto.randomUUID()
+      const leaf: TerminalLeaf = {
+        type: 'leaf',
+        kind: 'terminal',
+        paneId,
+        connectionId: result.connectionId,
+        channelId: result.channelId,
+        hostId,
+        hostLabel,
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
+      }
       const workspace: Workspace = {
         id: workspaceId,
         label: hostLabel,
-        layout: { type: 'leaf', paneId, sessionId, hostId, hostLabel, status: 'connecting' },
+        layout: leaf,
         focusedPaneId: paneId,
       }
       setWorkspaces((prev) => [...prev, workspace])
       setActiveWorkspaceId(workspaceId)
+      setConnectingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(hostId)
+        return next
+      })
     } catch (err) {
       setConnectingIds((prev) => {
         const next = new Set(prev)
@@ -205,6 +236,41 @@ export function HostList() {
         return next
       })
       toast.error('Connection failed', { description: String(err) })
+    }
+  }
+
+  async function handleOpenFiles(hostId: string, hostLabel: string) {
+    setConnectingIds((prev) => new Set([...prev, hostId]))
+    try {
+      const result = await ConnectForSFTP(hostId)
+      const paneId = crypto.randomUUID()
+      const workspaceId = crypto.randomUUID()
+      const leaf: SFTPLeaf = {
+        type: 'leaf',
+        kind: 'sftp',
+        paneId,
+        connectionId: result.connectionId,
+        channelId: result.channelId,
+        hostId,
+        hostLabel,
+        status: 'connected',
+      }
+      const workspace: Workspace = {
+        id: workspaceId,
+        label: `${hostLabel} — Files`,
+        layout: leaf,
+        focusedPaneId: paneId,
+      }
+      setWorkspaces((prev) => [...prev, workspace])
+      setActiveWorkspaceId(workspaceId)
+    } catch (err) {
+      toast.error('Failed to open files', { description: String(err) })
+    } finally {
+      setConnectingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(hostId)
+        return next
+      })
     }
   }
 
@@ -420,6 +486,7 @@ export function HostList() {
                       onEdit={() => handleEdit(host)}
                       onDeployKey={() => handleDeployKey(host)}
                       onMoveToGroup={handleMoveToGroup}
+                      onOpenFiles={() => handleOpenFiles(host.id, host.label)}
                     />
                   </div>
                 )
@@ -441,6 +508,7 @@ export function HostList() {
                   onDeployKey={handleDeployKey}
                   onMoveToGroup={handleMoveToGroup}
                   onGroupDeleted={handleGroupDeleted}
+                  onOpenFiles={handleOpenFiles}
                 />
               ))}
 
@@ -463,6 +531,7 @@ export function HostList() {
                       onEdit={() => handleEdit(host)}
                       onDeployKey={() => handleDeployKey(host)}
                       onMoveToGroup={handleMoveToGroup}
+                      onOpenFiles={() => handleOpenFiles(host.id, host.label)}
                     />
                   ))}
                 </div>

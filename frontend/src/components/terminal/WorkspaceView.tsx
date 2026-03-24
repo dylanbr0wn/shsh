@@ -1,44 +1,28 @@
-import React from 'react'
 import { useAtomValue, useAtom } from 'jotai'
 import { useState, useEffect, useCallback } from 'react'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
-  sftpStateAtom,
-  portForwardsAtom,
   activeLogsAtom,
   isLogViewerOpenAtom,
 } from '../../store/atoms'
 import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
-import type { LeafNode } from '../../store/workspaces'
+import type { PaneLeaf } from '../../store/workspaces'
 import { PaneTree } from './PaneTree'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
-import { SFTPPanel } from '../sftp/SFTPPanel'
-import { PortForwardsPanel } from '../portforward/PortForwardsPanel'
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import {
   StartSessionLog,
   StopSessionLog,
-  SplitSession,
-  DisconnectSession,
+  OpenTerminal,
+  OpenSFTPChannel,
+  CloseChannel,
 } from '../../../wailsjs/go/main/App'
 import { toast } from 'sonner'
-
-interface PanelDescriptor {
-  id: string
-  isOpen: boolean
-  defaultSize: number
-  minSize: number
-  onDragClose: () => void
-  render: () => React.ReactNode
-}
 
 export function WorkspaceView() {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom)
   const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
-  const [sftpState, setSftpState] = useAtom(sftpStateAtom)
-  const [pfState, setPfState] = useAtom(portForwardsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -50,15 +34,18 @@ export function WorkspaceView() {
       const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
       if (!leaf) return
       try {
-        const result = await SplitSession(leaf.sessionId)
+        const channelId = await OpenTerminal(leaf.connectionId)
         const newPaneId = crypto.randomUUID()
-        const newLeaf: LeafNode = {
+        const newLeaf: PaneLeaf = {
           type: 'leaf',
+          kind: 'terminal',
           paneId: newPaneId,
-          sessionId: result.sessionId,
+          connectionId: leaf.connectionId,
+          channelId,
           hostId: leaf.hostId,
           hostLabel: leaf.hostLabel,
-          status: 'connecting',
+          status: 'connected',
+          connectedAt: new Date().toISOString(),
         }
         setWorkspaces((prev) =>
           prev.map((w) => {
@@ -77,13 +64,49 @@ export function WorkspaceView() {
     [workspaces, setWorkspaces]
   )
 
+  const handleOpenFiles = useCallback(
+    async (workspaceId: string, paneId: string) => {
+      const ws = workspaces.find((w) => w.id === workspaceId)
+      if (!ws) return
+      const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
+      if (!leaf) return
+      try {
+        const channelId = await OpenSFTPChannel(leaf.connectionId)
+        const newPaneId = crypto.randomUUID()
+        const newLeaf: PaneLeaf = {
+          type: 'leaf',
+          kind: 'sftp',
+          paneId: newPaneId,
+          connectionId: leaf.connectionId,
+          channelId,
+          hostId: leaf.hostId,
+          hostLabel: leaf.hostLabel,
+          status: 'connected',
+        }
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w
+            return {
+              ...w,
+              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
+              focusedPaneId: newPaneId,
+            }
+          })
+        )
+      } catch (err) {
+        toast.error('Open files failed', { description: String(err) })
+      }
+    },
+    [workspaces, setWorkspaces]
+  )
+
   const handleClose = useCallback(
     (workspaceId: string, paneId: string) => {
       setWorkspaces((prev) => {
         const ws = prev.find((w) => w.id === workspaceId)
         if (!ws) return prev
         const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
-        if (leaf) DisconnectSession(leaf.sessionId).catch(() => {})
+        if (leaf) CloseChannel(leaf.channelId).catch(() => {})
         const newLayout = removeLeaf(ws.layout, paneId)
         if (newLayout === null) {
           return prev.filter((w) => w.id !== workspaceId)
@@ -128,56 +151,20 @@ export function WorkspaceView() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
 
-  function toggleSFTP(sessionId: string) {
-    const willOpen = !(sftpState[sessionId]?.isOpen ?? false)
-    if (willOpen) {
-      setPfState((prev) => {
-        const pf = prev[sessionId]
-        if (!pf?.isOpen) return prev
-        return { ...prev, [sessionId]: { ...pf, isOpen: false } }
-      })
-    }
-    setSftpState((prev) => {
-      const cur = prev[sessionId] ?? {
-        isOpen: false,
-        currentPath: '~',
-        entries: [],
-        isLoading: false,
-        error: null,
-      }
-      return { ...prev, [sessionId]: { ...cur, isOpen: willOpen } }
-    })
-  }
-
-  function togglePortForwards(sessionId: string) {
-    const willOpen = !(pfState[sessionId]?.isOpen ?? false)
-    if (willOpen) {
-      setSftpState((prev) => {
-        const sftp = prev[sessionId]
-        if (!sftp?.isOpen) return prev
-        return { ...prev, [sessionId]: { ...sftp, isOpen: false } }
-      })
-    }
-    setPfState((prev) => {
-      const cur = prev[sessionId] ?? { isOpen: false, forwards: [] }
-      return { ...prev, [sessionId]: { ...cur, isOpen: willOpen } }
-    })
-  }
-
-  async function toggleLogging(sessionId: string) {
-    if (activeLogs.has(sessionId)) {
-      const logPath = activeLogs.get(sessionId)!
-      await StopSessionLog(sessionId)
+  async function toggleLogging(channelId: string) {
+    if (activeLogs.has(channelId)) {
+      const logPath = activeLogs.get(channelId)!
+      await StopSessionLog(channelId)
       setActiveLogs((prev) => {
         const next = new Map(prev)
-        next.delete(sessionId)
+        next.delete(channelId)
         return next
       })
       toast.success('Log saved', { description: logPath })
     } else {
       try {
-        const logPath = await StartSessionLog(sessionId)
-        setActiveLogs((prev) => new Map(prev).set(sessionId, logPath))
+        const logPath = await StartSessionLog(channelId)
+        setActiveLogs((prev) => new Map(prev).set(channelId, logPath))
         toast.info('Logging started', { description: logPath })
       } catch (e: unknown) {
         toast.error('Failed to start logging', { description: String(e) })
@@ -190,59 +177,11 @@ export function WorkspaceView() {
       {workspaces.map((workspace) => {
         const isWorkspaceActive = workspace.id === activeWorkspaceId
 
-        // Determine the focused session for sidebar/panel scoping
+        // Determine the focused channel for sidebar scoping
         const focusedLeaf = workspace.focusedPaneId
           ? collectLeaves(workspace.layout).find((l) => l.paneId === workspace.focusedPaneId)
           : null
-        const focusedSessionId = focusedLeaf?.sessionId ?? null
-
-        const sftp = focusedSessionId
-          ? (sftpState[focusedSessionId] ?? { isOpen: false })
-          : { isOpen: false }
-        const pf = focusedSessionId
-          ? (pfState[focusedSessionId] ?? { isOpen: false })
-          : { isOpen: false }
-
-        const panels: PanelDescriptor[] = focusedSessionId
-          ? [
-              {
-                id: 'pf',
-                isOpen: pf.isOpen,
-                defaultSize: 30,
-                minSize: 20,
-                onDragClose: () =>
-                  setPfState((prev) => ({
-                    ...prev,
-                    [focusedSessionId]: {
-                      ...(prev[focusedSessionId] ?? { isOpen: false, forwards: [] }),
-                      isOpen: false,
-                    },
-                  })),
-                render: () => <PortForwardsPanel sessionId={focusedSessionId} />,
-              },
-              {
-                id: 'sftp',
-                isOpen: sftp.isOpen,
-                defaultSize: 40,
-                minSize: 20,
-                onDragClose: () =>
-                  setSftpState((prev) => ({
-                    ...prev,
-                    [focusedSessionId]: {
-                      ...(prev[focusedSessionId] ?? {
-                        isOpen: false,
-                        currentPath: '~',
-                        entries: [],
-                        isLoading: false,
-                        error: null,
-                      }),
-                      isOpen: false,
-                    },
-                  })),
-                render: () => <SFTPPanel sessionId={focusedSessionId} />,
-              },
-            ]
-          : []
+        const focusedChannelId = focusedLeaf?.channelId ?? null
 
         return (
           <div
@@ -254,57 +193,25 @@ export function WorkspaceView() {
                 : { visibility: 'hidden', pointerEvents: 'none' }
             }
           >
-            <ResizablePanelGroup orientation="horizontal" className="h-full min-w-0 flex-1">
-              <ResizablePanel
-                defaultSize={60}
-                minSize={30}
-                className="flex h-full min-w-0 flex-col overflow-hidden!"
-              >
-                <div className="relative h-full min-h-0 flex-1">
-                  <PaneTree
-                    node={workspace.layout}
-                    workspace={workspace}
-                    isWorkspaceActive={isWorkspaceActive}
-                    onSplit={(paneId, direction) => handleSplit(workspace.id, paneId, direction)}
-                    onClose={(paneId) => handleClose(workspace.id, paneId)}
-                  />
-                  {isWorkspaceActive && searchOpen && focusedSessionId && (
-                    <TerminalSearch
-                      sessionId={focusedSessionId}
-                      onClose={() => setSearchOpen(false)}
-                    />
-                  )}
-                </div>
-              </ResizablePanel>
-              {panels
-                .filter((p) => p.isOpen)
-                .map((p) => (
-                  <React.Fragment key={p.id}>
-                    <ResizableHandle />
-                    <ResizablePanel
-                      defaultSize={p.defaultSize}
-                      minSize={p.minSize}
-                      collapsible
-                      collapsedSize={0}
-                      onResize={(size) => {
-                        if (size.inPixels === 0) p.onDragClose()
-                      }}
-                      className="flex min-w-0 flex-col"
-                    >
-                      {p.render()}
-                    </ResizablePanel>
-                  </React.Fragment>
-                ))}
-            </ResizablePanelGroup>
-            {isWorkspaceActive && focusedSessionId && (
+            <div className="relative h-full min-h-0 min-w-0 flex-1">
+              <PaneTree
+                node={workspace.layout}
+                workspace={workspace}
+                isWorkspaceActive={isWorkspaceActive}
+                onSplit={(paneId, direction) => handleSplit(workspace.id, paneId, direction)}
+                onClose={(paneId) => handleClose(workspace.id, paneId)}
+                onOpenFiles={(paneId) => handleOpenFiles(workspace.id, paneId)}
+              />
+              {isWorkspaceActive && searchOpen && focusedChannelId && (
+                <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
+              )}
+            </div>
+            {isWorkspaceActive && focusedChannelId && focusedLeaf && (
               <TerminalSidebar
-                sftpOpen={sftp.isOpen}
-                pfOpen={pf.isOpen}
-                loggingActive={activeLogs.has(focusedSessionId)}
-                logPath={activeLogs.get(focusedSessionId)}
-                onToggleSFTP={() => toggleSFTP(focusedSessionId)}
-                onTogglePF={() => togglePortForwards(focusedSessionId)}
-                onToggleLogging={() => toggleLogging(focusedSessionId)}
+                connectionId={focusedLeaf.connectionId}
+                loggingActive={activeLogs.has(focusedChannelId)}
+                logPath={activeLogs.get(focusedChannelId)}
+                onToggleLogging={() => toggleLogging(focusedChannelId)}
                 onViewLogs={() => setLogViewerOpen(true)}
               />
             )}

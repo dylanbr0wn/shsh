@@ -1,8 +1,8 @@
 import { useEffect, useCallback } from 'react'
 import { useSetAtom } from 'jotai'
 import { Trash2, Plus } from 'lucide-react'
-import { portForwardsAtom, addPortForwardSessionIdAtom } from '../../store/atoms'
-import { useSessionPanelState } from '../../store/useSessionPanelState'
+import { portForwardsAtom, addPortForwardConnectionIdAtom } from '../../store/atoms'
+import { useChannelPanelState } from '../../store/useChannelPanelState'
 import { RemovePortForward, ListPortForwards } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
@@ -11,26 +11,25 @@ import { PanelHeader } from '../terminal/PanelHeader'
 import type { PortForwardPanelState } from '../../types'
 
 const DEFAULT_PF_STATE: PortForwardPanelState = {
-  isOpen: false,
   forwards: [],
 }
 
 interface Props {
-  sessionId: string
+  connectionId: string
 }
 
-export function PortForwardsPanel({ sessionId }: Props) {
-  const [state, setState] = useSessionPanelState(portForwardsAtom, sessionId, DEFAULT_PF_STATE)
-  const setAddPfSession = useSetAtom(addPortForwardSessionIdAtom)
+export function PortForwardsPanel({ connectionId }: Props) {
+  const [state, setState] = useChannelPanelState(portForwardsAtom, connectionId, DEFAULT_PF_STATE)
+  const setAddPfConnection = useSetAtom(addPortForwardConnectionIdAtom)
 
   const listForwards = useCallback(async () => {
     try {
-      const forwards = await ListPortForwards(sessionId)
+      const forwards = await ListPortForwards(connectionId)
       setState({ forwards: forwards ?? [] })
     } catch {
       // silently ignore — panel will just show empty
     }
-  }, [sessionId, setState])
+  }, [connectionId, setState])
 
   useEffect(() => {
     listForwards()
@@ -38,7 +37,7 @@ export function PortForwardsPanel({ sessionId }: Props) {
 
   async function handleRemove(forwardId: string) {
     try {
-      await RemovePortForward(sessionId, forwardId)
+      await RemovePortForward(connectionId, forwardId)
       await listForwards()
     } catch {
       // ignore
@@ -54,7 +53,7 @@ export function PortForwardsPanel({ sessionId }: Props) {
               variant="ghost"
               size="icon-sm"
               aria-label="Add forward"
-              onClick={() => setAddPfSession(sessionId)}
+              onClick={() => setAddPfConnection(connectionId)}
             >
               <Plus aria-hidden="true" />
             </Button>
