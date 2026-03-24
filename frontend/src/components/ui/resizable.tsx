@@ -1,5 +1,4 @@
 import * as ResizablePrimitive from 'react-resizable-panels'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -19,14 +18,10 @@ function ResizablePanel({ ...props }: ResizablePrimitive.PanelProps) {
 
 function ResizableHandle({
   withHandle,
-  onToggle,
-  isCollapsed,
   className,
   ...props
 }: ResizablePrimitive.SeparatorProps & {
   withHandle?: boolean
-  onToggle?: () => void
-  isCollapsed?: boolean
 }) {
   return (
     <ResizablePrimitive.Separator
@@ -39,18 +34,6 @@ function ResizableHandle({
     >
       {withHandle && (
         <div className="bg-border z-10 flex h-6 w-1 shrink-0 rounded-lg group-hover:bg-indigo-500/40 group-data-[separator=active]:bg-indigo-500" />
-      )}
-      {onToggle && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggle()
-          }}
-          className="bg-sidebar border-border absolute z-20 flex h-5 w-5 items-center justify-center rounded-full border transition-colors hover:border-indigo-500/50 hover:bg-indigo-500/20"
-          aria-label={isCollapsed ? 'Expand panel' : 'Collapse panel'}
-        >
-          {isCollapsed ? <ChevronRight className="h-3 w-3" /> : <ChevronLeft className="h-3 w-3" />}
-        </button>
       )}
     </ResizablePrimitive.Separator>
   )
