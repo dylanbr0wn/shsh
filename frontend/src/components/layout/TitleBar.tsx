@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { TerminalIcon, Minus, Square, X, Settings } from 'lucide-react'
-import { useSetAtom } from 'jotai'
+import { Minus, Square, X, Settings, PanelLeftClose, PanelLeftOpen, Plus, Zap } from 'lucide-react'
+import { useAtom, useSetAtom } from 'jotai'
 import {
   Environment,
   WindowMinimise,
@@ -8,13 +8,16 @@ import {
   Quit,
 } from '../../../wailsjs/runtime/runtime'
 import { cn } from '../../lib/utils'
-import { isSettingsOpenAtom } from '../../store/atoms'
+import { isSettingsOpenAtom, sidebarCollapsedAtom, isAddHostOpenAtom, isQuickConnectOpenAtom } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function TitleBar() {
   const [isMac, setIsMac] = useState(false)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
+  const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
+  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
+  const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
 
   useEffect(() => {
     Environment().then((env) => setIsMac(env.platform === 'darwin'))
@@ -33,11 +36,66 @@ export function TitleBar() {
         />
       )}
 
-      <div className={cn('flex flex-1 items-center gap-2', isMac ? '' : 'pl-3')}>
-        <TerminalIcon className="text-muted-foreground size-4" />
-        <span className="text-sm font-semibold tracking-tight">shsh</span>
+      {/* Left action buttons */}
+      <div
+        className={cn('flex items-center', !isMac && 'pl-1')}
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setSidebarCollapsed((c) => !c)}
+              aria-label={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+            >
+              {sidebarCollapsed
+                ? <PanelLeftOpen className="size-4" />
+                : <PanelLeftClose className="size-4" />
+              }
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            {sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setIsAddHostOpen(true)}
+              aria-label="New host"
+            >
+              <Plus className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">New Host</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setIsQuickConnectOpen(true)}
+              aria-label="Quick connect"
+            >
+              <Zap className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Quick Connect</TooltipContent>
+        </Tooltip>
       </div>
 
+      {/* Drag region filler */}
+      <div className="flex-1" />
+
+      {/* Settings */}
       <div
         className="flex items-center"
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}

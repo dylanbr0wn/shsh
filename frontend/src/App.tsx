@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import { useAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
@@ -20,14 +20,22 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
-import { isDeployKeyOpenAtom, deployKeyHostAtom } from './store/atoms'
+import { isDeployKeyOpenAtom, deployKeyHostAtom, sidebarCollapsedAtom } from './store/atoms'
 
 export default function App() {
   useAppInit()
   const { resolvedTheme } = useTheme()
   const sidebarRef = usePanelRef()
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
+
+  useEffect(() => {
+    if (sidebarCollapsed) {
+      sidebarRef.current?.collapse()
+    } else {
+      sidebarRef.current?.expand()
+    }
+  }, [sidebarCollapsed])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
   return (
@@ -47,14 +55,7 @@ export default function App() {
           >
             <Sidebar />
           </ResizablePanel>
-          <ResizableHandle
-            withHandle
-            onToggle={() => {
-              if (sidebarCollapsed) sidebarRef.current?.expand()
-              else sidebarRef.current?.collapse()
-            }}
-            isCollapsed={sidebarCollapsed}
-          />
+          <ResizableHandle withHandle />
           <ResizablePanel defaultSize="82%" className="flex flex-col">
             <MainArea />
           </ResizablePanel>
