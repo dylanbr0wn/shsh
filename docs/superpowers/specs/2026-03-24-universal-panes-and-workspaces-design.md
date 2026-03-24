@@ -36,10 +36,10 @@ Exposes local FS operations: `ListDir`, `ReadFile`, `WriteFile`, `Mkdir`, `Delet
 
 A singleton `Connection` entry in the manager with well-known ID `"local"`:
 
-- No SSH client, no jump host
+- No SSH client, no jump host — `client` and `jumpClient` are nil
 - Created lazily on first `OpenLocalFSChannel()` call
-- `channelRefs` tracks open local channels; hitting zero removes the channels but doesn't tear down any network resources
-- Stored under `connByIdent{hostID: "local"}`
+- Stored in both `m.connections["local"]` and `m.connByIdent[connIdentity{hostID: "local"}]` (must be in `m.connections` so `CloseChannel` can look it up by the channelId's `ConnectionID()`)
+- `channelRefs` tracks open local channels; hitting zero removes the channels but does NOT call `teardownConnection` — the virtual connection is a true singleton that persists for the app's lifetime once created. Add an early return guard in `teardownConnection` when `conn.id == "local"`
 
 ### New Manager Methods
 
@@ -63,7 +63,7 @@ Transfer matrix by source/dest combination:
 | **Local FS** | `os.Copy` | Upload (local read → SFTP write) | Upload (local read → SFTP write) |
 | **Remote SFTP** | Download (SFTP read → local write) | SFTP rename (same filesystem) | Relay (SFTP read → chunked → SFTP write) |
 
-Same-host optimization: when source and dest channels share the same `connectionId`, use SFTP rename instead of streaming.
+Same-host optimization: when source and dest channels share the same `connectionId`, use SFTP rename instead of streaming. Note: SFTP rename only works within the same filesystem/mount on the remote host. If rename fails (cross-device error), fall back to chunked streaming.
 
 Future enhancement: direct SCP between hosts when both can reach each other, falling back to relay when they can't.
 
@@ -80,6 +80,7 @@ PaneLeaf = TerminalLeaf | SFTPLeaf | LocalFSLeaf
 - `kind: 'local'`
 - `paneId`, `channelId` — same as other leaves
 - `connectionId: "local"` (sentinel), `hostId: "local"`, `hostLabel: "Local"`
+- `status: SessionStatus` — included to keep the `PaneLeaf` union uniform; set to `"connected"` immediately on creation (local FS is always available)
 - `currentPath: string` — directory being viewed, defaults to home directory
 
 ### Workspace Identity
@@ -113,7 +114,7 @@ TemplateNode = TemplateLeaf | TemplateSplitNode
 TemplateSplitNode = { direction, ratio, left: TemplateNode, right: TemplateNode }
 ```
 
-On open: walk the template tree, connect to each referenced host (reusing connections for same host), open channels, build live `PaneNode` tree. Each pane appears immediately in "connecting" state and resolves independently. Failed connections show error state with retry.
+On open: walk the template tree, connect to each referenced host (reusing connections for same host), open channels, build live `PaneNode` tree. Each pane appears immediately in "connecting" state and resolves independently. Failed connections show error state with retry. If a referenced host has been deleted since the template was saved, that pane opens in an error state with a message indicating the host no longer exists — the rest of the workspace opens normally.
 
 Templates capture: layout tree structure, split directions and ratios, pane types, host references, last-viewed directory paths.
 
@@ -123,7 +124,7 @@ Templates do NOT capture: live connection state, terminal scrollback, authentica
 
 Rename `application/x-shsh-sftp` to `application/x-shsh-transfer`. Payload remains `{channelId, paths[]}`. Drop target reads the source channelId and calls `TransferBetweenChannels`.
 
-OS file drops from Finder/Explorer (via Wails `window:filedrop`) route through the local channel's upload path.
+OS file drops from Finder/Explorer (via Wails `window:filedrop`) route directly to the destination pane's channel. If the drop target is an SFTP pane, upload via that SFTP channel. If it's a local pane, copy via the local channel. No intermediate local channel is needed for OS drops.
 
 ### Adding Panes
 
