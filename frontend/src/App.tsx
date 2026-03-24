@@ -46,7 +46,7 @@ export default function App() {
           <ResizablePanel
             panelRef={sidebarRef}
             defaultSize="20%"
-            minSize="200px"
+            minSize="340px"
             maxSize="40%"
             collapsible
             collapsedSize="0%"
@@ -55,7 +55,7 @@ export default function App() {
           >
             <Sidebar />
           </ResizablePanel>
-          <ResizableHandle withHandle />
+          <ResizableHandle />
           <ResizablePanel defaultSize="82%" className="flex flex-col">
             <MainArea />
           </ResizablePanel>
