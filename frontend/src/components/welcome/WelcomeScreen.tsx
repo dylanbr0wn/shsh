@@ -9,7 +9,7 @@ import {
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
 } from '../../store/atoms'
-import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/workspaces'
+import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
 import { ConnectHost } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
@@ -39,22 +39,25 @@ export function WelcomeScreen() {
   async function handleConnect(host: Host) {
     setConnectingIds((prev) => new Set([...prev, host.id]))
     try {
-      const sessionId = await ConnectHost(host.id)
+      const result = await ConnectHost(host.id)
       const paneId = crypto.randomUUID()
       const workspaceId = crypto.randomUUID()
+      const leaf: TerminalLeaf = {
+        type: 'leaf',
+        kind: 'terminal',
+        paneId,
+        connectionId: result.connectionId,
+        channelId: result.channelId,
+        hostId: host.id,
+        hostLabel: host.label,
+        status: 'connecting',
+      }
       setWorkspaces((prev) => [
         ...prev,
         {
           id: workspaceId,
           label: host.label,
-          layout: {
-            type: 'leaf',
-            paneId,
-            sessionId,
-            hostId: host.id,
-            hostLabel: host.label,
-            status: 'connecting',
-          },
+          layout: leaf,
           focusedPaneId: paneId,
         },
       ])

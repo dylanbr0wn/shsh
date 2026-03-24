@@ -11,11 +11,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
-import { useSessionPanelState } from '../../store/useSessionPanelState'
+import { useChannelPanelState } from '../../store/useChannelPanelState'
 import type { SFTPEntry, SFTPState } from '../../types'
 import {
-  OpenSFTP,
-  CloseSFTP,
   SFTPListDir,
   SFTPDownload,
   SFTPDownloadDir,
@@ -47,10 +45,8 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from '../ui/context-menu'
-import { PanelHeader } from '../terminal/PanelHeader'
 
 const DEFAULT_SFTP_STATE: SFTPState = {
-  isOpen: false,
   currentPath: '~',
   entries: [],
   isLoading: false,
@@ -58,7 +54,8 @@ const DEFAULT_SFTP_STATE: SFTPState = {
 }
 
 interface Props {
-  sessionId: string
+  channelId: string
+  connectionId: string
 }
 
 type Modal =
@@ -67,8 +64,8 @@ type Modal =
   | { type: 'rename'; entry: SFTPEntry; value: string }
   | { type: 'delete'; entry: SFTPEntry }
 
-export function SFTPPanel({ sessionId }: Props) {
-  const [state, setState] = useSessionPanelState(sftpStateAtom, sessionId, DEFAULT_SFTP_STATE)
+export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
+  const [state, setState] = useChannelPanelState(sftpStateAtom, channelId, DEFAULT_SFTP_STATE)
   const { currentPath, entries, isLoading, error } = state
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
@@ -82,23 +79,22 @@ export function SFTPPanel({ sessionId }: Props) {
     async (path: string) => {
       setState({ isLoading: true, error: null })
       try {
-        const entries = await SFTPListDir(sessionId, path)
+        const entries = await SFTPListDir(channelId, path)
         setState({ entries: entries ?? [], currentPath: path, isLoading: false })
       } catch (err) {
         setState({ isLoading: false, error: String(err) })
       }
     },
-    [sessionId, setState]
+    [channelId, setState]
   )
 
-  // Open SFTP and list home dir on mount
+  // List home dir on mount (channel lifecycle managed externally)
   useEffect(() => {
     let cancelled = false
 
     async function init() {
       setState({ isLoading: true, error: null, entries: [], currentPath: '' })
       try {
-        await OpenSFTP(sessionId)
         if (!cancelled) await listDir('~')
       } catch (err) {
         if (!cancelled) setState({ isLoading: false, error: String(err) })
@@ -108,7 +104,7 @@ export function SFTPPanel({ sessionId }: Props) {
     init()
 
     // Progress toasts
-    const eventKey = 'sftp:progress:' + sessionId
+    const eventKey = `channel:sftp-progress:${channelId}`
     const toastIds: Map<string, string | number> = new Map()
 
     EventsOn(eventKey, (evt: { path: string; bytes: number; total: number }) => {
@@ -128,10 +124,9 @@ export function SFTPPanel({ sessionId }: Props) {
     return () => {
       cancelled = true
       EventsOff(eventKey)
-      CloseSFTP(sessionId).catch(() => {})
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionId])
+  }, [channelId])
 
   // Handle OS file drops — paths come from Go's runtime.OnFileDrop via Wails event
   useEffect(() => {
@@ -143,7 +138,7 @@ export function SFTPPanel({ sessionId }: Props) {
       const paths = data.paths ?? []
       if (!paths.length) return
       const results = await Promise.allSettled(
-        paths.map((p) => SFTPUploadPath(sessionId, p, currentPath + '/' + p.split('/').pop()))
+        paths.map((p) => SFTPUploadPath(channelId, p, currentPath + '/' + p.split('/').pop()))
       )
       results.forEach((r, i) => {
         if (r.status === 'rejected')
@@ -152,7 +147,7 @@ export function SFTPPanel({ sessionId }: Props) {
       await listDir(currentPath)
     })
     return () => EventsOff('window:filedrop')
-  }, [sessionId, currentPath, listDir])
+  }, [channelId, currentPath, listDir])
 
   if (!currentPath) return null
 
@@ -169,7 +164,7 @@ export function SFTPPanel({ sessionId }: Props) {
       await listDir(entry.path)
     } else {
       try {
-        await SFTPDownload(sessionId, entry.path)
+        await SFTPDownload(channelId, entry.path)
       } catch (err) {
         toast.error(String(err))
       }
@@ -178,7 +173,7 @@ export function SFTPPanel({ sessionId }: Props) {
 
   async function handleUpload() {
     try {
-      await SFTPUpload(sessionId, currentPath)
+      await SFTPUpload(channelId, currentPath)
       await listDir(currentPath)
     } catch (err) {
       toast.error(String(err))
@@ -188,7 +183,7 @@ export function SFTPPanel({ sessionId }: Props) {
   async function handleMkdirConfirm(name: string) {
     setModal({ type: 'none' })
     try {
-      await SFTPMkdir(sessionId, currentPath + '/' + name)
+      await SFTPMkdir(channelId, currentPath + '/' + name)
       await listDir(currentPath)
     } catch (err) {
       toast.error(String(err))
@@ -199,7 +194,7 @@ export function SFTPPanel({ sessionId }: Props) {
     setModal({ type: 'none' })
     if (!newName || newName === entry.name) return
     try {
-      await SFTPRename(sessionId, entry.path, currentPath + '/' + newName)
+      await SFTPRename(channelId, entry.path, currentPath + '/' + newName)
       await listDir(currentPath)
     } catch (err) {
       toast.error(String(err))
@@ -209,7 +204,7 @@ export function SFTPPanel({ sessionId }: Props) {
   async function handleDeleteConfirm(entry: SFTPEntry) {
     setModal({ type: 'none' })
     try {
-      await SFTPDelete(sessionId, entry.path)
+      await SFTPDelete(channelId, entry.path)
       await listDir(currentPath)
     } catch (err) {
       toast.error(String(err))
@@ -267,7 +262,8 @@ export function SFTPPanel({ sessionId }: Props) {
         dragCounterRef.current = 0
       }}
     >
-      <PanelHeader title="Files">
+      {/* Toolbar */}
+      <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -302,7 +298,7 @@ export function SFTPPanel({ sessionId }: Props) {
           </TooltipTrigger>
           <TooltipContent>New folder</TooltipContent>
         </Tooltip>
-      </PanelHeader>
+      </div>
 
       {/* Breadcrumb */}
       <div className="border-border flex shrink-0 items-center gap-1 overflow-x-auto border-b px-1.5 py-1">
@@ -375,7 +371,10 @@ export function SFTPPanel({ sessionId }: Props) {
                     onDragStart={(e) => {
                       draggedEntryRef.current = entry
                       e.dataTransfer.effectAllowed = 'move'
-                      e.dataTransfer.setData('application/x-shsh-sftp', entry.path)
+                      e.dataTransfer.setData(
+                        'application/x-shsh-sftp',
+                        JSON.stringify({ channelId, path: entry.path })
+                      )
                     }}
                     onDragOver={(e) => {
                       if (
@@ -402,7 +401,7 @@ export function SFTPPanel({ sessionId }: Props) {
                         return
                       }
                       try {
-                        await SFTPRename(sessionId, dragged.path, entry.path + '/' + dragged.name)
+                        await SFTPRename(channelId, dragged.path, entry.path + '/' + dragged.name)
                         await listDir(currentPath)
                       } catch (err) {
                         toast.error(String(err))
@@ -431,7 +430,7 @@ export function SFTPPanel({ sessionId }: Props) {
                   <ContextMenuItem
                     onSelect={() => {
                       const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
-                      fn(sessionId, entry.path).catch((err) => toast.error(String(err)))
+                      fn(channelId, entry.path).catch((err) => toast.error(String(err)))
                     }}
                   >
                     Download

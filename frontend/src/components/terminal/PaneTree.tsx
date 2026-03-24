@@ -1,10 +1,10 @@
 import { useLayoutEffect, useRef } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
-import type { PaneNode, Workspace } from '../../store/workspaces'
+import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
-import { leafToSession } from '../../lib/paneTree'
 import { TerminalInstance } from './TerminalInstance'
+import { SFTPPanel } from '../sftp/SFTPPanel'
 import { PaneHeader } from './PaneHeader'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import { hostsAtom } from '../../store/atoms'
@@ -15,9 +15,17 @@ interface PaneTreeProps {
   isWorkspaceActive: boolean
   onSplit: (paneId: string, direction: 'horizontal' | 'vertical') => void
   onClose: (paneId: string) => void
+  onOpenFiles: (paneId: string) => void
 }
 
-export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose }: PaneTreeProps) {
+export function PaneTree({
+  node,
+  workspace,
+  isWorkspaceActive,
+  onSplit,
+  onClose,
+  onOpenFiles,
+}: PaneTreeProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
 
@@ -42,6 +50,7 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
+            onOpenFiles={onOpenFiles}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -52,13 +61,14 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
+            onOpenFiles={onOpenFiles}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
     )
   }
 
-  const leaf = node
+  const leaf: PaneLeaf = node
   const isFocused = leaf.paneId === workspace.focusedPaneId
   const isActive = isWorkspaceActive && isFocused
   const host = hosts.find((h) => h.id === leaf.hostId)
@@ -79,13 +89,22 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
       <PaneHeader
         hostLabel={leaf.hostLabel}
         hostColor={host?.color}
+        kind={leaf.kind}
+        connectionId={leaf.connectionId}
         onSplitVertical={() => onSplit(leaf.paneId, 'vertical')}
         onSplitHorizontal={() => onSplit(leaf.paneId, 'horizontal')}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
+        onOpenFiles={leaf.kind === 'terminal' ? () => onOpenFiles(leaf.paneId) : undefined}
       />
-      <InitialFitTrigger isActive={isActive} />
-      <TerminalInstance session={leafToSession(leaf)} isActive={isActive} />
+      {leaf.kind === 'sftp' ? (
+        <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+      ) : (
+        <>
+          <InitialFitTrigger isActive={isActive} />
+          <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
+        </>
+      )}
       {(leaf.status === 'disconnected' || leaf.status === 'error') && (
         <DisconnectedOverlay onReconnect={() => {}} />
       )}

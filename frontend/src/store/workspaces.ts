@@ -1,15 +1,30 @@
 import { atom } from 'jotai'
 import type { SessionStatus } from '../types'
 
-export type LeafNode = {
+export type TerminalLeaf = {
   type: 'leaf'
+  kind: 'terminal'
   paneId: string
-  sessionId: string
+  connectionId: string
+  channelId: string
   hostId: string
   hostLabel: string
   status: SessionStatus
   connectedAt?: string
 }
+
+export type SFTPLeaf = {
+  type: 'leaf'
+  kind: 'sftp'
+  paneId: string
+  connectionId: string
+  channelId: string
+  hostId: string
+  hostLabel: string
+  status: SessionStatus
+}
+
+export type PaneLeaf = TerminalLeaf | SFTPLeaf
 
 export type SplitNode = {
   type: 'split'
@@ -20,7 +35,7 @@ export type SplitNode = {
   right: PaneNode
 }
 
-export type PaneNode = LeafNode | SplitNode
+export type PaneNode = PaneLeaf | SplitNode
 
 export interface Workspace {
   id: string

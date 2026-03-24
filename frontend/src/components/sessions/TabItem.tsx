@@ -1,5 +1,5 @@
 import { X } from 'lucide-react'
-import type { Host, Session } from '../../types'
+import type { Host, SessionStatus } from '../../types'
 import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -28,8 +28,16 @@ function formatDuration(connectedAt: string): string {
   return `${h}h ${m % 60}m`
 }
 
+interface TabSession {
+  id: string
+  hostId: string
+  hostLabel: string
+  status: SessionStatus
+  connectedAt?: string
+}
+
 interface Props {
-  session: Session
+  session: TabSession
   host?: Host
   isActive: boolean
   hasActivity: boolean

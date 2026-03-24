@@ -1,5 +1,5 @@
 import { useAtomValue } from 'jotai'
-import { workspacesAtom } from '../../store/atoms'
+import { workspacesAtom } from '../../store/workspaces'
 import { TabBar } from '../sessions/TabBar'
 import { WorkspaceView } from '../terminal/WorkspaceView'
 import { WelcomeScreen } from '../welcome/WelcomeScreen'
