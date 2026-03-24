@@ -1,10 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import {
-  workspacesAtom,
-  activeWorkspaceIdAtom,
-} from '../../store/workspaces'
+import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/workspaces'
 import {
   isAddHostOpenAtom,
   closeConfirmPrefAtom,

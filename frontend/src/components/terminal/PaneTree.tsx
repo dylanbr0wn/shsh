@@ -86,7 +86,9 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
       />
       <InitialFitTrigger isActive={isActive} />
       <TerminalInstance session={leafToSession(leaf)} isActive={isActive} />
-      {(leaf.status === 'disconnected' || leaf.status === 'error') && <DisconnectedOverlay onReconnect={() => {}} />}
+      {(leaf.status === 'disconnected' || leaf.status === 'error') && (
+        <DisconnectedOverlay onReconnect={() => {}} />
+      )}
     </div>
   )
 }
@@ -104,8 +106,8 @@ function InitialFitTrigger({ isActive }: { isActive: boolean }) {
 
 function DisconnectedOverlay({ onReconnect: _ }: { onReconnect: () => void }) {
   return (
-    <div className="absolute inset-0 flex items-center justify-center bg-background/70 backdrop-blur-sm">
-      <p className="text-sm text-muted-foreground">Disconnected</p>
+    <div className="bg-background/70 absolute inset-0 flex items-center justify-center backdrop-blur-sm">
+      <p className="text-muted-foreground text-sm">Disconnected</p>
     </div>
   )
 }

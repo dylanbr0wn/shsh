@@ -47,7 +47,14 @@ export function WelcomeScreen() {
         {
           id: workspaceId,
           label: host.label,
-          layout: { type: 'leaf', paneId, sessionId, hostId: host.id, hostLabel: host.label, status: 'connecting' },
+          layout: {
+            type: 'leaf',
+            paneId,
+            sessionId,
+            hostId: host.id,
+            hostLabel: host.label,
+            status: 'connecting',
+          },
           focusedPaneId: paneId,
         },
       ])

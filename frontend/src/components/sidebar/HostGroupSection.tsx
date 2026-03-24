@@ -135,7 +135,14 @@ export function HostGroupSection({
           return {
             id: crypto.randomUUID(),
             label: host.label,
-            layout: { type: 'leaf' as const, paneId, sessionId, hostId, hostLabel: host.label, status: 'connecting' as const },
+            layout: {
+              type: 'leaf' as const,
+              paneId,
+              sessionId,
+              hostId,
+              hostLabel: host.label,
+              status: 'connecting' as const,
+            },
             focusedPaneId: paneId,
           }
         })

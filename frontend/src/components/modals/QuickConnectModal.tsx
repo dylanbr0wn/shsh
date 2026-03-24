@@ -136,7 +136,14 @@ export function QuickConnectModal() {
         {
           id: workspaceId,
           label,
-          layout: { type: 'leaf', paneId, sessionId, hostId: sessionId, hostLabel: label, status: 'connecting' },
+          layout: {
+            type: 'leaf',
+            paneId,
+            sessionId,
+            hostId: sessionId,
+            hostLabel: label,
+            status: 'connecting',
+          },
           focusedPaneId: paneId,
         },
       ])

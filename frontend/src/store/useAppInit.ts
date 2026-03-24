@@ -85,9 +85,7 @@ export function useAppInit() {
         if (status === 'connecting') return
 
         if (status === 'connected') {
-          const allLeaves = workspacesRef.current.flatMap((w) =>
-            collectLeaves(w.layout)
-          )
+          const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
           const leaf = allLeaves.find((l) => l.sessionId === sessionId)
           if (leaf) {
             setConnectingIds((prev) => {
@@ -109,9 +107,7 @@ export function useAppInit() {
         }
 
         if (status === 'error') {
-          const allLeaves = workspacesRef.current.flatMap((w) =>
-            collectLeaves(w.layout)
-          )
+          const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
           const leaf = allLeaves.find((l) => l.sessionId === sessionId)
           if (leaf) {
             setConnectingIds((prev) => {
@@ -275,10 +271,5 @@ export function useAppInit() {
       c6()
       c7()
     }
-  }, [
-    activeLogs,
-    setAddPortForwardSessionId,
-    setActiveLogs,
-    setIsLogViewerOpen,
-  ])
+  }, [activeLogs, setAddPortForwardSessionId, setActiveLogs, setIsLogViewerOpen])
 }
