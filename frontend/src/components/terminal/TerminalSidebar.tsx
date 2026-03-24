@@ -1,10 +1,13 @@
-import { Circle, CircleStop, ScrollText } from 'lucide-react'
+import { Circle, CircleStop, ScrollText, ArrowLeftRight } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { TerminalSettings } from './TerminalSettings'
+import { PortForwardsPanel } from '../portforward/PortForwardsPanel'
 import { cn } from '../../lib/utils'
 
 interface TerminalSidebarProps {
+  connectionId: string
   loggingActive: boolean
   logPath?: string
   onToggleLogging: () => void
@@ -12,6 +15,7 @@ interface TerminalSidebarProps {
 }
 
 export function TerminalSidebar({
+  connectionId,
   loggingActive,
   logPath,
   onToggleLogging,
@@ -20,6 +24,26 @@ export function TerminalSidebar({
   return (
     <div className="border-border bg-muted/20 flex w-10 shrink-0 flex-col items-center gap-0.5 border-l pt-2">
       <TerminalSettings />
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground"
+                aria-label="Port forwards"
+              >
+                <ArrowLeftRight aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="left">Port forwards</TooltipContent>
+        </Tooltip>
+        <PopoverContent side="left" align="start" className="w-72 p-0">
+          <PortForwardsPanel connectionId={connectionId} />
+        </PopoverContent>
+      </Popover>
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

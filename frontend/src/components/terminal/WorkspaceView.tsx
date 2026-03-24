@@ -44,7 +44,8 @@ export function WorkspaceView() {
           channelId,
           hostId: leaf.hostId,
           hostLabel: leaf.hostLabel,
-          status: 'connecting',
+          status: 'connected',
+          connectedAt: new Date().toISOString(),
         }
         setWorkspaces((prev) =>
           prev.map((w) => {
@@ -205,8 +206,9 @@ export function WorkspaceView() {
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
               )}
             </div>
-            {isWorkspaceActive && focusedChannelId && (
+            {isWorkspaceActive && focusedChannelId && focusedLeaf && (
               <TerminalSidebar
+                connectionId={focusedLeaf.connectionId}
                 loggingActive={activeLogs.has(focusedChannelId)}
                 logPath={activeLogs.get(focusedChannelId)}
                 onToggleLogging={() => toggleLogging(focusedChannelId)}

@@ -213,7 +213,8 @@ export function HostList() {
         channelId: result.channelId,
         hostId,
         hostLabel,
-        status: 'connecting',
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
       }
       const workspace: Workspace = {
         id: workspaceId,
@@ -223,6 +224,11 @@ export function HostList() {
       }
       setWorkspaces((prev) => [...prev, workspace])
       setActiveWorkspaceId(workspaceId)
+      setConnectingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(hostId)
+        return next
+      })
     } catch (err) {
       setConnectingIds((prev) => {
         const next = new Set(prev)
@@ -247,7 +253,7 @@ export function HostList() {
         channelId: result.channelId,
         hostId,
         hostLabel,
-        status: 'connecting',
+        status: 'connected',
       }
       const workspace: Workspace = {
         id: workspaceId,

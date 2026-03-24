@@ -50,7 +50,8 @@ export function WelcomeScreen() {
         channelId: result.channelId,
         hostId: host.id,
         hostLabel: host.label,
-        status: 'connecting',
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
       }
       setWorkspaces((prev) => [
         ...prev,
@@ -62,6 +63,11 @@ export function WelcomeScreen() {
         },
       ])
       setActiveWorkspaceId(workspaceId)
+      setConnectingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(host.id)
+        return next
+      })
     } catch (err) {
       setConnectingIds((prev) => {
         const next = new Set(prev)
