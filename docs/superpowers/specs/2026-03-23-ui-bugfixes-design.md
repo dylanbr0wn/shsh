@@ -52,7 +52,9 @@ Windows:
 
 ### State Management
 
-Sidebar collapsed state currently lives in `App.tsx` local state. Extract it to a `sidebarCollapsedAtom` in `store/atoms.ts` so `TitleBar` can read/write it directly without prop drilling. `App.tsx` reads the atom to drive `sidebarRef.current?.expand()` / `collapse()`.
+Sidebar collapsed state currently lives in `App.tsx` local state. Extract it to a `sidebarCollapsedAtom` in `store/atoms.ts` so `TitleBar` can read/write it directly without prop drilling.
+
+**Sync strategy:** The atom is the single source of truth. `App.tsx` uses a `useEffect` watching `sidebarCollapsedAtom` to imperatively call `sidebarRef.current?.expand()` or `sidebarRef.current?.collapse()` on the panel. The panel's `onResize` callback continues to write back to the atom (as today) so drag-to-collapse also updates the atom. This avoids two-way binding issues — the atom drives the panel imperatively, the panel's resize events keep the atom in sync.
 
 ### AppHeader Removal
 
