@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
 import type { SessionStatus, Host, Group, TerminalProfile } from '../types'
 import {
@@ -16,8 +16,6 @@ import {
   hostsAtom,
   groupsAtom,
   terminalProfilesAtom,
-  sessionsAtom,
-  activeSessionIdAtom,
   connectingHostIdsAtom,
   pendingHostKeyAtom,
   isAddHostOpenAtom,
@@ -33,17 +31,14 @@ import {
   portForwardsAtom,
   type PendingHostKey,
 } from './atoms'
-
-// Pending sessions: sessionId → hostId, waiting for "connected" to open the session.
-// This is a coordination mechanism between Go RPC return and async event, not UI state.
-export const pendingConnects = new Map<string, { hostId: string; hostLabel: string }>()
+import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
+import { updateLeafBySessionId, collectLeaves } from '../lib/paneTree'
 
 export function useAppInit() {
   const setHosts = useSetAtom(hostsAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setTerminalProfiles = useSetAtom(terminalProfilesAtom)
-  const setSessions = useSetAtom(sessionsAtom)
-  const setActiveSessionId = useSetAtom(activeSessionIdAtom)
+  const [workspaces, setWorkspaces] = useAtom(workspacesAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
   const setPendingHostKey = useSetAtom(pendingHostKeyAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
@@ -55,11 +50,19 @@ export function useAppInit() {
   const setIsLogViewerOpen = useSetAtom(isLogViewerOpenAtom)
   const setIsNewGroupOpen = useSetAtom(isNewGroupOpenAtom)
   const setAddPortForwardSessionId = useSetAtom(addPortForwardSessionIdAtom)
-  const setActiveLogs = useSetAtom(activeLogsAtom)
+  const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
   const setPortForwards = useSetAtom(portForwardsAtom)
-  const activeSessionId = useAtomValue(activeSessionIdAtom)
-  const sessions = useAtomValue(sessionsAtom)
-  const activeLogs = useAtomValue(activeLogsAtom)
+  const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+
+  const workspacesRef = useRef(workspaces)
+  useLayoutEffect(() => {
+    workspacesRef.current = workspaces
+  }, [workspaces])
+
+  const activeWorkspaceIdRef = useRef(activeWorkspaceId)
+  useLayoutEffect(() => {
+    activeWorkspaceIdRef.current = activeWorkspaceId
+  }, [activeWorkspaceId])
 
   useEffect(() => {
     ListHosts()
@@ -78,58 +81,57 @@ export function useAppInit() {
       'session:status',
       (event: { sessionId: string; status: SessionStatus; error?: string }) => {
         const { sessionId, status } = event
-        console.log(`Session ${sessionId} status: ${status}`)
 
-        if (status === 'connecting') {
-          return
-        }
+        if (status === 'connecting') return
 
         if (status === 'connected') {
-          const pending = pendingConnects.get(sessionId)
-          if (pending) {
-            pendingConnects.delete(sessionId)
+          const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
+          const leaf = allLeaves.find((l) => l.sessionId === sessionId)
+          if (leaf) {
             setConnectingIds((prev) => {
               const next = new Set(prev)
-              next.delete(pending.hostId)
+              next.delete(leaf.hostId)
               return next
             })
-            setSessions((prev) => [
-              ...prev,
-              {
-                id: sessionId,
-                hostId: pending.hostId,
-                hostLabel: pending.hostLabel,
+          }
+          setWorkspaces((prev) =>
+            prev.map((w) => ({
+              ...w,
+              layout: updateLeafBySessionId(w.layout, sessionId, {
                 status: 'connected',
                 connectedAt: new Date().toISOString(),
-              },
-            ])
-            setActiveSessionId(sessionId)
-          }
+              }),
+            }))
+          )
           return
         }
 
         if (status === 'error') {
-          const pending = pendingConnects.get(sessionId)
-          if (pending) {
-            pendingConnects.delete(sessionId)
+          const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
+          const leaf = allLeaves.find((l) => l.sessionId === sessionId)
+          if (leaf) {
             setConnectingIds((prev) => {
               const next = new Set(prev)
-              next.delete(pending.hostId)
+              next.delete(leaf.hostId)
               return next
             })
           }
-          setSessions((prev) =>
-            prev.map((s) => (s.id === sessionId ? { ...s, status: 'error' as SessionStatus } : s))
+          setWorkspaces((prev) =>
+            prev.map((w) => ({
+              ...w,
+              layout: updateLeafBySessionId(w.layout, sessionId, { status: 'error' }),
+            }))
           )
           toast.error('SSH session error', { description: event.error })
           return
         }
 
         if (status === 'disconnected') {
-          setSessions((prev) =>
-            prev.map((s) =>
-              s.id === sessionId ? { ...s, status: 'disconnected' as SessionStatus } : s
-            )
+          setWorkspaces((prev) =>
+            prev.map((w) => ({
+              ...w,
+              layout: updateLeafBySessionId(w.layout, sessionId, { status: 'disconnected' }),
+            }))
           )
           setPortForwards((prev) => {
             const next = { ...prev }
@@ -140,7 +142,7 @@ export function useAppInit() {
       }
     )
     return () => cancel()
-  }, [setActiveSessionId, setConnectingIds, setSessions, setPortForwards])
+  }, [setConnectingIds, setWorkspaces, setPortForwards])
 
   useEffect(() => {
     const cancelHK = EventsOn('session:hostkey', (event: PendingHostKey) => {
@@ -178,12 +180,17 @@ export function useAppInit() {
 
   useEffect(() => {
     function requireActiveSession(action: (sessionId: string) => void) {
-      const connected = sessions.find((s) => s.id === activeSessionId && s.status === 'connected')
-      if (!connected) {
+      const ws = workspacesRef.current.find((w) => w.id === activeWorkspaceIdRef.current)
+      if (!ws || !ws.focusedPaneId) {
         toast.error('No active session')
         return
       }
-      action(connected.id)
+      const leaf = collectLeaves(ws.layout).find((l) => l.paneId === ws.focusedPaneId)
+      if (!leaf || leaf.status !== 'connected') {
+        toast.error('No active session')
+        return
+      }
+      action(leaf.sessionId)
     }
 
     const c1 = EventsOn('menu:session:disconnect', () => {
@@ -196,12 +203,13 @@ export function useAppInit() {
       })
     })
     const c2 = EventsOn('menu:session:disconnect-all', async () => {
-      const connected = sessions.filter((s) => s.status === 'connected')
+      const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
+      const connected = allLeaves.filter((l) => l.status === 'connected')
       if (connected.length === 0) {
         toast.error('No active sessions')
         return
       }
-      await Promise.allSettled(connected.map((s) => DisconnectSession(s.id)))
+      await Promise.allSettled(connected.map((l) => DisconnectSession(l.sessionId)))
     })
     const c3 = EventsOn('menu:session:add-port-forward', () => {
       requireActiveSession((id) => setAddPortForwardSessionId(id))
@@ -251,12 +259,5 @@ export function useAppInit() {
       c6()
       c7()
     }
-  }, [
-    activeSessionId,
-    sessions,
-    activeLogs,
-    setAddPortForwardSessionId,
-    setActiveLogs,
-    setIsLogViewerOpen,
-  ])
+  }, [activeLogs, setAddPortForwardSessionId, setActiveLogs, setIsLogViewerOpen])
 }

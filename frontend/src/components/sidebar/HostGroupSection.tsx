@@ -5,7 +5,7 @@ import { ChevronRight, Loader2, MoreHorizontal, Plug2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
 import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
-import { pendingConnects } from '../../store/useAppInit'
+import { workspacesAtom, activeWorkspaceIdAtom, type Workspace } from '../../store/workspaces'
 import { DeleteGroup, UpdateGroup, BulkConnectGroup } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -65,6 +65,8 @@ export function HostGroupSection({
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const setWorkspaces = useSetAtom(workspacesAtom)
+  const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
 
   const isExpanded = expanded[group.id] !== false // default open
 
@@ -125,10 +127,29 @@ export function HostGroupSection({
     setBulkConnecting(true)
     try {
       const results = await BulkConnectGroup(group.id)
-      results.forEach(({ sessionId, hostId }: { sessionId: string; hostId: string }) => {
-        const host = hosts.find((h) => h.id === hostId)
-        if (host) pendingConnects.set(sessionId, { hostId: host.id, hostLabel: host.label })
-      })
+      const newWorkspaces: Workspace[] = results
+        .map(({ sessionId, hostId }: { sessionId: string; hostId: string }) => {
+          const host = hosts.find((h) => h.id === hostId)
+          if (!host) return null
+          const paneId = crypto.randomUUID()
+          return {
+            id: crypto.randomUUID(),
+            label: host.label,
+            layout: {
+              type: 'leaf' as const,
+              paneId,
+              sessionId,
+              hostId,
+              hostLabel: host.label,
+              status: 'connecting' as const,
+            },
+            focusedPaneId: paneId,
+          }
+        })
+        .filter(Boolean) as Workspace[]
+      if (newWorkspaces.length === 0) return
+      setWorkspaces((prev) => [...prev, ...newWorkspaces])
+      setActiveWorkspaceId(newWorkspaces[0].id)
     } catch (err) {
       toast.error('Bulk connect failed', { description: String(err) })
     } finally {

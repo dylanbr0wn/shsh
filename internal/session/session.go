@@ -15,14 +15,14 @@ import (
 
 	"strconv"
 
+	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/google/uuid"
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
-	"github.com/dylanbr0wn/shsh/internal/config"
-	"github.com/dylanbr0wn/shsh/internal/store"
 )
 
 // EventEmitter abstracts event delivery so session logic is not coupled to any UI framework.
@@ -81,6 +81,12 @@ type portForward struct {
 	remoteHost string
 	remotePort int
 	listener   net.Listener
+}
+
+// SplitSessionResult is returned by SplitSession.
+type SplitSessionResult struct {
+	SessionID       string `json:"sessionId"`
+	ParentSessionID string `json:"parentSessionId"`
 }
 
 type sshSession struct {
@@ -147,6 +153,8 @@ type Manager struct {
 	pendingKeys map[string]chan bool
 	mu          sync.Mutex
 	wg          sync.WaitGroup
+	clientRefs  map[*goph.Client]int
+	jumpRefs    map[*ssh.Client]int
 }
 
 // NewManager creates a new Manager with the given app context, config, and event emitter.
@@ -157,6 +165,57 @@ func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *
 		emitter:     emitter,
 		sessions:    make(map[string]*sshSession),
 		pendingKeys: make(map[string]chan bool),
+		clientRefs:  make(map[*goph.Client]int),
+		jumpRefs:    make(map[*ssh.Client]int),
+	}
+}
+
+// incrClientRefs increments ref counts for client and jumpClient (if non-nil).
+// Caller MUST hold m.mu.
+func (m *Manager) incrClientRefs(client *goph.Client, jumpClient *ssh.Client) {
+	m.clientRefs[client]++
+	if jumpClient != nil {
+		m.jumpRefs[jumpClient]++
+	}
+}
+
+// releaseClient decrements ref counts and closes resources whose count hits zero.
+// Caller must NOT hold m.mu. Closes are performed outside mu.
+// Panics if called for a client that was never retained (programming error).
+func (m *Manager) releaseClient(client *goph.Client, jumpClient *ssh.Client) {
+	m.mu.Lock()
+	count, ok := m.clientRefs[client]
+	if !ok {
+		m.mu.Unlock()
+		panic(fmt.Sprintf("releaseClient: client %p was never retained", client))
+	}
+	count--
+	if count == 0 {
+		delete(m.clientRefs, client)
+	} else {
+		m.clientRefs[client] = count
+	}
+	var jumpCount int
+	if jumpClient != nil {
+		jCount, jOk := m.jumpRefs[jumpClient]
+		if !jOk {
+			m.mu.Unlock()
+			panic(fmt.Sprintf("releaseClient: jumpClient %p was never retained", jumpClient))
+		}
+		jumpCount = jCount - 1
+		if jumpCount == 0 {
+			delete(m.jumpRefs, jumpClient)
+		} else {
+			m.jumpRefs[jumpClient] = jumpCount
+		}
+	}
+	m.mu.Unlock()
+
+	if count == 0 {
+		client.Close()
+	}
+	if jumpClient != nil && jumpCount == 0 {
+		jumpClient.Close()
 	}
 }
 
@@ -351,6 +410,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 		}
 
 		m.mu.Lock()
+		m.incrClientRefs(client, jumpSSHClient)
 		m.sessions[sessionID] = sess
 		m.mu.Unlock()
 
@@ -378,10 +438,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 		}
 		sess.pfMu.Unlock()
 		sshSess.Close()
-		client.Close()
-		if sess.jumpClient != nil {
-			sess.jumpClient.Close()
-		}
+		m.releaseClient(client, sess.jumpClient)
 		sess.wg.Wait()
 
 		m.mu.Lock()
@@ -425,6 +482,112 @@ func (m *Manager) Disconnect(sessionID string) error {
 	}
 	sess.cancel()
 	return nil
+}
+
+// SplitSession opens a new PTY on the existing SSH connection for existingSessionID.
+// The new session shares the underlying SSH client but has its own shell and PTY.
+func (m *Manager) SplitSession(existingSessionID string) (SplitSessionResult, error) {
+	m.mu.Lock()
+	parent, ok := m.sessions[existingSessionID]
+	if !ok {
+		m.mu.Unlock()
+		return SplitSessionResult{}, fmt.Errorf("session %s not found", existingSessionID)
+	}
+	m.incrClientRefs(parent.client, parent.jumpClient)
+	parentClient := parent.client
+	parentJumpClient := parent.jumpClient
+	parentHostID := parent.hostID
+	parentHostLabel := parent.hostLabel
+	m.mu.Unlock()
+
+	// Use the inner *ssh.Client, not the outer goph.Client wrapper.
+	// This correctly targets the destination host even for jump-host connections.
+	targetClient := parentClient.Client
+
+	sshSess, err := targetClient.NewSession()
+	if err != nil {
+		m.releaseClient(parentClient, parentJumpClient)
+		return SplitSessionResult{}, fmt.Errorf("failed to create SSH session: %w", err)
+	}
+
+	if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
+		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
+		return SplitSessionResult{}, fmt.Errorf("failed to request PTY: %w", err)
+	}
+
+	stdin, err := sshSess.StdinPipe()
+	if err != nil {
+		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
+		return SplitSessionResult{}, fmt.Errorf("failed to get stdin pipe: %w", err)
+	}
+
+	stdout, err := sshSess.StdoutPipe()
+	if err != nil {
+		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
+		return SplitSessionResult{}, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	if err := sshSess.Shell(); err != nil {
+		sshSess.Close()
+		m.releaseClient(parentClient, parentJumpClient)
+		return SplitSessionResult{}, fmt.Errorf("failed to start shell: %w", err)
+	}
+
+	newID := uuid.New().String()
+	sessCtx, cancel := context.WithCancel(context.Background())
+	newSess := &sshSession{
+		id:           newID,
+		hostID:       parentHostID,
+		hostLabel:    parentHostLabel,
+		client:       parentClient,
+		jumpClient:   parentJumpClient,
+		sshSess:      sshSess,
+		stdin:        stdin,
+		ctx:          sessCtx,
+		cancel:       cancel,
+		portForwards: make(map[string]*portForward),
+	}
+
+	m.mu.Lock()
+	m.sessions[newID] = newSess
+	m.mu.Unlock()
+
+	m.emitter.Emit("session:status", StatusEvent{
+		SessionID: newID,
+		Status:    StatusConnecting,
+	})
+
+	// Start the output reader goroutine and cleanup goroutine.
+	m.wg.Go(func() {
+		newSess.start(m.emitter, stdout)
+
+		m.emitter.Emit("session:status", StatusEvent{
+			SessionID: newID,
+			Status:    StatusConnected,
+		})
+
+		<-sessCtx.Done()
+		newSess.pfMu.Lock()
+		for _, pf := range newSess.portForwards {
+			pf.listener.Close()
+		}
+		newSess.pfMu.Unlock()
+		sshSess.Close()
+		m.releaseClient(newSess.client, newSess.jumpClient)
+		newSess.wg.Wait()
+
+		m.mu.Lock()
+		delete(m.sessions, newID)
+		m.mu.Unlock()
+	})
+
+	return SplitSessionResult{
+		SessionID:       newID,
+		ParentSessionID: existingSessionID,
+	}, nil
 }
 
 // RespondHostKey unblocks a pending host key verification with the user's decision.
