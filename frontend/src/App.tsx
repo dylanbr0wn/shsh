@@ -31,6 +31,7 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
   const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
+  const debugRef = usePanelRef()
 
   useEffect(() => {
     if (sidebarCollapsed) {
@@ -41,41 +42,49 @@ export default function App() {
   }, [sidebarCollapsed, sidebarRef])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
+  useEffect(() => {
+    if (debugPanelOpen) {
+      debugRef.current?.resize('30%')
+    } else {
+      debugRef.current?.collapse()
+    }
+  }, [debugPanelOpen, debugRef])
+
   return (
     <TooltipProvider delayDuration={400}>
       <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
         <TitleBar />
-        <ResizablePanelGroup orientation="vertical" className="flex-1">
-          <ResizablePanel defaultSize="100%" minSize="30%">
-            <ResizablePanelGroup orientation="horizontal" className="h-full">
-              <ResizablePanel
-                panelRef={sidebarRef}
-                defaultSize="20%"
-                minSize="340px"
-                maxSize="40%"
-                collapsible
-                collapsedSize="0%"
-                onResize={(size) => setSidebarCollapsed(size.inPixels === 0)}
-                className="flex flex-col"
-              >
-                <Sidebar />
-              </ResizablePanel>
-              <ResizableHandle />
-              <ResizablePanel defaultSize="82%" className="flex flex-col">
-                <MainArea />
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </ResizablePanel>
-          <ResizableHandle className={debugPanelOpen ? '' : 'hidden'} />
+        <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
           <ResizablePanel
-            defaultSize="0%"
-            minSize={debugPanelOpen ? '15%' : '0%'}
-            maxSize="60%"
+            panelRef={sidebarRef}
+            defaultSize="20%"
+            minSize="340px"
+            maxSize="40%"
             collapsible
             collapsedSize="0%"
-            className={debugPanelOpen ? '' : 'hidden'}
+            onResize={(size) => setSidebarCollapsed(size.inPixels === 0)}
+            className="flex flex-col"
           >
-            <DebugPanel />
+            <Sidebar />
+          </ResizablePanel>
+          <ResizableHandle />
+          <ResizablePanel defaultSize="82%" className="flex min-h-0 flex-col overflow-hidden">
+            <ResizablePanelGroup orientation="vertical" className="h-full">
+              <ResizablePanel defaultSize="100%" minSize="30%" className="overflow-hidden">
+                <MainArea />
+              </ResizablePanel>
+              <ResizableHandle className={debugPanelOpen ? '' : 'hidden'} />
+              <ResizablePanel
+                panelRef={debugRef}
+                defaultSize="0%"
+                minSize="15%"
+                maxSize="60%"
+                collapsible
+                collapsedSize="0%"
+              >
+                <DebugPanel />
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
         <AddHostModal />

@@ -1,20 +1,40 @@
-import { useRef, useEffect, useState } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useRef, useEffect, useState, useCallback } from 'react'
+import { useAtomValue } from 'jotai'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { debugFilteredEntriesAtom, debugPanelOpenAtom } from '../../store/debugStore'
+import { debugFilteredEntriesAtom } from '../../store/debugStore'
 import { DebugFilterBar } from './DebugFilterBar'
+import { DebugSettingsOverlay } from './DebugSettingsOverlay'
 import { DebugLogRow } from './DebugLogRow'
 import type { DebugLevel } from '../../types/debug'
+import { GetConfig } from '../../../wailsjs/go/main/App'
 
 export function DebugPanel() {
-  const [panelOpen] = useAtom(debugPanelOpenAtom)
   const entries = useAtomValue(debugFilteredEntriesAtom)
   const parentRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // TODO: load from config via GetConfig RPC in a future iteration
-  const [globalLevel] = useState<DebugLevel>('info')
-  const [categoryLevels] = useState<Record<string, string>>({})
+  const [globalLevel, setGlobalLevel] = useState<DebugLevel>('info')
+  const [categoryLevels, setCategoryLevels] = useState<Record<string, string>>({})
+
+  useEffect(() => {
+    GetConfig().then((cfg) => {
+      if (cfg.debug?.default_level) {
+        setGlobalLevel(cfg.debug.default_level as DebugLevel)
+      }
+      if (cfg.debug?.category_levels) {
+        setCategoryLevels(cfg.debug.category_levels)
+      }
+    })
+  }, [])
+
+  const handleGlobalLevelChange = useCallback((lvl: DebugLevel) => {
+    setGlobalLevel(lvl)
+  }, [])
+
+  const handleCategoryLevelsChange = useCallback((levels: Record<string, string>) => {
+    setCategoryLevels(levels)
+  }, [])
 
   const virtualizer = useVirtualizer({
     count: entries.length,
@@ -38,11 +58,21 @@ export function DebugPanel() {
     setAutoScroll(atBottom)
   }
 
-  if (!panelOpen) return null
-
   return (
-    <div className="bg-background flex h-full flex-col">
-      <DebugFilterBar globalLevel={globalLevel} categoryLevels={categoryLevels} />
+    <div className="bg-background border-border relative flex h-full flex-col border-t">
+      <DebugFilterBar
+        onSettingsToggle={() => setSettingsOpen((v) => !v)}
+        settingsOpen={settingsOpen}
+      />
+      {settingsOpen && (
+        <DebugSettingsOverlay
+          globalLevel={globalLevel}
+          categoryLevels={categoryLevels}
+          onGlobalLevelChange={handleGlobalLevelChange}
+          onCategoryLevelsChange={handleCategoryLevelsChange}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       <div ref={parentRef} onScroll={handleScroll} className="flex-1 overflow-auto">
         <div
           style={{

@@ -9,14 +9,14 @@ export function MainArea() {
 
   if (workspaces.length === 0) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex h-full min-w-0 flex-col">
         <WelcomeScreen />
       </div>
     )
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <TabBar />
       <div className="relative min-h-0 flex-1">
         <WorkspaceView />

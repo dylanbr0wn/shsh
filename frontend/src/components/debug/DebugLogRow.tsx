@@ -13,7 +13,7 @@ function formatCompactTime(iso: string): string {
 }
 
 const levelColors: Record<string, string> = {
-  error: 'text-red-400 bg-red-500/10',
+  error: 'text-destructive bg-destructive/10',
   warn: 'text-orange-400 bg-orange-500/5',
 }
 
