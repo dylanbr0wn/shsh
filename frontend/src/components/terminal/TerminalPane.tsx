@@ -179,7 +179,7 @@ export function TerminalPane() {
                 .filter((p) => p.isOpen)
                 .map((p) => (
                   <React.Fragment key={p.id}>
-                    <ResizableHandle withHandle />
+                    <ResizableHandle />
                     <ResizablePanel
                       defaultSize={p.defaultSize}
                       minSize={p.minSize}
