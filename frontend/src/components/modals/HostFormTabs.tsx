@@ -247,7 +247,7 @@ export function HostFormTabs({
                       Test
                     </Button>
                   </div>
-                  <FieldDescription>
+                  <FieldDescription className="flex items-center justify-between">
                     <PMStatusBadge status={pmStatus} source={credSrc} />
                   </FieldDescription>
                 </Field>
