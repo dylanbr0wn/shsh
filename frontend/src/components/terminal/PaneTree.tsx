@@ -68,7 +68,7 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className="group/pane relative h-full w-full"
+      className="group/pane relative h-full w-full p-2"
       style={
         isFocused
           ? { boxShadow: `inset 0 0 0 1px ${host?.color ?? 'hsl(var(--border))'}` }

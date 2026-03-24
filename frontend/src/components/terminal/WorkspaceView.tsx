@@ -260,7 +260,7 @@ export function WorkspaceView() {
                 minSize={30}
                 className="flex h-full min-w-0 flex-col overflow-hidden!"
               >
-                <div className="relative h-full min-h-0 flex-1 py-3 pl-3">
+                <div className="relative h-full min-h-0 flex-1">
                   <PaneTree
                     node={workspace.layout}
                     workspace={workspace}

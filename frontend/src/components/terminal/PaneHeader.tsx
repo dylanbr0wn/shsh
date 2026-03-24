@@ -19,14 +19,14 @@ export function PaneHeader({
   canClose,
 }: Props) {
   return (
-    <div className="absolute top-0 right-0 left-0 z-10 flex h-7 items-center gap-1 px-2 opacity-0 transition-opacity group-hover/pane:opacity-100">
+    <div className="absolute top-0 right-0 z-10 flex h-7 items-center gap-1 px-2 opacity-0 transition-opacity group-hover/pane:opacity-100">
       <span
-        className="text-muted-foreground truncate font-mono text-[10px]"
+        className="text-muted-foreground max-w-[160px] truncate font-mono text-[10px]"
         style={hostColor ? { color: hostColor } : undefined}
       >
         {hostLabel}
       </span>
-      <div className="ml-auto flex items-center gap-0.5">
+      <div className="flex items-center gap-0.5">
         <Button
           variant="ghost"
           size="icon-xs"
