@@ -44,7 +44,7 @@ export function PaneTree({ node, workspace, isWorkspaceActive, onSplit, onClose 
             onClose={onClose}
           />
         </ResizablePanel>
-        <ResizableHandle withHandle />
+        <ResizableHandle />
         <ResizablePanel defaultSize={rightPct} minSize={15}>
           <PaneTree
             node={node.right}
