@@ -103,7 +103,6 @@ func (m *Manager) TransferBetweenHosts(srcChannelId, srcPath, dstChannelId, dstP
 				Bytes: written,
 				Total: total,
 			}
-			m.emitter.Emit("channel:sftp-progress:"+srcChannelId, progress)
 			m.emitter.Emit("channel:sftp-progress:"+dstChannelId, progress)
 
 			if werr != nil {

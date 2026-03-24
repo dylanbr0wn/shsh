@@ -22,6 +22,7 @@ import {
   SFTPMkdir,
   SFTPDelete,
   SFTPRename,
+  TransferBetweenHosts,
 } from '../../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
 import { Button } from '../ui/button'
@@ -106,18 +107,26 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     // Progress toasts
     const eventKey = `channel:sftp-progress:${channelId}`
     const toastIds: Map<string, string | number> = new Map()
+    const completedPaths: Set<string> = new Set()
 
     EventsOn(eventKey, (evt: { path: string; bytes: number; total: number }) => {
+      if (completedPaths.has(evt.path)) return
       const pct = evt.total > 0 ? Math.round((evt.bytes / evt.total) * 100) : 0
       const label = evt.path.split('/').pop() ?? evt.path
       const existing = toastIds.get(evt.path)
-      const id = existing ?? toast.loading(`Transferring ${label}… ${pct}%`)
-      if (existing === undefined) toastIds.set(evt.path, id)
       if (pct >= 100) {
-        toast.success(`${label} transferred`, { id })
+        completedPaths.add(evt.path)
+        if (existing !== undefined) {
+          toast.success(`${label} transferred`, { id: existing })
+        } else {
+          toast.success(`${label} transferred`)
+        }
         toastIds.delete(evt.path)
       } else if (existing !== undefined) {
-        toast.loading(`Transferring ${label}… ${pct}%`, { id })
+        toast.loading(`Transferring ${label}… ${pct}%`, { id: existing })
+      } else {
+        const id = toast.loading(`Transferring ${label}… ${pct}%`)
+        toastIds.set(evt.path, id)
       }
     })
 
@@ -234,7 +243,10 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     <div
       className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
       onDragEnter={(e) => {
-        if (e.dataTransfer.types.includes('Files')) {
+        if (
+          e.dataTransfer.types.includes('Files') ||
+          e.dataTransfer.types.includes('application/x-shsh-sftp')
+        ) {
           e.preventDefault()
           dragCounterRef.current++
           if (dragCounterRef.current === 1) {
@@ -244,9 +256,12 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
         }
       }}
       onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('Files')) {
+        if (
+          e.dataTransfer.types.includes('Files') ||
+          e.dataTransfer.types.includes('application/x-shsh-sftp')
+        ) {
           e.preventDefault()
-          e.dataTransfer.dropEffect = 'copy'
+          e.dataTransfer.dropEffect = e.dataTransfer.types.includes('Files') ? 'copy' : 'move'
         }
       }}
       onDragLeave={() => {
@@ -256,10 +271,36 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
           setIsDragOver(false)
         }
       }}
-      onDrop={(e) => {
-        // Paths arrive via window:filedrop Wails event — just prevent browser default
+      onDrop={async (e) => {
         e.preventDefault()
         dragCounterRef.current = 0
+        isDragOverRef.current = false
+        setIsDragOver(false)
+
+        // Handle SFTP cross-panel drops onto the panel background (into currentPath)
+        const raw = e.dataTransfer.getData('application/x-shsh-sftp')
+        if (raw) {
+          const payload: { channelId: string; path: string } = JSON.parse(raw)
+          const draggedName = payload.path.split('/').pop() ?? payload.path
+          draggedEntryRef.current = null
+
+          try {
+            if (payload.channelId === channelId) {
+              await SFTPRename(channelId, payload.path, currentPath + '/' + draggedName)
+            } else {
+              await TransferBetweenHosts(
+                payload.channelId,
+                payload.path,
+                channelId,
+                currentPath + '/' + draggedName
+              )
+            }
+            await listDir(currentPath)
+          } catch (err) {
+            toast.error(String(err))
+          }
+        }
+        // OS file drops handled via window:filedrop Wails event
       }}
     >
       {/* Toolbar */}
@@ -379,9 +420,10 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                     onDragOver={(e) => {
                       if (
                         entry.isDir &&
-                        e.dataTransfer.types.includes('application/x-shsh-sftp') &&
-                        draggedEntryRef.current?.path !== entry.path
+                        e.dataTransfer.types.includes('application/x-shsh-sftp')
                       ) {
+                        // For same-panel drags, skip if hovering over the dragged item itself
+                        if (draggedEntryRef.current?.path === entry.path) return
                         e.preventDefault()
                         e.stopPropagation()
                         setDragTargetPath(entry.path)
@@ -392,16 +434,36 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                       if (!entry.isDir) return
                       e.preventDefault()
                       e.stopPropagation()
-                      const dragged = draggedEntryRef.current
-                      draggedEntryRef.current = null
                       setDragTargetPath(null)
-                      if (!dragged || dragged.path === entry.path) return
-                      if (entry.path.startsWith(dragged.path + '/')) {
+
+                      // Parse drag payload from dataTransfer (works across panels)
+                      const raw = e.dataTransfer.getData('application/x-shsh-sftp')
+                      if (!raw) return
+                      const payload: { channelId: string; path: string } = JSON.parse(raw)
+                      const draggedName = payload.path.split('/').pop() ?? payload.path
+
+                      // Clear local ref if this was a same-panel drag
+                      draggedEntryRef.current = null
+
+                      if (payload.path === entry.path) return
+                      if (entry.path.startsWith(payload.path + '/')) {
                         toast.error('Cannot move a folder into itself.')
                         return
                       }
+
                       try {
-                        await SFTPRename(channelId, dragged.path, entry.path + '/' + dragged.name)
+                        if (payload.channelId === channelId) {
+                          // Same channel — rename/move
+                          await SFTPRename(channelId, payload.path, entry.path + '/' + draggedName)
+                        } else {
+                          // Cross-channel transfer
+                          await TransferBetweenHosts(
+                            payload.channelId,
+                            payload.path,
+                            channelId,
+                            entry.path + '/' + draggedName
+                          )
+                        }
                         await listDir(currentPath)
                       } catch (err) {
                         toast.error(String(err))
