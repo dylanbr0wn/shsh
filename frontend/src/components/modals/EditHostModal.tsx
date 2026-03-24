@@ -187,11 +187,6 @@ export function EditHostModal() {
               onOpenGenerateKeyModal={() => setGenerateKeyOpen(true)}
               onOpenDeployKeyModal={() => setDeployKeyOpen(true)}
               onOpenProfilesModal={() => setProfilesOpen(true)}
-              onCheckPasswordManagers={() =>
-                CheckPasswordManagers()
-                  .then(setPmStatus)
-                  .catch(() => {})
-              }
             />
           </form>
         </DialogBody>

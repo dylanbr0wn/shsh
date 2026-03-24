@@ -38,7 +38,6 @@ export interface HostFormTabsProps {
   onOpenGenerateKeyModal: () => void
   onOpenDeployKeyModal?: () => void // only provided in edit mode
   onOpenProfilesModal: () => void
-  onCheckPasswordManagers: () => void
 }
 
 function FieldHint({ children }: { children: React.ReactNode }) {
@@ -69,7 +68,6 @@ export function HostFormTabs({
   onOpenGenerateKeyModal,
   onOpenDeployKeyModal,
   onOpenProfilesModal,
-  onCheckPasswordManagers,
 }: HostFormTabsProps) {
   const credSrc = form.credentialSource ?? 'inline'
 
@@ -201,7 +199,6 @@ export function HostFormTabs({
                       password: '',
                       credentialRef: val === 'inline' ? '' : f.credentialRef,
                     }))
-                    if (val !== 'inline') onCheckPasswordManagers()
                   }}
                 >
                   <SelectTrigger id="hf-cred-source" className="h-9">

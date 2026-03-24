@@ -164,11 +164,6 @@ export function AddHostModal() {
               onBrowseKeyFile={handleBrowseKeyFile}
               onOpenGenerateKeyModal={() => setGenerateKeyOpen(true)}
               onOpenProfilesModal={() => setProfilesOpen(true)}
-              onCheckPasswordManagers={() =>
-                CheckPasswordManagers()
-                  .then(setPmStatus)
-                  .catch(() => {})
-              }
             />
           </form>
         </DialogBody>
