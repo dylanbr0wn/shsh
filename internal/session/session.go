@@ -155,6 +155,13 @@ type Manager struct {
 	wg          sync.WaitGroup
 	clientRefs  map[*goph.Client]int
 	jumpRefs    map[*ssh.Client]int
+
+	// New connection-oriented fields (Task 1 of refactor).
+	connections     map[string]*Connection          // connectionId -> Connection
+	connByIdent     map[connIdentity]*Connection    // for reuse lookups
+	channels        map[string]interface{}           // channelId -> Channel (placeholder until Task 2)
+	pending         map[connIdentity]chan struct{}   // in-flight connection gate
+	pendingConnKeys map[string]chan bool             // connection-level host key verification (separate from session-level pendingKeys)
 }
 
 // NewManager creates a new Manager with the given app context, config, and event emitter.
@@ -167,6 +174,11 @@ func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *
 		pendingKeys: make(map[string]chan bool),
 		clientRefs:  make(map[*goph.Client]int),
 		jumpRefs:    make(map[*ssh.Client]int),
+		connections:     make(map[string]*Connection),
+		connByIdent:     make(map[connIdentity]*Connection),
+		channels:        make(map[string]interface{}),
+		pending:         make(map[connIdentity]chan struct{}),
+		pendingConnKeys: make(map[string]chan bool),
 	}
 }
 
