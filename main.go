@@ -1,7 +1,6 @@
 package main
 
 import (
-	"embed"
 	"os"
 	"path/filepath"
 	goruntime "runtime"
@@ -20,9 +19,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"gopkg.in/lumberjack.v2"
 )
-
-//go:embed all:frontend/dist
-var assets embed.FS
 
 func buildMenu(app *App) *menu.Menu {
 	m := menu.NewMenu()
