@@ -30,6 +30,7 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.cfg.SSH.PortForwardBindAddress, localPort))
 	if err != nil {
 		log.Error().Err(err).Str("sessionID", sessionID).Int("localPort", localPort).Msg("port forward failed to bind")
+		m.emitDebug("portfwd", "error", sessionID, sess.hostLabel, "bind failed: "+err.Error(), map[string]any{"localPort": localPort})
 		return PortForwardInfo{}, fmt.Errorf("failed to listen on port %d: %w", localPort, err)
 	}
 
@@ -46,6 +47,7 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 	sess.pfMu.Unlock()
 
 	log.Info().Str("sessionID", sessionID).Int("localPort", localPort).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward started")
+	m.emitDebug("portfwd", "info", sessionID, sess.hostLabel, "listening", map[string]any{"localPort": localPort, "remoteHost": remoteHost, "remotePort": remotePort})
 	sess.wg.Go(func() {
 		defer listener.Close()
 		for {
@@ -58,6 +60,7 @@ func (m *Manager) AddPortForward(sessionID string, localPort int, remoteHost str
 				remote, err := sess.client.Client.Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
 				if err != nil {
 					log.Error().Err(err).Str("sessionID", sessionID).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward dial failed")
+					m.emitDebug("portfwd", "error", sessionID, sess.hostLabel, "dial failed: "+err.Error(), map[string]any{"remoteHost": remoteHost, "remotePort": remotePort})
 					return
 				}
 				defer remote.Close()
@@ -101,6 +104,7 @@ func (m *Manager) RemovePortForward(sessionID, forwardID string) error {
 		return fmt.Errorf("forward %s not found", forwardID)
 	}
 	log.Info().Str("sessionID", sessionID).Str("forwardID", forwardID).Int("localPort", pf.localPort).Msg("port forward stopped")
+	m.emitDebug("portfwd", "info", sessionID, sess.hostLabel, "closed", map[string]any{"localPort": pf.localPort, "forwardID": forwardID})
 	return nil
 }
 

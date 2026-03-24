@@ -35,9 +35,11 @@ func (m *Manager) OpenSFTP(sessionID string) error {
 	sc, err := sftp.NewClient(sess.client.Client)
 	if err != nil {
 		log.Error().Err(err).Str("sessionID", sessionID).Msg("SFTP negotiation failed")
+		m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "negotiation failed: "+err.Error(), nil)
 		return fmt.Errorf("sftp negotiation failed: %w", err)
 	}
 	log.Debug().Str("sessionID", sessionID).Msg("SFTP session opened")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "subsystem opened", nil)
 	sess.sftpClient = sc
 	return nil
 }
@@ -89,8 +91,10 @@ func (m *Manager) SFTPListDir(sessionID string, path string) ([]SFTPEntry, error
 
 	infos, err := sc.ReadDir(path)
 	if err != nil {
+		m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "readdir failed: "+err.Error(), map[string]any{"path": path})
 		return nil, err
 	}
+	m.emitDebug("sftp", "debug", sessionID, sess.hostLabel, "readdir", map[string]any{"path": path, "entries": len(infos)})
 
 	entries := make([]SFTPEntry, 0, len(infos))
 	for _, fi := range infos {
@@ -156,6 +160,7 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath st
 	defer localFile.Close()
 
 	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Str("local", localPath).Int64("size", total).Msg("SFTP download started")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "download started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -176,10 +181,12 @@ func (m *Manager) SFTPDownload(sessionID string, remotePath string, localPath st
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "download error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP download complete")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "download complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
@@ -307,6 +314,7 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath strin
 	defer remoteFile.Close()
 
 	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -327,10 +335,12 @@ func (m *Manager) SFTPUpload(sessionID string, remoteDir string, localPath strin
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 
@@ -374,6 +384,7 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 	defer remoteFile.Close()
 
 	log.Info().Str("sessionID", sessionID).Str("local", localPath).Str("remote", remotePath).Int64("size", total).Msg("SFTP upload started")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload started", map[string]any{"remote": remotePath, "size": total})
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
 	for {
@@ -394,10 +405,12 @@ func (m *Manager) SFTPUploadPath(sessionID string, localPath string, remotePath 
 			break
 		}
 		if rerr != nil {
+			m.emitDebug("sftp", "error", sessionID, sess.hostLabel, "upload error: "+rerr.Error(), map[string]any{"remote": remotePath})
 			return rerr
 		}
 	}
 	log.Info().Str("sessionID", sessionID).Str("remote", remotePath).Int64("bytes", written).Msg("SFTP upload complete")
+	m.emitDebug("sftp", "info", sessionID, sess.hostLabel, "upload complete", map[string]any{"remote": remotePath, "bytes": written})
 	return nil
 }
 

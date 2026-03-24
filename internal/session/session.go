@@ -30,6 +30,11 @@ type EventEmitter interface {
 	Emit(topic string, data any)
 }
 
+// DebugEmitter emits structured debug log entries. Optional — pass nil to disable.
+type DebugEmitter interface {
+	EmitDebug(category string, level string, sessionID, sessionLabel, message string, fields map[string]any)
+}
+
 // ansiRe strips ANSI/VT escape sequences from terminal output for log files.
 var ansiRe = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*\x07|.)`)
 
@@ -149,6 +154,7 @@ type Manager struct {
 	ctx         context.Context
 	cfg         *config.Config
 	emitter     EventEmitter
+	debug       DebugEmitter
 	sessions    map[string]*sshSession
 	pendingKeys map[string]chan bool
 	mu          sync.Mutex
@@ -158,15 +164,24 @@ type Manager struct {
 }
 
 // NewManager creates a new Manager with the given app context, config, and event emitter.
-func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *Manager {
+// The debug parameter is optional — pass nil to disable debug emissions.
+func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter, debug DebugEmitter) *Manager {
 	return &Manager{
 		ctx:         ctx,
 		cfg:         cfg,
 		emitter:     emitter,
+		debug:       debug,
 		sessions:    make(map[string]*sshSession),
 		pendingKeys: make(map[string]chan bool),
 		clientRefs:  make(map[*goph.Client]int),
 		jumpRefs:    make(map[*ssh.Client]int),
+	}
+}
+
+// emitDebug sends a debug log entry if a DebugEmitter is configured.
+func (m *Manager) emitDebug(category string, level string, sessionID, sessionLabel, message string, fields map[string]any) {
+	if m.debug != nil {
+		m.debug.EmitDebug(category, level, sessionID, sessionLabel, message, fields)
 	}
 }
 
@@ -246,6 +261,8 @@ func resolveAuth(host store.Host, secret string) (goph.Auth, error) {
 func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host, jumpPassword string, onConnected func()) string {
 	sessionID := uuid.New().String()
 
+	hostLabel := host.Label
+
 	m.emitter.Emit("session:status", StatusEvent{
 		SessionID: sessionID,
 		Status:    StatusConnecting,
@@ -253,12 +270,15 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 
 	emitErr := func(msg string, err error) {
 		log.Error().Err(err).Msg(msg)
+		m.emitDebug("ssh", "error", sessionID, hostLabel, err.Error(), nil)
 		m.emitter.Emit("session:status", StatusEvent{
 			SessionID: sessionID,
 			Status:    StatusError,
 			Error:     err.Error(),
 		})
 	}
+
+	m.emitDebug("ssh", "info", sessionID, hostLabel, "connecting", map[string]any{"host": host.Hostname, "port": host.Port})
 
 	m.wg.Go(func() {
 		timeout := time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second
@@ -343,6 +363,8 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			}
 		}
 
+		m.emitDebug("ssh", "info", sessionID, hostLabel, "authenticated", nil)
+
 		sshSess, err := client.NewSession()
 		if err != nil {
 			client.Close()
@@ -352,6 +374,8 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			emitErr("Failed to create SSH session", err)
 			return
 		}
+
+		m.emitDebug("ssh", "info", sessionID, hostLabel, "session channel opened", nil)
 
 		if err := sshSess.RequestPty(m.cfg.SSH.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 			sshSess.Close()
@@ -426,6 +450,7 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 		sess.start(m.emitter, stdout)
 
 		<-sessCtx.Done()
+		m.emitDebug("ssh", "info", sessionID, hostLabel, "disconnected", nil)
 		sess.sftpMu.Lock()
 		if sess.sftpClient != nil {
 			sess.sftpClient.Close()
