@@ -19,12 +19,16 @@ import (
 	"github.com/melbahja/goph"
 	"github.com/pkg/sftp"
 	"github.com/rs/zerolog/log"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/store"
 )
+
+// EventEmitter abstracts event delivery so session logic is not coupled to any UI framework.
+type EventEmitter interface {
+	Emit(topic string, data any)
+}
 
 // ansiRe strips ANSI/VT escape sequences from terminal output for log files.
 var ansiRe = regexp.MustCompile(`\x1b(?:\[[0-9;?]*[A-Za-z]|\][^\x07]*\x07|.)`)
@@ -99,14 +103,14 @@ type sshSession struct {
 	logPath      string
 }
 
-func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
+func (s *sshSession) start(emitter EventEmitter, stdout io.Reader) {
 	s.wg.Go(func() {
 		buf := make([]byte, 4096)
 		for {
 			n, err := stdout.Read(buf)
 			if n > 0 {
 				chunk := string(buf[:n])
-				runtime.EventsEmit(appCtx, "session:output:"+s.id, chunk)
+				emitter.Emit("session:output:"+s.id, chunk)
 				s.logMu.Lock()
 				if s.logFile != nil {
 					s.logFile.WriteString(ansiRe.ReplaceAllString(chunk, "")) //nolint:errcheck
@@ -127,7 +131,7 @@ func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
 			s.logPath = ""
 		}
 		s.logMu.Unlock()
-		runtime.EventsEmit(appCtx, "session:status", StatusEvent{
+		emitter.Emit("session:status", StatusEvent{
 			SessionID: s.id,
 			Status:    StatusDisconnected,
 		})
@@ -138,17 +142,19 @@ func (s *sshSession) start(appCtx context.Context, stdout io.Reader) {
 type Manager struct {
 	ctx         context.Context
 	cfg         *config.Config
+	emitter     EventEmitter
 	sessions    map[string]*sshSession
 	pendingKeys map[string]chan bool
 	mu          sync.Mutex
 	wg          sync.WaitGroup
 }
 
-// NewManager creates a new Manager with the given Wails app context and config.
-func NewManager(ctx context.Context, cfg *config.Config) *Manager {
+// NewManager creates a new Manager with the given app context, config, and event emitter.
+func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *Manager {
 	return &Manager{
 		ctx:         ctx,
 		cfg:         cfg,
+		emitter:     emitter,
 		sessions:    make(map[string]*sshSession),
 		pendingKeys: make(map[string]chan bool),
 	}
@@ -181,14 +187,14 @@ func resolveAuth(host store.Host, secret string) (goph.Auth, error) {
 func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host, jumpPassword string, onConnected func()) string {
 	sessionID := uuid.New().String()
 
-	runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+	m.emitter.Emit("session:status", StatusEvent{
 		SessionID: sessionID,
 		Status:    StatusConnecting,
 	})
 
 	emitErr := func(msg string, err error) {
 		log.Error().Err(err).Msg(msg)
-		runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+		m.emitter.Emit("session:status", StatusEvent{
 			SessionID: sessionID,
 			Status:    StatusError,
 			Error:     err.Error(),
@@ -352,12 +358,12 @@ func (m *Manager) Connect(host store.Host, password string, jumpHost *store.Host
 			onConnected()
 		}
 
-		runtime.EventsEmit(m.ctx, "session:status", StatusEvent{
+		m.emitter.Emit("session:status", StatusEvent{
 			SessionID: sessionID,
 			Status:    StatusConnected,
 		})
 
-		sess.start(m.ctx, stdout)
+		sess.start(m.emitter, stdout)
 
 		<-sessCtx.Done()
 		sess.sftpMu.Lock()
@@ -577,7 +583,7 @@ func (m *Manager) hostKeyCallback(sessionID string) ssh.HostKeyCallback {
 			m.mu.Unlock()
 		}()
 
-		runtime.EventsEmit(m.ctx, "session:hostkey", HostKeyEvent{
+		m.emitter.Emit("session:hostkey", HostKeyEvent{
 			SessionID:   sessionID,
 			Fingerprint: fingerprint,
 			IsNew:       isNew,

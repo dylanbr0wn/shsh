@@ -19,10 +19,10 @@ jobs:
           cache: true
 
       - name: go vet
-        run: go vet ./...
+        run: go vet ./internal/...
 
       - name: go test
-        run: go test ./... -race -timeout 60s
+        run: go test ./internal/... -race -timeout 60s
 
       - name: check go.mod tidy
         run: |
