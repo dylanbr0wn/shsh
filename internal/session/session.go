@@ -159,7 +159,7 @@ type Manager struct {
 	// New connection-oriented fields (Task 1 of refactor).
 	connections     map[string]*Connection          // connectionId -> Connection
 	connByIdent     map[connIdentity]*Connection    // for reuse lookups
-	channels        map[string]interface{}           // channelId -> Channel (placeholder until Task 2)
+	channels        map[string]Channel               // channelId -> Channel
 	pending         map[connIdentity]chan struct{}   // in-flight connection gate
 	pendingConnKeys map[string]chan bool             // connection-level host key verification (separate from session-level pendingKeys)
 }
@@ -176,7 +176,7 @@ func NewManager(ctx context.Context, cfg *config.Config, emitter EventEmitter) *
 		jumpRefs:    make(map[*ssh.Client]int),
 		connections:     make(map[string]*Connection),
 		connByIdent:     make(map[connIdentity]*Connection),
-		channels:        make(map[string]interface{}),
+		channels:        make(map[string]Channel),
 		pending:         make(map[connIdentity]chan struct{}),
 		pendingConnKeys: make(map[string]chan bool),
 	}
