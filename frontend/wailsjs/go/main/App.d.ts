@@ -21,9 +21,11 @@ export function BulkConnectGroup(arg1:string):Promise<Array<main.BulkConnectResu
 
 export function CheckPasswordManagers():Promise<credstore.PasswordManagersStatus>;
 
-export function CloseSFTP(arg1:string):Promise<void>;
+export function CloseChannel(arg1:string):Promise<void>;
 
-export function ConnectHost(arg1:string):Promise<string>;
+export function ConnectForSFTP(arg1:string):Promise<session.ConnectHostResult>;
+
+export function ConnectHost(arg1:string):Promise<session.ConnectHostResult>;
 
 export function DeleteGroup(arg1:string):Promise<void>;
 
@@ -34,8 +36,6 @@ export function DeleteSessionLog(arg1:string):Promise<void>;
 export function DeleteTerminalProfile(arg1:string):Promise<void>;
 
 export function DeployPublicKey(arg1:string,arg2:string):Promise<string>;
-
-export function DisconnectSession(arg1:string):Promise<void>;
 
 export function ExportHosts(arg1:main.ExportInput):Promise<string>;
 
@@ -61,11 +61,13 @@ export function ListTerminalProfiles():Promise<Array<store.TerminalProfile>>;
 
 export function OpenLogsDirectory():Promise<void>;
 
-export function OpenSFTP(arg1:string):Promise<void>;
+export function OpenSFTPChannel(arg1:string):Promise<string>;
+
+export function OpenTerminal(arg1:string):Promise<string>;
 
 export function PingHosts(arg1:Array<string>):Promise<Array<main.PingResult>>;
 
-export function QuickConnect(arg1:main.QuickConnectInput):Promise<string>;
+export function QuickConnect(arg1:main.QuickConnectInput):Promise<session.ConnectHostResult>;
 
 export function ReadPublicKeyText(arg1:string):Promise<string>;
 
@@ -73,7 +75,7 @@ export function ReadSessionLog(arg1:string):Promise<string>;
 
 export function RemovePortForward(arg1:string,arg2:string):Promise<void>;
 
-export function ResizeSession(arg1:string,arg2:number,arg3:number):Promise<void>;
+export function ResizeChannel(arg1:string,arg2:number,arg3:number):Promise<void>;
 
 export function RespondHostKey(arg1:string,arg2:boolean):Promise<void>;
 
@@ -93,8 +95,6 @@ export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
 
-export function SplitSession(arg1:string):Promise<session.SplitSessionResult>;
-
 export function StartSessionLog(arg1:string):Promise<string>;
 
 export function StopSessionLog(arg1:string):Promise<void>;
@@ -102,6 +102,8 @@ export function StopSessionLog(arg1:string):Promise<void>;
 export function TestCredentialRef(arg1:string,arg2:string):Promise<void>;
 
 export function TestHostCredential(arg1:string):Promise<void>;
+
+export function TransferBetweenHosts(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function UpdateConfig(arg1:config.Config):Promise<void>;
 
@@ -111,4 +113,4 @@ export function UpdateHost(arg1:store.UpdateHostInput):Promise<store.Host>;
 
 export function UpdateTerminalProfile(arg1:store.UpdateProfileInput):Promise<store.TerminalProfile>;
 
-export function WriteToSession(arg1:string,arg2:string):Promise<void>;
+export function WriteToChannel(arg1:string,arg2:string):Promise<void>;
