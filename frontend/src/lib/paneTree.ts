@@ -23,6 +23,30 @@ export function updateLeafByChannelId(
 }
 
 /**
+ * Insert newLeaf next to the leaf with targetPaneId.
+ * position 'before' puts newLeaf on the left/top, 'after' on the right/bottom.
+ */
+export function insertLeaf(
+  node: PaneNode,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  newLeaf: PaneLeaf,
+  position: 'before' | 'after'
+): PaneNode {
+  if (node.type === 'leaf') {
+    if (node.paneId !== targetPaneId) return node
+    return position === 'before'
+      ? { type: 'split', direction, ratio: 0.5, left: newLeaf, right: node }
+      : { type: 'split', direction, ratio: 0.5, left: node, right: newLeaf }
+  }
+  return {
+    ...node,
+    left: insertLeaf(node.left, targetPaneId, direction, newLeaf, position),
+    right: insertLeaf(node.right, targetPaneId, direction, newLeaf, position),
+  }
+}
+
+/**
  * Replace the leaf with paneId with a SplitNode containing the old leaf
  * (left/top) and newLeaf (right/bottom).
  */
@@ -32,15 +56,26 @@ export function splitLeaf(
   direction: 'horizontal' | 'vertical',
   newLeaf: PaneLeaf
 ): PaneNode {
-  if (node.type === 'leaf') {
-    if (node.paneId !== paneId) return node
-    return { type: 'split', direction, ratio: 0.5, left: node, right: newLeaf }
-  }
-  return {
-    ...node,
-    left: splitLeaf(node.left, paneId, direction, newLeaf),
-    right: splitLeaf(node.right, paneId, direction, newLeaf),
-  }
+  return insertLeaf(node, paneId, direction, newLeaf, 'after')
+}
+
+/**
+ * Move a leaf from its current position to a new position next to targetPaneId.
+ * Returns null if the source leaf is not found or the tree collapses to nothing.
+ */
+export function moveLeaf(
+  node: PaneNode,
+  sourcePaneId: string,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  position: 'before' | 'after'
+): PaneNode | null {
+  const sourceLeaf = collectLeaves(node).find((l) => l.paneId === sourcePaneId)
+  if (!sourceLeaf) return node
+  if (sourcePaneId === targetPaneId) return node
+  const afterRemoval = removeLeaf(node, sourcePaneId)
+  if (afterRemoval === null) return null
+  return insertLeaf(afterRemoval, targetPaneId, direction, sourceLeaf, position)
 }
 
 /**
