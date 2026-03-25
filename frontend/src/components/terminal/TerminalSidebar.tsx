@@ -5,6 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { TerminalSettings } from './TerminalSettings'
 import { PortForwardsPanel } from '../portforward/PortForwardsPanel'
 import { cn } from '../../lib/utils'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 
 interface TerminalSidebarProps {
   connectionId: string
@@ -41,7 +43,13 @@ export function TerminalSidebar({
           <TooltipContent side="left">Port forwards</TooltipContent>
         </Tooltip>
         <PopoverContent side="left" align="start" className="w-72 p-0">
-          <PortForwardsPanel connectionId={connectionId} />
+          <ErrorBoundary
+            fallback="inline"
+            zone="port-forwards"
+            onError={(e, i) => reportUIError(e, i, 'port-forwards')}
+          >
+            <PortForwardsPanel connectionId={connectionId} />
+          </ErrorBoundary>
         </PopoverContent>
       </Popover>
       <Tooltip>
