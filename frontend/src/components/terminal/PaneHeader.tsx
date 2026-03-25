@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   GripVertical,
   SplitSquareVertical,
@@ -42,7 +42,8 @@ export function PaneHeader({
   onToggle,
   onDragStateChange,
 }: Props) {
-  const { isDragging, gripProps } = usePaneDrag({ paneId, workspaceId })
+  const previewRef = useRef<HTMLDivElement>(null)
+  const { isDragging, gripProps } = usePaneDrag({ paneId, workspaceId, previewRef })
 
   useEffect(() => {
     onDragStateChange?.(isDragging)
@@ -112,6 +113,28 @@ export function PaneHeader({
             <X className="size-3" />
           </Button>
         )}
+      </div>
+      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
+      <div
+        ref={previewRef}
+        className="pointer-events-none fixed"
+        style={{ left: '-9999px', top: '-9999px' }}
+      >
+        <div
+          className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
+          style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
+        >
+          <span
+            className="rounded px-1 text-[9px]"
+            style={{
+              backgroundColor: hostColor ? `${hostColor}20` : 'hsl(var(--muted))',
+              color: hostColor ?? 'hsl(var(--muted-foreground))',
+            }}
+          >
+            {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
+          </span>
+          {hostLabel}
+        </div>
       </div>
     </div>
   )

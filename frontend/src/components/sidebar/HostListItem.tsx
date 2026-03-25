@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { Loader2, MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
@@ -79,6 +80,7 @@ export function HostListItem({
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
   const { text, color } = latencyValue(health[host.id])
+  const previewRef = useRef<HTMLDivElement>(null)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -88,6 +90,17 @@ export function HostListItem({
           onDragStart={(e) => {
             e.dataTransfer.effectAllowed = 'copy'
             e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
+            if (previewRef.current) {
+              previewRef.current.style.left = '0px'
+              previewRef.current.style.top = '0px'
+              e.dataTransfer.setDragImage(previewRef.current, 0, 0)
+              requestAnimationFrame(() => {
+                if (previewRef.current) {
+                  previewRef.current.style.left = '-9999px'
+                  previewRef.current.style.top = '-9999px'
+                }
+              })
+            }
           }}
           onDoubleClick={onConnect}
           className={cn(
@@ -238,6 +251,19 @@ export function HostListItem({
           </div>
         </div>
       </ContextMenuTrigger>
+      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
+      <div
+        ref={previewRef}
+        className="pointer-events-none fixed"
+        style={{ left: '-9999px', top: '-9999px' }}
+      >
+        <div className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md">
+          {host.color && (
+            <span className="size-2 rounded-full" style={{ backgroundColor: host.color }} />
+          )}
+          {host.label}
+        </div>
+      </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
