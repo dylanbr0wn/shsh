@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/debuglog"
 	"github.com/dylanbr0wn/shsh/internal/export"
 	"github.com/dylanbr0wn/shsh/internal/session"
 	"github.com/dylanbr0wn/shsh/internal/sshconfig"
@@ -45,11 +46,12 @@ func (w *wailsEventEmitter) Emit(topic string, data any) {
 
 // App is the Wails application coordinator.
 type App struct {
-	ctx     context.Context
-	store   *store.Store
-	manager *session.Manager
-	cfg     *config.Config
-	cfgPath string
+	ctx       context.Context
+	store     *store.Store
+	manager   *session.Manager
+	cfg       *config.Config
+	cfgPath   string
+	debugSink *debuglog.DebugSink
 }
 
 // NewApp creates a new App application struct.
@@ -92,7 +94,13 @@ func (a *App) startup(ctx context.Context) {
 		log.Warn().Err(err).Msg("keychain migration encountered errors")
 	}
 
-	a.manager = session.NewManager(ctx, a.cfg, &wailsEventEmitter{ctx: ctx})
+	a.debugSink = debuglog.NewDebugSink(
+		&wailsEventEmitter{ctx: ctx},
+		a.cfg.Debug,
+		dbDir,
+	)
+
+	a.manager = session.NewManager(ctx, a.cfg, &wailsEventEmitter{ctx: ctx}, a.debugSink)
 
 	wailsruntime.OnFileDrop(ctx, func(_ int, _ int, paths []string) {
 		wailsruntime.EventsEmit(ctx, "window:filedrop", map[string]interface{}{
@@ -106,9 +114,27 @@ func (a *App) shutdown(_ context.Context) {
 	if a.manager != nil {
 		a.manager.Shutdown()
 	}
+	if a.debugSink != nil {
+		a.debugSink.Shutdown()
+	}
 	if a.store != nil {
 		a.store.Close()
 	}
+}
+
+// SetDebugLevel updates the debug sink's level for a category.
+// Pass empty category to set the global level.
+func (a *App) SetDebugLevel(category string, level string) {
+	if a.debugSink != nil {
+		a.debugSink.SetLevel(debuglog.DebugCategory(category), level)
+	}
+	// Persist to config
+	if category == "" {
+		a.cfg.Debug.DefaultLevel = level
+	} else {
+		a.cfg.Debug.CategoryLevels[category] = level
+	}
+	_ = a.cfg.Save(a.cfgPath)
 }
 
 // --- App Config ---

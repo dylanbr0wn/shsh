@@ -13,6 +13,7 @@ type Config struct {
 	SFTP   SFTPConfig   `json:"sftp"`
 	Window WindowConfig `json:"window"`
 	Log    LogConfig    `json:"log"`
+	Debug  DebugConfig  `json:"debug"`
 }
 
 // LogConfig controls application logging behaviour.
@@ -28,6 +29,22 @@ type LogConfig struct {
 	// SessionLoggingEnabled controls whether terminal session logging is allowed.
 	// When false, StartSessionLog calls are rejected. Defaults to true.
 	SessionLoggingEnabled bool `json:"session_logging_enabled"`
+}
+
+// DebugConfig controls the debug panel and structured log emission.
+type DebugConfig struct {
+	// DefaultLevel is the global minimum level for the debug sink: trace, debug, info, warn, error.
+	DefaultLevel string `json:"default_level"`
+	// CategoryLevels holds per-category level overrides (e.g. {"ssh": "trace"}).
+	CategoryLevels map[string]string `json:"category_levels"`
+	// RingBufferSize is the max entries held in the frontend ring buffer.
+	RingBufferSize int `json:"ring_buffer_size"`
+	// PersistenceMaxSizeMB is the max size of debug.jsonl before rotation.
+	PersistenceMaxSizeMB int `json:"persistence_max_size_mb"`
+	// PersistenceMaxBackups is the number of rotated debug.jsonl files to retain.
+	PersistenceMaxBackups int `json:"persistence_max_backups"`
+	// PersistenceMaxAgeDays is the number of days to retain rotated debug log files.
+	PersistenceMaxAgeDays int `json:"persistence_max_age_days"`
 }
 
 // SSHConfig controls SSH connection behaviour.
@@ -82,6 +99,14 @@ func Default() *Config {
 			MaxBackups:            3,
 			MaxAgeDays:            30,
 			SessionLoggingEnabled: true,
+		},
+		Debug: DebugConfig{
+			DefaultLevel:          "info",
+			CategoryLevels:        map[string]string{},
+			RingBufferSize:        10000,
+			PersistenceMaxSizeMB:  10,
+			PersistenceMaxBackups: 3,
+			PersistenceMaxAgeDays: 30,
 		},
 	}
 }

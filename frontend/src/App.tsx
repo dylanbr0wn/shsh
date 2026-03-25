@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -20,7 +20,9 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
+import { DebugPanel } from './components/debug/DebugPanel'
 import { isDeployKeyOpenAtom, deployKeyHostAtom, sidebarCollapsedAtom } from './store/atoms'
+import { debugPanelOpenAtom } from './store/debugStore'
 
 export default function App() {
   useAppInit()
@@ -28,6 +30,8 @@ export default function App() {
   const sidebarRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
+  const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
+  const debugRef = usePanelRef()
 
   useEffect(() => {
     if (sidebarCollapsed) {
@@ -38,11 +42,19 @@ export default function App() {
   }, [sidebarCollapsed, sidebarRef])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
+  useEffect(() => {
+    if (debugPanelOpen) {
+      debugRef.current?.resize('30%')
+    } else {
+      debugRef.current?.collapse()
+    }
+  }, [debugPanelOpen, debugRef])
+
   return (
     <TooltipProvider delayDuration={400}>
       <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
         <TitleBar />
-        <ResizablePanelGroup orientation="horizontal" className="flex-1">
+        <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
           <ResizablePanel
             panelRef={sidebarRef}
             defaultSize="20%"
@@ -56,8 +68,23 @@ export default function App() {
             <Sidebar />
           </ResizablePanel>
           <ResizableHandle />
-          <ResizablePanel defaultSize="82%" className="flex flex-col">
-            <MainArea />
+          <ResizablePanel defaultSize="82%" className="flex min-h-0 flex-col overflow-hidden">
+            <ResizablePanelGroup orientation="vertical" className="h-full">
+              <ResizablePanel defaultSize="100%" minSize="30%" className="overflow-hidden">
+                <MainArea />
+              </ResizablePanel>
+              <ResizableHandle className={debugPanelOpen ? '' : 'hidden'} />
+              <ResizablePanel
+                panelRef={debugRef}
+                defaultSize="0%"
+                minSize="15%"
+                maxSize="60%"
+                collapsible
+                collapsedSize="0%"
+              >
+                <DebugPanel />
+              </ResizablePanel>
+            </ResizablePanelGroup>
           </ResizablePanel>
         </ResizablePanelGroup>
         <AddHostModal />
