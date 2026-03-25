@@ -165,6 +165,10 @@ func (m *Manager) Shutdown() {
 
 // StartSessionLog begins writing terminal output for the given channel to a timestamped log file.
 func (m *Manager) StartSessionLog(channelId string) (string, error) {
+	if !m.cfg.Log.SessionLoggingEnabled {
+		return "", fmt.Errorf("session logging is disabled in configuration")
+	}
+
 	m.mu.Lock()
 	ch, ok := m.channels[channelId]
 	m.mu.Unlock()

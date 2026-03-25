@@ -25,6 +25,9 @@ type LogConfig struct {
 	MaxBackups int `json:"max_backups"`
 	// MaxAgeDays is the number of days to retain rotated log files.
 	MaxAgeDays int `json:"max_age_days"`
+	// SessionLoggingEnabled controls whether terminal session logging is allowed.
+	// When false, StartSessionLog calls are rejected. Defaults to true.
+	SessionLoggingEnabled bool `json:"session_logging_enabled"`
 }
 
 // SSHConfig controls SSH connection behaviour.
@@ -74,10 +77,11 @@ func Default() *Config {
 			Height: 800,
 		},
 		Log: LogConfig{
-			Level:      "info",
-			MaxSizeMB:  10,
-			MaxBackups: 3,
-			MaxAgeDays: 30,
+			Level:                 "info",
+			MaxSizeMB:             10,
+			MaxBackups:            3,
+			MaxAgeDays:            30,
+			SessionLoggingEnabled: true,
 		},
 	}
 }
