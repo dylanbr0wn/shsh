@@ -163,8 +163,13 @@ func (m *Manager) Write(channelId, data string) error {
 		return fmt.Errorf("channel %s is not a terminal", channelId)
 	}
 	tc.mu.Lock()
-	defer tc.mu.Unlock()
 	_, err := io.WriteString(tc.stdin, data)
+	tc.mu.Unlock()
+	if err != nil {
+		if conn, connErr := m.getConnection(tc.connectionID); connErr == nil {
+			m.markDead(conn)
+		}
+	}
 	return err
 }
 

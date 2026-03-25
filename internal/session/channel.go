@@ -60,6 +60,7 @@ type TerminalChannel struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
+	markDeadFn   func() // called on read error to trigger reconnect
 }
 
 func (t *TerminalChannel) ID() string           { return t.id }
@@ -136,6 +137,9 @@ func (tc *TerminalChannel) startReader(stdout io.Reader, emitter EventEmitter) {
 			}
 		}
 		tc.cancel()
+		if tc.markDeadFn != nil {
+			tc.markDeadFn()
+		}
 	})
 }
 
@@ -218,6 +222,14 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 		stdin:        stdin,
 		ctx:          chCtx,
 		cancel:       cancel,
+	}
+	tc.markDeadFn = func() {
+		m.mu.Lock()
+		conn, ok := m.connections[connectionID]
+		m.mu.Unlock()
+		if ok {
+			m.markDead(conn)
+		}
 	}
 
 	conn.incrRefs()
