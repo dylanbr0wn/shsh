@@ -287,6 +287,8 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 	m.mu.Unlock()
 	close(gate)
 
+	m.startKeepAlive(conn)
+
 	if onConnected != nil {
 		onConnected()
 	}

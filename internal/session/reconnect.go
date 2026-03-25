@@ -1,6 +1,7 @@
 package session
 
 import (
+	"context"
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
@@ -63,3 +64,47 @@ func BackoffDelay(attempt int, initial, max time.Duration) time.Duration {
 
 // resolveReconnectConfig is the package-internal alias used by Connection creation.
 var resolveReconnectConfig = ResolveReconnectConfig
+
+// startKeepAlive spawns a goroutine that sends SSH keep-alive pings.
+// It calls markDead() if KeepAliveMaxMissed consecutive pings fail.
+// Returns a cancel func to stop the goroutine.
+func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
+	ctx, cancel := context.WithCancel(conn.ctx)
+	cfg := conn.reconnCfg
+
+	if cfg.KeepAliveInterval <= 0 {
+		return cancel
+	}
+
+	go func() {
+		missed := 0
+		ticker := time.NewTicker(cfg.KeepAliveInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				_, _, err := conn.SSHClient().SendRequest("keepalive@openssh.com", true, nil)
+				if err != nil {
+					missed++
+					if missed >= cfg.KeepAliveMaxMissed {
+						m.markDead(conn)
+						return
+					}
+				} else {
+					missed = 0
+				}
+			}
+		}
+	}()
+
+	return cancel
+}
+
+// markDead marks a connection as dead and starts the reconnect loop.
+// Stub — fully implemented in Task 8.
+func (m *Manager) markDead(conn *Connection) {
+	// TODO: implement in Task 8
+}
