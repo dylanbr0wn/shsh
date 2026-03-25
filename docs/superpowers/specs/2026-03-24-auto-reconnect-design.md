@@ -122,7 +122,7 @@ The `TerminalChannel` struct holds `sshSess`, `stdin`, and a `wg` for the reader
 3. Requests PTY, starts shell, obtains new stdin pipe
 4. Creates a new cancellable context (replacing the old cancelled one)
 5. Spawns a new stdout reader goroutine tracked by `wg`
-6. Swaps `sshSess` and `stdin` under `Connection.mu`
+6. Swaps `sshSess` and `stdin` under a channel-level mutex (`TerminalChannel.mu`). This is separate from `Connection.mu` — the connection lock guards the SSH client, the channel lock guards the session/pipes. `Manager.Write()` and `Manager.Resize()` (which access `tc.stdin` and `tc.sshSess`) must acquire `TerminalChannel.mu` to avoid races during reopen.
 
 ### Locking & Port Forward Safety
 
@@ -207,7 +207,7 @@ All reconnect feedback is non-intrusive — in-terminal banner and tab dot color
 
 - `markDead()` idempotent — multiple callers safe, only first triggers reconnect
 - User closes tab during reconnect: channel removed from tracking, post-reconnect restore skips it. If all channels closed, reconnect aborts and connection tears down
-- User manually connects to same host during reconnect: `ConnectOrReuse()` must detect the `reconnecting` state on the existing `Connection` in `connByIdent` and block until reconnect completes (or fails), then return the reconnected connection or an error. It must NOT return the dead connection as "reused".
+- User manually connects to same host during reconnect: `ConnectOrReuse()` must detect the `reconnecting` state on the existing `Connection` in `connByIdent` and block until reconnect completes (or fails), then return the reconnected connection or an error. It must NOT return the dead connection as "reused". Implementation: add a `state` field (`connected | reconnecting | failed`) and a `reconnectDone chan struct{}` on `Connection`. `ConnectOrReuse` checks `state`; if `reconnecting`, it waits on `reconnectDone` (with a select on context cancellation). When the reconnect loop finishes (success or failure), it closes `reconnectDone`.
 - Terminal stdout reader calls `tc.cancel()` on read error: the reconnect flow creates a new context for the channel via `reopen()`, so the old cancelled context does not prevent re-use
 
 ### Host Key Verification During Reconnect
