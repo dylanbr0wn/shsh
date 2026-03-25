@@ -27,7 +27,18 @@ New fields with defaults:
 
 ### Per-Host Overrides
 
-Each saved host gains nullable override fields for all of the above. When unset, the global default applies. Resolved at connection time via a merge function: `resolveReconnectConfig(globalSSH, hostOverrides) → effectiveConfig`.
+Each saved host gains nullable override fields on the `store.Host` struct (and corresponding `CreateHostInput`/`UpdateHostInput` types, plus the frontend `Host` interface):
+
+```go
+ReconnectEnabled             *bool  `json:"reconnectEnabled,omitempty"`
+ReconnectMaxRetries          *int   `json:"reconnectMaxRetries,omitempty"`
+ReconnectInitialDelaySeconds *int   `json:"reconnectInitialDelaySeconds,omitempty"`
+ReconnectMaxDelaySeconds     *int   `json:"reconnectMaxDelaySeconds,omitempty"`
+KeepAliveIntervalSeconds     *int   `json:"keepAliveIntervalSeconds,omitempty"`
+KeepAliveMaxMissed           *int   `json:"keepAliveMaxMissed,omitempty"`
+```
+
+When unset, the global default applies. Resolved at connection time via a merge function: `resolveReconnectConfig(globalSSH, hostOverrides) → effectiveConfig`.
 
 ## Keep-Alive & Dead Connection Detection
 
@@ -47,13 +58,17 @@ All of these trigger `markDead()`:
 1. Keep-alive missed threshold exceeded
 2. Terminal stdout read returns error (existing path)
 3. SFTP operation returns network error
-4. `WriteToChannel` fails with I/O error
+4. `Manager.Write()` (in `session.go`) fails with I/O error
 
 ### `markDead()` Contract
 
-- Idempotent — safe to call from multiple goroutines concurrently
+- Idempotent — safe to call from multiple goroutines concurrently (guarded by `sync.Once` or equivalent)
 - First call cancels the old connection context and initiates the reconnect loop
 - Subsequent calls are no-ops
+
+### New `Status` Constants
+
+Add `StatusReconnecting` and `StatusFailed` to the `Status` enum in `session.go` (alongside existing `StatusConnecting`, `StatusConnected`, `StatusDisconnected`, `StatusError`).
 
 ## Reconnect Loop
 
@@ -75,19 +90,46 @@ connected → dead → reconnecting → connected
    - **Failure:** increment attempt, emit `connection:status` with `status=reconnecting, attempt=N`
 3. Max retries exhausted: set state to `failed`, emit `connection:status` with `status=failed`
 
+### Credential & Config Caching on `Connection`
+
+The `Connection` struct currently discards host config and auth credentials after dial. For reconnect, the following must be stored on `Connection` at creation time:
+
+```go
+host       store.Host    // full host config (for dial params, jump host, etc.)
+password   string        // password or key passphrase (resolved from credstore at first connect)
+jumpHost   *store.Host   // nil for direct connections
+jumpPass   string        // jump host password if applicable
+reconnCfg ReconnectConfig // resolved effective config (global merged with per-host overrides)
+```
+
+These are set once during `ConnectOrReuse()` and reused by the reconnect loop.
+
 ### Post-Reconnect Restore
 
 After successful reconnect, in order:
 
 1. Restart keep-alive goroutine on new client
-2. Re-open terminal channels: new SSH session + PTY + shell for each active `TerminalChannel`, restart stdout reader goroutine, emit `channel:status` with `status=connected`
+2. Re-open terminal channels via `TerminalChannel.reopen(newClient)` — creates a new `ssh.Session`, PTY, shell, stdin pipe, stdout reader goroutine, and a fresh channel context. The old channel context (cancelled by the reader goroutine on disconnect) is replaced. The channel ID stays the same so the frontend maps it correctly. Emit `channel:status` with `status=connected`.
 3. Re-open SFTP channels: new SFTP subsystem session for each active `SFTPChannel`
-4. Restore port forwards: re-dial each tunnel from `portForwards` map independently; failures are warnings, not blockers
+4. Restore port forwards: close old TCP listeners first, then re-establish each tunnel from `portForwards` map independently; failures are warnings, not blockers
 
-### Locking
+### `TerminalChannel.reopen()` Details
 
-- `Connection.mu` is held only when swapping the client reference, not during dial
-- This allows status reads and user-initiated close to proceed during reconnect
+The `TerminalChannel` struct holds `sshSess`, `stdin`, and a `wg` for the reader goroutine. These cannot be atomically swapped in place. The `reopen()` method:
+
+1. Waits for the old reader goroutine to finish (it will have exited on read error)
+2. Creates a new `ssh.Session` from the reconnected client
+3. Requests PTY, starts shell, obtains new stdin pipe
+4. Creates a new cancellable context (replacing the old cancelled one)
+5. Spawns a new stdout reader goroutine tracked by `wg`
+6. Swaps `sshSess` and `stdin` under `Connection.mu`
+
+### Locking & Port Forward Safety
+
+- `Connection.mu` is held when swapping the client reference, not during dial
+- `Connection.SSHClient()` must acquire `Connection.mu` (read lock) to be safe for concurrent callers (port forward goroutines call this on each accepted TCP connection)
+- Port forward TCP listeners are closed before client swap and re-opened after, preventing races where an accepted connection tries to dial on a dead client
+- Consider upgrading `Connection.mu` to `sync.RWMutex` — reconnect takes a write lock for the swap, `SSHClient()` takes a read lock
 
 ## Frontend Changes
 
@@ -99,11 +141,19 @@ type SessionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting
 
 ### Event Payload Changes
 
-`connection:status` and `channel:status` events gain optional fields:
+`connection:status` needs a typed Go struct (analogous to the existing `ChannelStatusEvent` used by `channel:status`) to carry the new fields:
 
-```typescript
-{ status: string, attempt?: number, maxRetries?: number, error?: string }
+```go
+type ConnectionStatusEvent struct {
+    ConnectionID string `json:"connectionId"`
+    Status       string `json:"status"`
+    Attempt      int    `json:"attempt,omitempty"`
+    MaxRetries   int    `json:"maxRetries,omitempty"`
+    Error        string `json:"error,omitempty"`
+}
 ```
+
+Both `connection:status` and `channel:status` events gain the optional `attempt`, `maxRetries`, and `error` fields. The current raw `map[string]any` emission for `connection:status` (in `teardownConnection`) is replaced with this typed struct.
 
 ### Terminal Reconnect Banner
 
@@ -157,7 +207,16 @@ All reconnect feedback is non-intrusive — in-terminal banner and tab dot color
 
 - `markDead()` idempotent — multiple callers safe, only first triggers reconnect
 - User closes tab during reconnect: channel removed from tracking, post-reconnect restore skips it. If all channels closed, reconnect aborts and connection tears down
-- User manually connects to same host during reconnect: existing in-flight deduplication (`connByIdent` gates) prevents parallel connection attempts
+- User manually connects to same host during reconnect: `ConnectOrReuse()` must detect the `reconnecting` state on the existing `Connection` in `connByIdent` and block until reconnect completes (or fails), then return the reconnected connection or an error. It must NOT return the dead connection as "reused".
+- Terminal stdout reader calls `tc.cancel()` on read error: the reconnect flow creates a new context for the channel via `reopen()`, so the old cancelled context does not prevent re-use
+
+### Host Key Verification During Reconnect
+
+If the server's host key changes between disconnect and reconnect (e.g., server rebuilt), the existing `connHostKeyCallback` would block for up to 120s waiting for user interaction. During reconnect:
+
+- If the host key matches `known_hosts`: proceed silently (common case)
+- If the host key has changed: treat it as a reconnect failure for that attempt (do not prompt the user mid-reconnect). Surface the host key mismatch in the `failed` banner error message so the user can investigate.
+- If the host is not in `known_hosts` (new host during reconnect — shouldn't happen, but defensive): also treat as failure for that attempt.
 
 ### SFTP Transfers
 
@@ -181,8 +240,10 @@ All reconnect feedback is non-intrusive — in-terminal banner and tab dot color
 - `app.go` — expose reconnect config in host model, manual retry endpoint
 
 ### Frontend
-- `frontend/src/types/index.ts` — new status values, event payload types
-- `frontend/src/store/useAppInit.ts` — handle `reconnecting` and `failed` status events
+- `frontend/src/types/index.ts` — new status values (`reconnecting`, `failed`), event payload types
+- `frontend/src/store/useAppInit.ts` — add `reconnecting` and `failed` branches to `connection:status` handler (currently only handles `disconnected`); update leaves via `updateLeafByChannelId`
+- `frontend/src/store/workspaces.ts` — `PaneLeaf` types already use `SessionStatus` and will gain new values automatically
 - `frontend/src/hooks/useTerminal.ts` — reconnect banner overlay, input disable during reconnect
 - `frontend/src/components/sessions/TabItem.tsx` — amber pulsing dot for reconnecting, retry context menu
 - Host settings UI — per-host reconnect/keep-alive overrides (if settings UI exists)
+- `frontend/src/store/atoms.ts` — no changes needed (workspace atoms already handle arbitrary `SessionStatus`)
