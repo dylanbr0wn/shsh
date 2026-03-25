@@ -61,7 +61,8 @@ export function splitLeaf(
 
 /**
  * Move a leaf from its current position to a new position next to targetPaneId.
- * Returns null if the source leaf is not found or the tree collapses to nothing.
+ * Returns the tree unchanged if source or target is not found, or if source === target.
+ * Returns null if the tree collapses to nothing after removal.
  */
 export function moveLeaf(
   node: PaneNode,

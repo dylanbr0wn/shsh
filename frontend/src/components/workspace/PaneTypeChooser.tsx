@@ -33,7 +33,7 @@ export function PaneTypeChooser({
   const currentHost = hosts.find((h) => h.id === currentHostId)
   const otherHosts = hosts.filter((h) => h.id !== currentHostId)
 
-  function HostList({ onSelect }: { onSelect: (hostId: string) => void }) {
+  function renderHostList(onSelect: (hostId: string) => void) {
     return (
       <>
         {currentHost && (
@@ -78,7 +78,7 @@ export function PaneTypeChooser({
             Terminal
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            <HostList onSelect={onSelectTerminal} />
+            {renderHostList(onSelectTerminal)}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
@@ -87,7 +87,7 @@ export function PaneTypeChooser({
             SFTP
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent>
-            <HostList onSelect={onSelectSFTP} />
+            {renderHostList(onSelectSFTP)}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
