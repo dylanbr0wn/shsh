@@ -22,7 +22,7 @@ import {
   SFTPMkdir,
   SFTPDelete,
   SFTPRename,
-  TransferBetweenHosts,
+  TransferBetweenChannels,
 } from '../../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
 import { Button } from '../ui/button'
@@ -105,7 +105,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     init()
 
     // Progress toasts
-    const eventKey = `channel:sftp-progress:${channelId}`
+    const eventKey = `channel:transfer-progress:${channelId}`
     const toastIds: Map<string, string | number> = new Map()
     const completedPaths: Set<string> = new Set()
 
@@ -245,7 +245,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       onDragEnter={(e) => {
         if (
           e.dataTransfer.types.includes('Files') ||
-          e.dataTransfer.types.includes('application/x-shsh-sftp')
+          e.dataTransfer.types.includes('application/x-shsh-transfer')
         ) {
           e.preventDefault()
           dragCounterRef.current++
@@ -258,7 +258,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       onDragOver={(e) => {
         if (
           e.dataTransfer.types.includes('Files') ||
-          e.dataTransfer.types.includes('application/x-shsh-sftp')
+          e.dataTransfer.types.includes('application/x-shsh-transfer')
         ) {
           e.preventDefault()
           e.dataTransfer.dropEffect = e.dataTransfer.types.includes('Files') ? 'copy' : 'move'
@@ -278,7 +278,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
         setIsDragOver(false)
 
         // Handle SFTP cross-panel drops onto the panel background (into currentPath)
-        const raw = e.dataTransfer.getData('application/x-shsh-sftp')
+        const raw = e.dataTransfer.getData('application/x-shsh-transfer')
         if (raw) {
           const payload: { channelId: string; path: string } = JSON.parse(raw)
           const draggedName = payload.path.split('/').pop() ?? payload.path
@@ -288,7 +288,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
             if (payload.channelId === channelId) {
               await SFTPRename(channelId, payload.path, currentPath + '/' + draggedName)
             } else {
-              await TransferBetweenHosts(
+              await TransferBetweenChannels(
                 payload.channelId,
                 payload.path,
                 channelId,
@@ -413,14 +413,14 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                       draggedEntryRef.current = entry
                       e.dataTransfer.effectAllowed = 'move'
                       e.dataTransfer.setData(
-                        'application/x-shsh-sftp',
+                        'application/x-shsh-transfer',
                         JSON.stringify({ channelId, path: entry.path })
                       )
                     }}
                     onDragOver={(e) => {
                       if (
                         entry.isDir &&
-                        e.dataTransfer.types.includes('application/x-shsh-sftp')
+                        e.dataTransfer.types.includes('application/x-shsh-transfer')
                       ) {
                         // For same-panel drags, skip if hovering over the dragged item itself
                         if (draggedEntryRef.current?.path === entry.path) return
@@ -437,7 +437,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                       setDragTargetPath(null)
 
                       // Parse drag payload from dataTransfer (works across panels)
-                      const raw = e.dataTransfer.getData('application/x-shsh-sftp')
+                      const raw = e.dataTransfer.getData('application/x-shsh-transfer')
                       if (!raw) return
                       const payload: { channelId: string; path: string } = JSON.parse(raw)
                       const draggedName = payload.path.split('/').pop() ?? payload.path
@@ -457,7 +457,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                           await SFTPRename(channelId, payload.path, entry.path + '/' + draggedName)
                         } else {
                           // Cross-channel transfer
-                          await TransferBetweenHosts(
+                          await TransferBetweenChannels(
                             payload.channelId,
                             payload.path,
                             channelId,

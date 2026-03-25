@@ -110,7 +110,7 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 		if nr > 0 {
 			nw, werr := localFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -183,7 +183,7 @@ func (m *Manager) SFTPDownloadDir(channelId string, remotePath string, localDir 
 
 	buf := make([]byte, m.cfg.SFTP.BufferSizeKB*1024)
 	var written int64
-	eventKey := "channel:sftp-progress:" + channelId
+	eventKey := "channel:transfer-progress:" + channelId
 	for {
 		nr, rerr := remoteFile.Read(buf)
 		if nr > 0 {
@@ -260,7 +260,7 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -325,7 +325,7 @@ func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath 
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:sftp-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
