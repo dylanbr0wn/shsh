@@ -526,8 +526,31 @@ func (a *App) OpenSFTPChannel(connectionID string) (string, error) {
 	return a.manager.OpenSFTPChannel(connectionID)
 }
 
+// OpenLocalFSChannel creates a new local filesystem channel.
+func (a *App) OpenLocalFSChannel() (string, error) {
+	return a.manager.OpenLocalFSChannel()
+}
+
 func (a *App) RespondHostKey(connectionID string, accepted bool) {
 	a.manager.RespondConnHostKey(connectionID, accepted)
+}
+
+// --- Local FS ---
+
+func (a *App) LocalListDir(channelID string, path string) ([]session.SFTPEntry, error) {
+	return a.manager.LocalListDir(channelID, path)
+}
+
+func (a *App) LocalMkdir(channelID string, path string) error {
+	return a.manager.LocalMkdir(channelID, path)
+}
+
+func (a *App) LocalDelete(channelID string, path string) error {
+	return a.manager.LocalDelete(channelID, path)
+}
+
+func (a *App) LocalRename(channelID string, oldPath string, newPath string) error {
+	return a.manager.LocalRename(channelID, oldPath, newPath)
 }
 
 // --- SFTP ---

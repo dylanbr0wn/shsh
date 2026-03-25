@@ -59,6 +59,16 @@ export function ListSessionLogs():Promise<Array<main.LogFileInfo>>;
 
 export function ListTerminalProfiles():Promise<Array<store.TerminalProfile>>;
 
+export function LocalDelete(arg1:string,arg2:string):Promise<void>;
+
+export function LocalListDir(arg1:string,arg2:string):Promise<Array<session.SFTPEntry>>;
+
+export function LocalMkdir(arg1:string,arg2:string):Promise<void>;
+
+export function LocalRename(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function OpenLocalFSChannel():Promise<string>;
+
 export function OpenLogsDirectory():Promise<void>;
 
 export function OpenSFTPChannel(arg1:string):Promise<string>;
@@ -102,6 +112,8 @@ export function StopSessionLog(arg1:string):Promise<void>;
 export function TestCredentialRef(arg1:string,arg2:string):Promise<void>;
 
 export function TestHostCredential(arg1:string):Promise<void>;
+
+export function TransferBetweenChannels(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function TransferBetweenHosts(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 

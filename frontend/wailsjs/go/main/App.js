@@ -106,6 +106,26 @@ export function ListTerminalProfiles() {
   return window['go']['main']['App']['ListTerminalProfiles']();
 }
 
+export function LocalDelete(arg1, arg2) {
+  return window['go']['main']['App']['LocalDelete'](arg1, arg2);
+}
+
+export function LocalListDir(arg1, arg2) {
+  return window['go']['main']['App']['LocalListDir'](arg1, arg2);
+}
+
+export function LocalMkdir(arg1, arg2) {
+  return window['go']['main']['App']['LocalMkdir'](arg1, arg2);
+}
+
+export function LocalRename(arg1, arg2, arg3) {
+  return window['go']['main']['App']['LocalRename'](arg1, arg2, arg3);
+}
+
+export function OpenLocalFSChannel() {
+  return window['go']['main']['App']['OpenLocalFSChannel']();
+}
+
 export function OpenLogsDirectory() {
   return window['go']['main']['App']['OpenLogsDirectory']();
 }
@@ -192,6 +212,10 @@ export function TestCredentialRef(arg1, arg2) {
 
 export function TestHostCredential(arg1) {
   return window['go']['main']['App']['TestHostCredential'](arg1);
+}
+
+export function TransferBetweenChannels(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['TransferBetweenChannels'](arg1, arg2, arg3, arg4);
 }
 
 export function TransferBetweenHosts(arg1, arg2, arg3, arg4) {
