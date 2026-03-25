@@ -9,7 +9,7 @@ import {
   channelActivityAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import { collectLeaves } from '../../lib/paneTree'
+import { collectLeaves, firstLeaf, insertLeaf, removeLeaf } from '../../lib/paneTree'
 import { CloseChannel, ListWorkspaceTemplates } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import {
@@ -147,6 +147,38 @@ export function TabBar() {
     setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, name } : w)))
   }
 
+  function handlePaneDrop(sourcePaneId: string, sourceWorkspaceId: string, targetWorkspaceId: string) {
+    if (sourceWorkspaceId === targetWorkspaceId) return
+    setWorkspaces((prev) => {
+      const sourceWs = prev.find((w) => w.id === sourceWorkspaceId)
+      const targetWs = prev.find((w) => w.id === targetWorkspaceId)
+      if (!sourceWs || !targetWs) return prev
+
+      const sourceLeaf = collectLeaves(sourceWs.layout).find((l) => l.paneId === sourcePaneId)
+      if (!sourceLeaf) return prev
+
+      const targetPane = firstLeaf(targetWs.layout)
+      const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
+      const newTargetLayout = insertLeaf(targetWs.layout, targetPane.paneId, 'horizontal', sourceLeaf, 'after')
+
+      return prev
+        .map((w) => {
+          if (w.id === sourceWorkspaceId) {
+            if (newSourceLayout === null) return null
+            const newFocused =
+              w.focusedPaneId === sourcePaneId ? firstLeaf(newSourceLayout).paneId : w.focusedPaneId
+            return { ...w, layout: newSourceLayout, focusedPaneId: newFocused }
+          }
+          if (w.id === targetWorkspaceId) {
+            return { ...w, layout: newTargetLayout, focusedPaneId: sourcePaneId }
+          }
+          return w
+        })
+        .filter((w): w is Workspace => w !== null)
+    })
+    setActiveWorkspaceId(targetWorkspaceId)
+  }
+
   function getConnectionDots(ws: Workspace) {
     const leaves = collectLeaves(ws.layout)
     const seen = new Map<string, { color?: string; status: string }>()
@@ -204,6 +236,10 @@ export function TabBar() {
             onCloseAll={handleCloseAll}
             onRename={(name) => handleRename(ws.id, name)}
             onSaveTemplate={() => handleSaveTemplate(ws.id)}
+            onDragHover={() => setActiveWorkspaceId(ws.id)}
+            onPaneDrop={(sourcePaneId, sourceWorkspaceId) =>
+              handlePaneDrop(sourcePaneId, sourceWorkspaceId, ws.id)
+            }
           />
         ))}
         <div className="ml-auto flex shrink-0 items-center px-1">
