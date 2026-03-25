@@ -8,9 +8,10 @@ import {
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
-import type { PaneLeaf, PaneNode } from '../../store/workspaces'
+import { collectLeaves, splitLeaf, removeLeaf, firstLeaf, moveLeaf, insertLeaf } from '../../lib/paneTree'
+import type { PaneLeaf, PaneNode, Workspace } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
+import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { PaneTree } from './PaneTree'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
@@ -257,6 +258,97 @@ export function WorkspaceView() {
     [setWorkspaces]
   )
 
+  const handleMovePane = useCallback(
+    (
+      sourceWorkspaceId: string,
+      sourcePaneId: string,
+      targetWorkspaceId: string,
+      targetPaneId: string,
+      direction: 'horizontal' | 'vertical',
+      position: 'before' | 'after'
+    ) => {
+      setWorkspaces((prev) => {
+        // Same workspace move
+        if (sourceWorkspaceId === targetWorkspaceId) {
+          return prev.map((w) => {
+            if (w.id !== sourceWorkspaceId) return w
+            const newLayout = moveLeaf(w.layout, sourcePaneId, targetPaneId, direction, position)
+            if (!newLayout) return w
+            return { ...w, layout: newLayout, focusedPaneId: sourcePaneId }
+          })
+        }
+        // Cross-workspace move
+        const sourceWs = prev.find((w) => w.id === sourceWorkspaceId)
+        const targetWs = prev.find((w) => w.id === targetWorkspaceId)
+        if (!sourceWs || !targetWs) return prev
+
+        const sourceLeaf = collectLeaves(sourceWs.layout).find((l) => l.paneId === sourcePaneId)
+        if (!sourceLeaf) return prev
+
+        const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
+        const newTargetLayout = insertLeaf(
+          targetWs.layout,
+          targetPaneId,
+          direction,
+          sourceLeaf,
+          position
+        )
+
+        return prev
+          .map((w) => {
+            if (w.id === sourceWorkspaceId) {
+              if (newSourceLayout === null) return null
+              const newFocused =
+                w.focusedPaneId === sourcePaneId
+                  ? firstLeaf(newSourceLayout).paneId
+                  : w.focusedPaneId
+              return { ...w, layout: newSourceLayout, focusedPaneId: newFocused }
+            }
+            if (w.id === targetWorkspaceId) {
+              return { ...w, layout: newTargetLayout, focusedPaneId: sourcePaneId }
+            }
+            return w
+          })
+          .filter((w): w is Workspace => w !== null)
+      })
+    },
+    [setWorkspaces]
+  )
+
+  const handleDrop = useCallback(
+    (
+      workspaceId: string,
+      paneId: string,
+      edge: DropEdge,
+      mime: DropMime,
+      data: string
+    ) => {
+      const edgeToSplit: Record<
+        DropEdge,
+        { direction: 'horizontal' | 'vertical'; position: 'before' | 'after' }
+      > = {
+        top: { direction: 'horizontal', position: 'before' },
+        bottom: { direction: 'horizontal', position: 'after' },
+        left: { direction: 'vertical', position: 'before' },
+        right: { direction: 'vertical', position: 'after' },
+      }
+      const { direction, position } = edgeToSplit[edge]
+
+      if (mime === 'application/x-shsh-host') {
+        const { hostId } = JSON.parse(data) as { hostId: string }
+        // Default to terminal for now; Task 6 adds the type chooser popover
+        handleSplit(workspaceId, paneId, direction, 'terminal', hostId)
+      } else if (mime === 'application/x-shsh-pane') {
+        const { paneId: sourcePaneId, workspaceId: sourceWorkspaceId } = JSON.parse(data) as {
+          paneId: string
+          workspaceId: string
+        }
+        handleMovePane(sourceWorkspaceId, sourcePaneId, workspaceId, paneId, direction, position)
+      }
+    },
+    [handleSplit, handleMovePane]
+  )
+
   // Cmd+F / Ctrl+F to open search
   // Cmd+D / Ctrl+D to split vertically, Cmd+Shift+D / Ctrl+Shift+D to split horizontally
   const handleKeyDown = useCallback(
@@ -338,6 +430,9 @@ export function WorkspaceView() {
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
+                onDrop={(paneId, edge, mime, data) =>
+                  handleDrop(workspace.id, paneId, edge, mime, data)
+                }
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />

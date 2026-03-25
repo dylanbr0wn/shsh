@@ -1,8 +1,11 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useCallback } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
 import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
+import { useDropZone } from '../../hooks/useDropZone'
+import type { DropEdge, DropMime } from '../../hooks/useDropZone'
+import { DropZoneOverlay } from '../workspace/DropZoneOverlay'
 import { TerminalInstance } from './TerminalInstance'
 import { SFTPPanel } from '../sftp/SFTPPanel'
 import { LocalFSPanel } from '../localfs/LocalFSPanel'
@@ -18,6 +21,7 @@ interface PaneTreeProps {
   isWorkspaceActive: boolean
   onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
   onClose: (paneId: string) => void
+  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string) => void
 }
 
 export function PaneTree({
@@ -26,16 +30,8 @@ export function PaneTree({
   isWorkspaceActive,
   onSplit,
   onClose,
+  onDrop,
 }: PaneTreeProps) {
-  const [, setWorkspaces] = useAtom(workspacesAtom)
-  const hosts = useAtomValue(hostsAtom)
-
-  function setFocused(paneId: string) {
-    setWorkspaces((prev) =>
-      prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
-    )
-  }
-
   if (node.type === 'split') {
     const leftPct = node.ratio * 100
     const rightPct = (1 - node.ratio) * 100
@@ -51,6 +47,7 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
+            onDrop={onDrop}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -61,29 +58,77 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
+            onDrop={onDrop}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
     )
   }
 
-  const leaf: PaneLeaf = node
+  return (
+    <PaneLeafView
+      leaf={node}
+      workspace={workspace}
+      isWorkspaceActive={isWorkspaceActive}
+      onSplit={onSplit}
+      onClose={onClose}
+      onDrop={onDrop}
+    />
+  )
+}
+
+interface PaneLeafViewProps {
+  leaf: PaneLeaf
+  workspace: Workspace
+  isWorkspaceActive: boolean
+  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
+  onClose: (paneId: string) => void
+  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string) => void
+}
+
+function PaneLeafView({
+  leaf,
+  workspace,
+  isWorkspaceActive,
+  onSplit,
+  onClose,
+  onDrop,
+}: PaneLeafViewProps) {
+  const [, setWorkspaces] = useAtom(workspacesAtom)
+  const hosts = useAtomValue(hostsAtom)
+
   const isFocused = leaf.paneId === workspace.focusedPaneId
   const isActive = isWorkspaceActive && isFocused
   const host = hosts.find((h) => h.id === leaf.hostId)
   const totalLeaves = collectLeaves(workspace.layout).length
   const canClose = totalLeaves > 1
 
+  function setFocused(paneId: string) {
+    setWorkspaces((prev) =>
+      prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
+    )
+  }
+
+  const handleDrop = useCallback(
+    (edge: DropEdge, mime: DropMime, data: string) => onDrop(leaf.paneId, edge, mime, data),
+    [onDrop, leaf.paneId]
+  )
+
+  const { state: dropState, handlers: dropHandlers } = useDropZone({
+    onDrop: handleDrop,
+  })
+
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
       className="group/pane relative h-full w-full"
+      {...dropHandlers}
+      onMouseDown={() => setFocused(leaf.paneId)}
       style={
         isFocused
           ? { boxShadow: `inset 0 0 0 1px ${host?.color ?? 'hsl(var(--border))'}` }
           : undefined
       }
-      onMouseDown={() => setFocused(leaf.paneId)}
     >
       <PaneHeader
         hostLabel={leaf.hostLabel}
@@ -105,6 +150,12 @@ export function PaneTree({
             : undefined
         }
       />
+      {dropState.edge && (
+        <DropZoneOverlay
+          edge={dropState.edge}
+          color={dropState.mime === 'application/x-shsh-host' ? host?.color : undefined}
+        />
+      )}
       {leaf.kind === 'sftp' ? (
         <ErrorBoundary
           fallback="inline"
