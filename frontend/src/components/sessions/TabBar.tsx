@@ -104,6 +104,22 @@ export function TabBar() {
     }, workspaces.length)
   }
 
+  function handleRename(workspaceId: string, name: string) {
+    setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, name } : w)))
+  }
+
+  function getConnectionDots(ws: Workspace) {
+    const leaves = collectLeaves(ws.layout)
+    const seen = new Map<string, { color?: string; status: string }>()
+    for (const leaf of leaves) {
+      if (!seen.has(leaf.connectionId)) {
+        const host = hostById[leaf.hostId]
+        seen.set(leaf.connectionId, { color: host?.color, status: leaf.status })
+      }
+    }
+    return Array.from(seen.values())
+  }
+
   // Derive a tab session object from the first leaf's data
   function workspaceToTabSession(ws: Workspace) {
     const leaves = collectLeaves(ws.layout)
@@ -133,6 +149,8 @@ export function TabBar() {
             hasActivity={workspaceHasActivity(ws)}
             isFirst={idx === 0}
             isLast={idx === workspaces.length - 1}
+            workspaceName={ws.name}
+            connectionDots={getConnectionDots(ws)}
             onActivate={() => {
               setActiveWorkspaceId(ws.id)
               const ids = new Set(collectLeaves(ws.layout).map((l) => l.channelId))
@@ -143,6 +161,7 @@ export function TabBar() {
             onCloseToLeft={() => handleCloseToLeft(ws.id)}
             onCloseToRight={() => handleCloseToRight(ws.id)}
             onCloseAll={handleCloseAll}
+            onRename={(name) => handleRename(ws.id, name)}
           />
         ))}
         <div className="ml-auto flex shrink-0 items-center px-1">

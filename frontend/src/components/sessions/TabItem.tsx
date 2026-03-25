@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Host, SessionStatus } from '../../types'
 import { Button } from '../ui/button'
@@ -36,6 +37,11 @@ interface TabSession {
   connectedAt?: string
 }
 
+interface ConnectionDot {
+  color?: string
+  status: string
+}
+
 interface Props {
   session: TabSession
   host?: Host
@@ -43,12 +49,16 @@ interface Props {
   hasActivity: boolean
   isFirst: boolean
   isLast: boolean
+  workspaceName?: string
+  connectionDots: ConnectionDot[]
   onActivate: () => void
   onClose: () => void
   onCloseOthers: () => void
   onCloseToLeft: () => void
   onCloseToRight: () => void
   onCloseAll: () => void
+  onRename: (name: string) => void
+  onSaveTemplate?: () => void
 }
 
 export function TabItem({
@@ -58,13 +68,32 @@ export function TabItem({
   hasActivity,
   isFirst,
   isLast,
+  workspaceName,
+  connectionDots,
   onActivate,
   onClose,
   onCloseOthers,
   onCloseToLeft,
   onCloseToRight,
   onCloseAll,
+  onRename,
+  onSaveTemplate,
 }: Props) {
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [renameValue, setRenameValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (isRenaming) {
+      inputRef.current?.focus()
+    }
+  }, [isRenaming])
+
+  function handleDoubleClick() {
+    setRenameValue(workspaceName ?? session.hostLabel)
+    setIsRenaming(true)
+  }
+
   return (
     <ContextMenu>
       <Tooltip>
@@ -85,20 +114,60 @@ export function TabItem({
                 if (e.key === 'Enter' || e.key === ' ') onActivate()
               }}
             >
-              <div className="relative shrink-0">
-                <div
-                  className={cn(
-                    'size-2 rounded-full',
-                    statusDotClass[session.status] ?? 'bg-muted-foreground'
-                  )}
-                />
+              <div className="relative flex shrink-0 items-center gap-0.5">
+                {connectionDots.length > 0 ? (
+                  connectionDots.map((dot, i) => (
+                    <div
+                      key={i}
+                      className={cn(
+                        'size-1.5 rounded-full',
+                        !dot.color && (statusDotClass[dot.status] ?? 'bg-muted-foreground')
+                      )}
+                      style={dot.color ? { backgroundColor: dot.color } : undefined}
+                    />
+                  ))
+                ) : (
+                  <div
+                    className={cn(
+                      'size-2 rounded-full',
+                      statusDotClass[session.status] ?? 'bg-muted-foreground'
+                    )}
+                  />
+                )}
                 {hasActivity && !isActive && (
                   <span className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-orange-400" />
                 )}
               </div>
-              <span className="max-w-[120px] truncate text-xs font-medium">
-                {session.hostLabel}
-              </span>
+              {isRenaming ? (
+                <input
+                  ref={inputRef}
+                  className="border-primary w-[100px] border-b bg-transparent text-xs font-medium outline-none"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onRename(renameValue.trim())
+                      setIsRenaming(false)
+                    }
+                    if (e.key === 'Escape') setIsRenaming(false)
+                  }}
+                  onBlur={() => {
+                    if (renameValue.trim()) onRename(renameValue.trim())
+                    setIsRenaming(false)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span
+                  className="max-w-[120px] truncate text-xs font-medium"
+                  onDoubleClick={(e) => {
+                    e.stopPropagation()
+                    handleDoubleClick()
+                  }}
+                >
+                  {workspaceName ?? session.hostLabel}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
@@ -142,6 +211,11 @@ export function TabItem({
       </Tooltip>
 
       <ContextMenuContent>
+        <ContextMenuItem onSelect={() => handleDoubleClick()}>Rename</ContextMenuItem>
+        {onSaveTemplate && (
+          <ContextMenuItem onSelect={onSaveTemplate}>Save as Template</ContextMenuItem>
+        )}
+        <ContextMenuSeparator />
         <ContextMenuItem onSelect={onClose}>Close</ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem onSelect={onCloseOthers} disabled={isFirst && isLast}>
