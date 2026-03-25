@@ -35,6 +35,8 @@ export function DeleteSessionLog(arg1:string):Promise<void>;
 
 export function DeleteTerminalProfile(arg1:string):Promise<void>;
 
+export function DeleteWorkspaceTemplate(arg1:string):Promise<void>;
+
 export function DeployPublicKey(arg1:string,arg2:string):Promise<string>;
 
 export function ExportHosts(arg1:main.ExportInput):Promise<string>;
@@ -58,6 +60,8 @@ export function ListSSHConfigHosts():Promise<Array<sshconfig.Entry>>;
 export function ListSessionLogs():Promise<Array<main.LogFileInfo>>;
 
 export function ListTerminalProfiles():Promise<Array<store.TerminalProfile>>;
+
+export function ListWorkspaceTemplates():Promise<Array<store.WorkspaceTemplate>>;
 
 export function LocalDelete(arg1:string,arg2:string):Promise<void>;
 
@@ -104,6 +108,8 @@ export function SFTPRename(arg1:string,arg2:string,arg3:string):Promise<void>;
 export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function SaveWorkspaceTemplate(arg1:store.CreateTemplateInput):Promise<store.WorkspaceTemplate>;
 
 export function StartSessionLog(arg1:string):Promise<string>;
 

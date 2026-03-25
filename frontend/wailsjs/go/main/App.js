@@ -58,6 +58,10 @@ export function DeleteTerminalProfile(arg1) {
   return window['go']['main']['App']['DeleteTerminalProfile'](arg1);
 }
 
+export function DeleteWorkspaceTemplate(arg1) {
+  return window['go']['main']['App']['DeleteWorkspaceTemplate'](arg1);
+}
+
 export function DeployPublicKey(arg1, arg2) {
   return window['go']['main']['App']['DeployPublicKey'](arg1, arg2);
 }
@@ -104,6 +108,10 @@ export function ListSessionLogs() {
 
 export function ListTerminalProfiles() {
   return window['go']['main']['App']['ListTerminalProfiles']();
+}
+
+export function ListWorkspaceTemplates() {
+  return window['go']['main']['App']['ListWorkspaceTemplates']();
 }
 
 export function LocalDelete(arg1, arg2) {
@@ -196,6 +204,10 @@ export function SFTPUpload(arg1, arg2) {
 
 export function SFTPUploadPath(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
+}
+
+export function SaveWorkspaceTemplate(arg1) {
+  return window['go']['main']['App']['SaveWorkspaceTemplate'](arg1);
 }
 
 export function StartSessionLog(arg1) {

@@ -1102,6 +1102,20 @@ func (a *App) PingHosts(hostIDs []string) []PingResult {
 	return results
 }
 
+// --- Workspace Templates ---
+
+func (a *App) SaveWorkspaceTemplate(input store.CreateTemplateInput) (store.WorkspaceTemplate, error) {
+	return a.store.SaveWorkspaceTemplate(input)
+}
+
+func (a *App) ListWorkspaceTemplates() ([]store.WorkspaceTemplate, error) {
+	return a.store.ListWorkspaceTemplates()
+}
+
+func (a *App) DeleteWorkspaceTemplate(id string) error {
+	return a.store.DeleteWorkspaceTemplate(id)
+}
+
 // hostLabelFromFilename extracts the host label from a log filename.
 // Format: {label}_{YYYYMMDD}_{HHMMSS}_{sessionId8}.log
 func hostLabelFromFilename(name string) string {

@@ -446,6 +446,22 @@ export namespace store {
 	        this.colorTheme = source["colorTheme"];
 	    }
 	}
+	export class CreateTemplateInput {
+	    id: string;
+	    name: string;
+	    layout: number[];
+	
+	    static createFrom(source: any = {}) {
+	        return new CreateTemplateInput(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.layout = source["layout"];
+	    }
+	}
 	export class Group {
 	    id: string;
 	    name: string;
@@ -616,6 +632,26 @@ export namespace store {
 	        this.cursorBlink = source["cursorBlink"];
 	        this.scrollback = source["scrollback"];
 	        this.colorTheme = source["colorTheme"];
+	    }
+	}
+	export class WorkspaceTemplate {
+	    id: string;
+	    name: string;
+	    layout: number[];
+	    createdAt: string;
+	    updatedAt: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new WorkspaceTemplate(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.layout = source["layout"];
+	        this.createdAt = source["createdAt"];
+	        this.updatedAt = source["updatedAt"];
 	    }
 	}
 
