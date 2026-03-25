@@ -12,7 +12,7 @@ import (
 )
 
 func TestTransferBetweenChannels_LocalToLocal(t *testing.T) {
-	m := NewManager(context.Background(), &config.Config{}, &stubEmitter{})
+	m := NewManager(context.Background(), &config.Config{}, &stubEmitter{}, nil)
 
 	srcCh, err := m.OpenLocalFSChannel()
 	require.NoError(t, err)

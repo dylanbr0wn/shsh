@@ -14,7 +14,7 @@ type stubEmitter struct{}
 func (s *stubEmitter) Emit(topic string, data any) {}
 
 func newTestManager() *Manager {
-	return NewManager(context.Background(), &config.Config{}, &stubEmitter{})
+	return NewManager(context.Background(), &config.Config{}, &stubEmitter{}, nil)
 }
 
 func TestOpenLocalFSChannel(t *testing.T) {

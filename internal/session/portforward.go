@@ -29,6 +29,7 @@ func (m *Manager) AddPortForward(connectionId string, localPort int, remoteHost 
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", m.cfg.SSH.PortForwardBindAddress, localPort))
 	if err != nil {
 		log.Error().Err(err).Str("connectionId", connectionId).Int("localPort", localPort).Msg("port forward failed to bind")
+		m.emitDebug("portfwd", "error", connectionId, conn.hostLabel, "bind failed: "+err.Error(), map[string]any{"localPort": localPort})
 		return PortForwardInfo{}, fmt.Errorf("failed to listen on port %d: %w", localPort, err)
 	}
 
@@ -45,6 +46,7 @@ func (m *Manager) AddPortForward(connectionId string, localPort int, remoteHost 
 	conn.pfMu.Unlock()
 
 	log.Info().Str("connectionId", connectionId).Int("localPort", localPort).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward started")
+	m.emitDebug("portfwd", "info", connectionId, conn.hostLabel, "listening", map[string]any{"localPort": localPort, "remoteHost": remoteHost, "remotePort": remotePort})
 
 	var wg sync.WaitGroup
 
@@ -62,6 +64,7 @@ func (m *Manager) AddPortForward(connectionId string, localPort int, remoteHost 
 				remote, err := conn.SSHClient().Dial("tcp", fmt.Sprintf("%s:%d", remoteHost, remotePort))
 				if err != nil {
 					log.Error().Err(err).Str("connectionId", connectionId).Str("remoteHost", remoteHost).Int("remotePort", remotePort).Msg("port forward dial failed")
+					m.emitDebug("portfwd", "error", connectionId, conn.hostLabel, "dial failed: "+err.Error(), map[string]any{"remoteHost": remoteHost, "remotePort": remotePort})
 					return
 				}
 				defer remote.Close()
@@ -103,6 +106,7 @@ func (m *Manager) RemovePortForward(connectionId, forwardID string) error {
 		return fmt.Errorf("forward %s not found", forwardID)
 	}
 	log.Info().Str("connectionId", connectionId).Str("forwardID", forwardID).Int("localPort", pf.localPort).Msg("port forward stopped")
+	m.emitDebug("portfwd", "info", connectionId, conn.hostLabel, "closed", map[string]any{"localPort": pf.localPort, "forwardID": forwardID})
 	return nil
 }
 

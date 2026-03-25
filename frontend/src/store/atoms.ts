@@ -48,6 +48,7 @@ export interface PendingHostKey {
   fingerprint: string
   isNew: boolean
   hasChanged: boolean
+  oldKeyTypes?: string[]
 }
 export const pendingHostKeyAtom = atom<PendingHostKey | null>(null)
 

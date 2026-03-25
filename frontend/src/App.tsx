@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -20,7 +20,11 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
+import { DebugPanel } from './components/debug/DebugPanel'
 import { isDeployKeyOpenAtom, deployKeyHostAtom, sidebarCollapsedAtom } from './store/atoms'
+import { debugPanelOpenAtom } from './store/debugStore'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { reportUIError } from './lib/reportUIError'
 
 export default function App() {
   useAppInit()
@@ -28,6 +32,8 @@ export default function App() {
   const sidebarRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
+  const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
+  const debugRef = usePanelRef()
 
   useEffect(() => {
     if (sidebarCollapsed) {
@@ -38,45 +44,164 @@ export default function App() {
   }, [sidebarCollapsed, sidebarRef])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
 
+  useEffect(() => {
+    if (debugPanelOpen) {
+      debugRef.current?.resize('30%')
+    } else {
+      debugRef.current?.collapse()
+    }
+  }, [debugPanelOpen, debugRef])
+
   return (
     <TooltipProvider delayDuration={400}>
-      <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
-        <TitleBar />
-        <ResizablePanelGroup orientation="horizontal" className="flex-1">
-          <ResizablePanel
-            panelRef={sidebarRef}
-            defaultSize="20%"
-            minSize="340px"
-            maxSize="40%"
-            collapsible
-            collapsedSize="0%"
-            onResize={(size) => setSidebarCollapsed(size.inPixels === 0)}
-            className="flex flex-col"
+      <ErrorBoundary
+        fallback="fullscreen"
+        zone="app"
+        onError={(e, i) => reportUIError(e, i, 'app')}
+      >
+        <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
+          <ErrorBoundary
+            fallback="inline"
+            zone="titlebar"
+            onError={(e, i) => reportUIError(e, i, 'titlebar')}
           >
-            <Sidebar />
-          </ResizablePanel>
-          <ResizableHandle />
-          <ResizablePanel defaultSize="82%" className="flex flex-col">
-            <MainArea />
-          </ResizablePanel>
-        </ResizablePanelGroup>
-        <AddHostModal />
-        <EditHostModal />
-        <SettingsModal />
-        <HostKeyDialog />
-        <ImportSSHConfigModal />
-        <ExportHostsModal />
-        <QuickConnectModal />
-        <LogViewerModal />
-        <AddPortForwardModal />
-        <TerminalProfilesModal />
-        <DeployKeyModal
-          open={isDeployKeyOpen}
-          onClose={() => setIsDeployKeyOpen(false)}
-          hostId={deployKeyHost?.id ?? ''}
-          hostLabel={deployKeyHost?.label ?? ''}
-        />
-      </div>
+            <TitleBar />
+          </ErrorBoundary>
+          <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
+            <ResizablePanel
+              panelRef={sidebarRef}
+              defaultSize="20%"
+              minSize="340px"
+              maxSize="40%"
+              collapsible
+              collapsedSize="0%"
+              onResize={(size) => setSidebarCollapsed(size.inPixels === 0)}
+              className="flex flex-col"
+            >
+              <ErrorBoundary
+                fallback="panel"
+                zone="sidebar"
+                onError={(e, i) => reportUIError(e, i, 'sidebar')}
+              >
+                <Sidebar />
+              </ErrorBoundary>
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel defaultSize="82%" className="flex min-h-0 flex-col overflow-hidden">
+              <ResizablePanelGroup orientation="vertical" className="h-full">
+                <ResizablePanel defaultSize="100%" minSize="30%" className="overflow-hidden">
+                  <ErrorBoundary
+                    fallback="panel"
+                    zone="main"
+                    onError={(e, i) => reportUIError(e, i, 'main')}
+                  >
+                    <MainArea />
+                  </ErrorBoundary>
+                </ResizablePanel>
+                <ResizableHandle className={debugPanelOpen ? '' : 'hidden'} />
+                <ResizablePanel
+                  panelRef={debugRef}
+                  defaultSize="0%"
+                  minSize="15%"
+                  maxSize="60%"
+                  collapsible
+                  collapsedSize="0%"
+                >
+                  <ErrorBoundary
+                    fallback="inline"
+                    zone="debug"
+                    onError={(e, i) => reportUIError(e, i, 'debug')}
+                  >
+                    <DebugPanel />
+                  </ErrorBoundary>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-add-host"
+            onError={(e, i) => reportUIError(e, i, 'modal-add-host')}
+          >
+            <AddHostModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-edit-host"
+            onError={(e, i) => reportUIError(e, i, 'modal-edit-host')}
+          >
+            <EditHostModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-settings"
+            onError={(e, i) => reportUIError(e, i, 'modal-settings')}
+          >
+            <SettingsModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-host-key"
+            onError={(e, i) => reportUIError(e, i, 'modal-host-key')}
+          >
+            <HostKeyDialog />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-import-ssh"
+            onError={(e, i) => reportUIError(e, i, 'modal-import-ssh')}
+          >
+            <ImportSSHConfigModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-export-hosts"
+            onError={(e, i) => reportUIError(e, i, 'modal-export-hosts')}
+          >
+            <ExportHostsModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-quick-connect"
+            onError={(e, i) => reportUIError(e, i, 'modal-quick-connect')}
+          >
+            <QuickConnectModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-log-viewer"
+            onError={(e, i) => reportUIError(e, i, 'modal-log-viewer')}
+          >
+            <LogViewerModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-add-port-forward"
+            onError={(e, i) => reportUIError(e, i, 'modal-add-port-forward')}
+          >
+            <AddPortForwardModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-terminal-profiles"
+            onError={(e, i) => reportUIError(e, i, 'modal-terminal-profiles')}
+          >
+            <TerminalProfilesModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-deploy-key"
+            onError={(e, i) => reportUIError(e, i, 'modal-deploy-key')}
+          >
+            <DeployKeyModal
+              open={isDeployKeyOpen}
+              onClose={() => setIsDeployKeyOpen(false)}
+              hostId={deployKeyHost?.id ?? ''}
+              hostLabel={deployKeyHost?.label ?? ''}
+            />
+          </ErrorBoundary>
+        </div>
+      </ErrorBoundary>
       <Toaster position="bottom-right" theme={resolvedTheme as 'light' | 'dark'} />
     </TooltipProvider>
   )
