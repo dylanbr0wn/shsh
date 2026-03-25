@@ -162,6 +162,8 @@ func (m *Manager) Write(channelId, data string) error {
 	if !ok {
 		return fmt.Errorf("channel %s is not a terminal", channelId)
 	}
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
 	_, err := io.WriteString(tc.stdin, data)
 	return err
 }
@@ -178,6 +180,8 @@ func (m *Manager) Resize(channelId string, cols, rows int) error {
 	if !ok {
 		return nil
 	}
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
 	return tc.sshSess.WindowChange(rows, cols)
 }
 
