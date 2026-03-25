@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import type { Host, SessionStatus } from '../../types'
+import type { Host } from '../../types'
+import type { PaneLeaf } from '../../store/workspaces'
 import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -33,7 +34,7 @@ interface TabSession {
   id: string
   hostId: string
   hostLabel: string
-  status: SessionStatus
+  status: string
   connectedAt?: string
 }
 
@@ -51,6 +52,8 @@ interface Props {
   isLast: boolean
   workspaceName?: string
   connectionDots: ConnectionDot[]
+  leaves: PaneLeaf[]
+  hostById: Record<string, Host>
   onActivate: () => void
   onClose: () => void
   onCloseOthers: () => void
@@ -59,6 +62,85 @@ interface Props {
   onCloseAll: () => void
   onRename: (name: string) => void
   onSaveTemplate?: () => void
+}
+
+const kindLabel: Record<string, string> = {
+  terminal: 'Terminal',
+  sftp: 'SFTP',
+  local: 'Local',
+}
+
+function WorkspaceTooltip({
+  workspaceName,
+  leaves,
+  hostById,
+}: {
+  workspaceName?: string
+  leaves: PaneLeaf[]
+  hostById: Record<string, Host>
+}) {
+  // Count panes by kind
+  const paneCounts = leaves.reduce<Record<string, number>>((acc, leaf) => {
+    const k = leaf.kind
+    acc[k] = (acc[k] ?? 0) + 1
+    return acc
+  }, {})
+
+  // Unique remote connections (dedupe by connectionId, skip local)
+  const connections = new Map<string, { host: Host; status: string; connectedAt?: string }>()
+  for (const leaf of leaves) {
+    if (leaf.kind === 'local' || connections.has(leaf.connectionId)) continue
+    const h = hostById[leaf.hostId]
+    if (h) {
+      connections.set(leaf.connectionId, {
+        host: h,
+        status: leaf.status,
+        connectedAt: 'connectedAt' in leaf ? leaf.connectedAt : undefined,
+      })
+    }
+  }
+
+  const panesSummary = Object.entries(paneCounts)
+    .map(([kind, count]) => `${count} ${kindLabel[kind] ?? kind}`)
+    .join(', ')
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      {workspaceName && <p className="font-medium">{workspaceName}</p>}
+      <span className="text-muted-foreground text-xs">{panesSummary}</span>
+      {connections.size > 0 && (
+        <>
+          <Separator />
+          {Array.from(connections.values()).map(({ host, status, connectedAt }) => (
+            <div key={host.id} className="flex flex-col gap-0.5">
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={cn(
+                    'size-1.5 rounded-full',
+                    statusDotClass[status] ?? 'bg-muted-foreground'
+                  )}
+                  style={host.color ? { backgroundColor: host.color } : undefined}
+                />
+                <span className="font-medium">
+                  {host.username}@{host.hostname}:{host.port}
+                </span>
+              </div>
+              <div className="text-muted-foreground ml-3 flex gap-2 text-xs">
+                <span className="capitalize">{host.authMethod}</span>
+                {connectedAt && <span>{formatDuration(connectedAt)}</span>}
+              </div>
+            </div>
+          ))}
+        </>
+      )}
+      {connections.size === 0 && leaves.length === 1 && leaves[0].kind === 'local' && (
+        <>
+          <Separator />
+          <span className="text-muted-foreground text-xs">Local filesystem</span>
+        </>
+      )}
+    </div>
+  )
 }
 
 export function TabItem({
@@ -70,6 +152,8 @@ export function TabItem({
   isLast,
   workspaceName,
   connectionDots,
+  leaves,
+  hostById,
   onActivate,
   onClose,
   onCloseOthers,
@@ -185,28 +269,7 @@ export function TabItem({
         </ContextMenuTrigger>
 
         <TooltipContent side="bottom">
-          <div className="flex flex-col gap-1.5">
-            <p className="font-medium">
-              {host ? `${host.hostname}:${host.port}` : session.hostLabel}
-            </p>
-            {host && (
-              <>
-                <Separator />
-                <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5">
-                  <span className="text-muted-foreground">User</span>
-                  <span>{host.username}</span>
-                  <span className="text-muted-foreground">Auth</span>
-                  <span className="capitalize">{host.authMethod}</span>
-                  {session.connectedAt && (
-                    <>
-                      <span className="text-muted-foreground">Connected</span>
-                      <span>{formatDuration(session.connectedAt)}</span>
-                    </>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+          <WorkspaceTooltip workspaceName={workspaceName} leaves={leaves} hostById={hostById} />
         </TooltipContent>
       </Tooltip>
 

@@ -81,7 +81,16 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       setState({ isLoading: true, error: null })
       try {
         const entries = await SFTPListDir(channelId, path)
-        setState({ entries: entries ?? [], currentPath: path, isLoading: false })
+        // When path is "~", the Go backend resolves it to an absolute path
+        // for the entries but doesn't return the resolved path. Derive it
+        // from the first entry so currentPath is always absolute (SFTP
+        // doesn't understand "~").
+        let resolvedPath = path
+        if (path === '~' && entries && entries.length > 0) {
+          const firstPath = entries[0].path
+          resolvedPath = firstPath.substring(0, firstPath.lastIndexOf('/'))
+        }
+        setState({ entries: entries ?? [], currentPath: resolvedPath, isLoading: false })
       } catch (err) {
         setState({ isLoading: false, error: String(err) })
       }

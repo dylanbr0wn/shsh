@@ -5,9 +5,36 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"github.com/rs/zerolog/log"
 )
+
+// resolveSFTPPath expands a leading "~" to the SFTP session's working
+// directory (home). Paths that are already absolute are returned as-is.
+func (m *Manager) resolveSFTPPath(channelID, path string) (string, error) {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path, nil
+	}
+	sc, err := m.getSFTPChannel(channelID)
+	if err != nil {
+		return "", err
+	}
+	sc.mu.Lock()
+	client := sc.client
+	sc.mu.Unlock()
+	if client == nil {
+		return "", fmt.Errorf("sftp client closed")
+	}
+	home, err := client.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	if path == "~" {
+		return home, nil
+	}
+	return home + path[1:], nil // replace leading "~" with home
+}
 
 const defaultBufferSizeKB = 32
 
@@ -44,6 +71,10 @@ func (m *Manager) channelReader(channelID, path string) (io.ReadCloser, int64, e
 		return f, stat.Size(), nil
 
 	case ChannelSFTP:
+		resolved, err := m.resolveSFTPPath(channelID, path)
+		if err != nil {
+			return nil, 0, err
+		}
 		sc, err := m.getSFTPChannel(channelID)
 		if err != nil {
 			return nil, 0, err
@@ -54,7 +85,7 @@ func (m *Manager) channelReader(channelID, path string) (io.ReadCloser, int64, e
 		if client == nil {
 			return nil, 0, fmt.Errorf("sftp client closed")
 		}
-		f, err := client.Open(path)
+		f, err := client.Open(resolved)
 		if err != nil {
 			return nil, 0, fmt.Errorf("open remote file: %w", err)
 		}
@@ -88,6 +119,10 @@ func (m *Manager) channelWriter(channelID, path string) (io.WriteCloser, error) 
 		return f, nil
 
 	case ChannelSFTP:
+		resolved, err := m.resolveSFTPPath(channelID, path)
+		if err != nil {
+			return nil, err
+		}
 		sc, err := m.getSFTPChannel(channelID)
 		if err != nil {
 			return nil, err
@@ -98,7 +133,7 @@ func (m *Manager) channelWriter(channelID, path string) (io.WriteCloser, error) 
 		if client == nil {
 			return nil, fmt.Errorf("sftp client closed")
 		}
-		f, err := client.Create(path)
+		f, err := client.Create(resolved)
 		if err != nil {
 			return nil, fmt.Errorf("create remote file: %w", err)
 		}

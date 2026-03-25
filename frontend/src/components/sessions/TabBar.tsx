@@ -190,6 +190,8 @@ export function TabBar() {
             isLast={idx === workspaces.length - 1}
             workspaceName={ws.name}
             connectionDots={getConnectionDots(ws)}
+            leaves={collectLeaves(ws.layout)}
+            hostById={hostById}
             onActivate={() => {
               setActiveWorkspaceId(ws.id)
               const ids = new Set(collectLeaves(ws.layout).map((l) => l.channelId))
