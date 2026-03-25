@@ -24,7 +24,18 @@ export type SFTPLeaf = {
   status: SessionStatus
 }
 
-export type PaneLeaf = TerminalLeaf | SFTPLeaf
+export type LocalFSLeaf = {
+  type: 'leaf'
+  kind: 'local'
+  paneId: string
+  connectionId: 'local'
+  channelId: string
+  hostId: 'local'
+  hostLabel: 'Local'
+  status: SessionStatus
+}
+
+export type PaneLeaf = TerminalLeaf | SFTPLeaf | LocalFSLeaf
 
 export type SplitNode = {
   type: 'split'
@@ -41,6 +52,8 @@ export interface Workspace {
   id: string
   // Derived from first pane's host label on creation.
   label: string
+  name?: string
+  savedTemplateId?: string
   layout: PaneNode
   // INVARIANT: never null on a rendered workspace.
   // Only null as part of an atomic workspace-removal write.

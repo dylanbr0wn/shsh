@@ -134,3 +134,37 @@ export interface LogFileInfo {
   createdAt: string
   sizeBytes: number
 }
+
+// --- Workspace Templates ---
+
+export type TemplateTerminalLeaf = {
+  kind: 'terminal'
+  hostId: string
+}
+
+export type TemplateSFTPLeaf = {
+  kind: 'sftp'
+  hostId: string
+}
+
+export type TemplateLocalLeaf = {
+  kind: 'local'
+  defaultPath?: string
+}
+
+export type TemplateLeaf = TemplateTerminalLeaf | TemplateSFTPLeaf | TemplateLocalLeaf
+
+export type TemplateSplitNode = {
+  direction: 'horizontal' | 'vertical'
+  ratio: number
+  left: TemplateNode
+  right: TemplateNode
+}
+
+export type TemplateNode = TemplateLeaf | TemplateSplitNode
+
+export interface WorkspaceTemplate {
+  id: string
+  name: string
+  layout: TemplateNode
+}

@@ -4,7 +4,7 @@ import { Button } from '../ui/button'
 interface Props {
   hostLabel: string
   hostColor?: string
-  kind: 'terminal' | 'sftp'
+  kind: 'terminal' | 'sftp' | 'local'
   connectionId: string
   onSplitVertical: () => void
   onSplitHorizontal: () => void
