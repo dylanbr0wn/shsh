@@ -1,5 +1,7 @@
 import { useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 import { TabBar } from '../sessions/TabBar'
 import { WorkspaceView } from '../terminal/WorkspaceView'
 import { WelcomeScreen } from '../welcome/WelcomeScreen'
@@ -17,7 +19,13 @@ export function MainArea() {
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <TabBar />
+      <ErrorBoundary
+        fallback="inline"
+        zone="tabbar"
+        onError={(e, i) => reportUIError(e, i, 'tabbar')}
+      >
+        <TabBar />
+      </ErrorBoundary>
       <div className="relative min-h-0 flex-1">
         <WorkspaceView />
       </div>

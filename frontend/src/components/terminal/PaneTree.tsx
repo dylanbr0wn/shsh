@@ -8,6 +8,8 @@ import { SFTPPanel } from '../sftp/SFTPPanel'
 import { PaneHeader } from './PaneHeader'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import { hostsAtom } from '../../store/atoms'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 
 interface PaneTreeProps {
   node: PaneNode
@@ -98,12 +100,24 @@ export function PaneTree({
         onOpenFiles={leaf.kind === 'terminal' ? () => onOpenFiles(leaf.paneId) : undefined}
       />
       {leaf.kind === 'sftp' ? (
-        <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+        <ErrorBoundary
+          fallback="inline"
+          zone={`sftp-${leaf.channelId}`}
+          onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
+          resetKeys={[leaf.channelId]}
+        >
+          <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+        </ErrorBoundary>
       ) : (
-        <>
+        <ErrorBoundary
+          fallback="inline"
+          zone={`terminal-${leaf.channelId}`}
+          onError={(e, i) => reportUIError(e, i, `terminal-${leaf.channelId}`)}
+          resetKeys={[leaf.channelId]}
+        >
           <InitialFitTrigger isActive={isActive} />
           <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
-        </>
+        </ErrorBoundary>
       )}
       {(leaf.status === 'disconnected' || leaf.status === 'error') && (
         <DisconnectedOverlay onReconnect={() => {}} />
