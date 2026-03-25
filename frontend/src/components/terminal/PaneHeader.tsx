@@ -36,7 +36,7 @@ export function PaneHeader({
 }: Props) {
   return (
     <div
-      className="group/pane-header bg-muted flex h-5 items-center gap-1 px-1.5"
+      className="bg-muted flex h-5 items-center gap-1 px-1.5"
       style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
     >
       <GripVertical className="text-muted-foreground size-3 shrink-0 cursor-grab" />

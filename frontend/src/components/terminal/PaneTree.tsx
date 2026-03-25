@@ -16,7 +16,7 @@ interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
-  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: string, hostId?: string) => void
+  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
   onClose: (paneId: string) => void
 }
 

@@ -39,7 +39,7 @@ export function WorkspaceView() {
       workspaceId: string,
       paneId: string,
       direction: 'horizontal' | 'vertical',
-      kind?: string,
+      kind?: PaneLeaf['kind'],
       hostId?: string
     ) => {
       const ws = workspaces.find((w) => w.id === workspaceId)
@@ -66,7 +66,10 @@ export function WorkspaceView() {
         } else if (kind === 'terminal' && hostId) {
           // Terminal pane on a specific host
           const host = hosts.find((h) => h.id === hostId)
-          if (!host) return
+          if (!host) {
+            toast.error('Host not found')
+            return
+          }
           const result = await ConnectHost(hostId)
           newLeaf = {
             type: 'leaf',
@@ -82,7 +85,10 @@ export function WorkspaceView() {
         } else if (kind === 'sftp' && hostId) {
           // SFTP pane on a specific host
           const host = hosts.find((h) => h.id === hostId)
-          if (!host) return
+          if (!host) {
+            toast.error('Host not found')
+            return
+          }
           const result = await ConnectHost(hostId)
           const channelId = await OpenSFTPChannel(result.connectionId)
           newLeaf = {
