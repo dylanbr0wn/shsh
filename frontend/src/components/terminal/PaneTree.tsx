@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useCallback } from 'react'
+import { useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
 import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
@@ -14,6 +14,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resi
 import { hostsAtom } from '../../store/atoms'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
+import { cn } from '../../lib/utils'
 
 interface PaneTreeProps {
   node: PaneNode
@@ -21,7 +22,7 @@ interface PaneTreeProps {
   isWorkspaceActive: boolean
   onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
   onClose: (paneId: string) => void
-  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string) => void
+  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) => void
 }
 
 export function PaneTree({
@@ -83,7 +84,7 @@ interface PaneLeafViewProps {
   isWorkspaceActive: boolean
   onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
   onClose: (paneId: string) => void
-  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string) => void
+  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) => void
 }
 
 function PaneLeafView({
@@ -96,6 +97,7 @@ function PaneLeafView({
 }: PaneLeafViewProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
+  const [isDragging, setIsDragging] = useState(false)
 
   const isFocused = leaf.paneId === workspace.focusedPaneId
   const isActive = isWorkspaceActive && isFocused
@@ -110,7 +112,8 @@ function PaneLeafView({
   }
 
   const handleDrop = useCallback(
-    (edge: DropEdge, mime: DropMime, data: string) => onDrop(leaf.paneId, edge, mime, data),
+    (edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) =>
+      onDrop(leaf.paneId, edge, mime, data, shiftKey),
     [onDrop, leaf.paneId]
   )
 
@@ -121,7 +124,7 @@ function PaneLeafView({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className="group/pane relative h-full w-full"
+      className={cn('group/pane relative h-full w-full', isDragging && 'opacity-30')}
       {...dropHandlers}
       onMouseDown={() => setFocused(leaf.paneId)}
       style={
@@ -135,9 +138,12 @@ function PaneLeafView({
         hostColor={host?.color}
         hostId={leaf.hostId}
         kind={leaf.kind}
+        paneId={leaf.paneId}
+        workspaceId={workspace.id}
         onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
+        onDragStateChange={setIsDragging}
         onToggle={
           leaf.kind !== 'local'
             ? () =>

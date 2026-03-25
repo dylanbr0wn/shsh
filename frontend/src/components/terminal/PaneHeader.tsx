@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import {
   GripVertical,
   SplitSquareVertical,
@@ -8,12 +9,15 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
+import { usePaneDrag } from '../../hooks/usePaneDrag'
 
 interface Props {
   hostLabel: string
   hostColor?: string
   hostId: string
   kind: 'terminal' | 'sftp' | 'local'
+  paneId: string
+  workspaceId: string
   onSplit: (
     direction: 'horizontal' | 'vertical',
     kind: 'terminal' | 'sftp' | 'local',
@@ -22,6 +26,7 @@ interface Props {
   onClose: () => void
   canClose: boolean
   onToggle?: () => void // terminal<->SFTP toggle, undefined for local
+  onDragStateChange?: (isDragging: boolean) => void
 }
 
 export function PaneHeader({
@@ -29,17 +34,28 @@ export function PaneHeader({
   hostColor,
   hostId,
   kind,
+  paneId,
+  workspaceId,
   onSplit,
   onClose,
   canClose,
   onToggle,
+  onDragStateChange,
 }: Props) {
+  const { isDragging, gripProps } = usePaneDrag({ paneId, workspaceId })
+
+  useEffect(() => {
+    onDragStateChange?.(isDragging)
+  }, [isDragging, onDragStateChange])
+
   return (
     <div
       className="bg-muted flex h-5 items-center gap-1 px-1.5"
       style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
     >
-      <GripVertical className="text-muted-foreground size-3 shrink-0 cursor-grab" />
+      <span {...gripProps} className="cursor-grab active:cursor-grabbing">
+        <GripVertical className="text-muted-foreground size-3 shrink-0" />
+      </span>
       <span
         className="truncate text-[11px] font-medium"
         style={hostColor ? { color: hostColor } : undefined}
