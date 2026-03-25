@@ -11,7 +11,13 @@ export interface PasswordManagersStatus {
   onePassword: PMStatus
   bitwarden: PMStatus
 }
-export type SessionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed' | 'error'
+export type SessionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'reconnecting'
+  | 'failed'
+  | 'error'
 export type CursorStyle = 'block' | 'underline' | 'bar'
 
 export interface TerminalProfile {
