@@ -35,32 +35,89 @@ export function WorkspaceView() {
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
 
   const handleSplit = useCallback(
-    async (workspaceId: string, paneId: string, direction: 'horizontal' | 'vertical') => {
+    async (
+      workspaceId: string,
+      paneId: string,
+      direction: 'horizontal' | 'vertical',
+      kind?: string,
+      hostId?: string
+    ) => {
       const ws = workspaces.find((w) => w.id === workspaceId)
       if (!ws) return
       const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
       if (!leaf) return
+
       try {
-        const channelId = await OpenTerminal(leaf.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'terminal',
-          paneId: newPaneId,
-          connectionId: leaf.connectionId,
-          channelId,
-          hostId: leaf.hostId,
-          hostLabel: leaf.hostLabel,
-          status: 'connected',
-          connectedAt: new Date().toISOString(),
+        let newLeaf: PaneLeaf
+
+        if (kind === 'local') {
+          // Local filesystem pane
+          const channelId = await OpenLocalFSChannel()
+          newLeaf = {
+            type: 'leaf',
+            kind: 'local',
+            paneId: crypto.randomUUID(),
+            connectionId: 'local',
+            channelId,
+            hostId: 'local',
+            hostLabel: 'Local',
+            status: 'connected',
+          }
+        } else if (kind === 'terminal' && hostId) {
+          // Terminal pane on a specific host
+          const host = hosts.find((h) => h.id === hostId)
+          if (!host) return
+          const result = await ConnectHost(hostId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'terminal',
+            paneId: crypto.randomUUID(),
+            connectionId: result.connectionId,
+            channelId: result.channelId,
+            hostId,
+            hostLabel: host.label,
+            status: 'connected',
+            connectedAt: new Date().toISOString(),
+          }
+        } else if (kind === 'sftp' && hostId) {
+          // SFTP pane on a specific host
+          const host = hosts.find((h) => h.id === hostId)
+          if (!host) return
+          const result = await ConnectHost(hostId)
+          const channelId = await OpenSFTPChannel(result.connectionId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'sftp',
+            paneId: crypto.randomUUID(),
+            connectionId: result.connectionId,
+            channelId,
+            hostId,
+            hostLabel: host.label,
+            status: 'connected',
+          }
+        } else {
+          // Default: split same connection with a new terminal (keyboard shortcut path)
+          const channelId = await OpenTerminal(leaf.connectionId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'terminal',
+            paneId: crypto.randomUUID(),
+            connectionId: leaf.connectionId,
+            channelId,
+            hostId: leaf.hostId,
+            hostLabel: leaf.hostLabel,
+            status: 'connected',
+            connectedAt: new Date().toISOString(),
+          }
         }
+
         setWorkspaces((prev) =>
           prev.map((w) => {
             if (w.id !== workspaceId) return w
             return {
               ...w,
               layout: splitLeaf(w.layout, paneId, direction, newLeaf),
-              focusedPaneId: newPaneId,
+              focusedPaneId: newLeaf.paneId,
             }
           })
         )
@@ -68,145 +125,7 @@ export function WorkspaceView() {
         toast.error('Split failed', { description: String(err) })
       }
     },
-    [workspaces, setWorkspaces]
-  )
-
-  const handleOpenFiles = useCallback(
-    async (workspaceId: string, paneId: string) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
-      if (!ws) return
-      const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
-      if (!leaf) return
-      try {
-        const channelId = await OpenSFTPChannel(leaf.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'sftp',
-          paneId: newPaneId,
-          connectionId: leaf.connectionId,
-          channelId,
-          hostId: leaf.hostId,
-          hostLabel: leaf.hostLabel,
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Open files failed', { description: String(err) })
-      }
-    },
-    [workspaces, setWorkspaces]
-  )
-
-  const handleAddLocal = useCallback(
-    async (workspaceId: string, paneId: string) => {
-      try {
-        const channelId = await OpenLocalFSChannel()
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'local',
-          paneId: newPaneId,
-          connectionId: 'local',
-          channelId,
-          hostId: 'local',
-          hostLabel: 'Local',
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to open local files', { description: String(err) })
-      }
-    },
-    [setWorkspaces]
-  )
-
-  const handleAddTerminal = useCallback(
-    async (workspaceId: string, paneId: string, hostId: string) => {
-      const host = hosts.find((h) => h.id === hostId)
-      if (!host) return
-      try {
-        const result = await ConnectHost(hostId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'terminal',
-          paneId: newPaneId,
-          connectionId: result.connectionId,
-          channelId: result.channelId,
-          hostId,
-          hostLabel: host.label,
-          status: 'connected',
-          connectedAt: new Date().toISOString(),
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to add terminal', { description: String(err) })
-      }
-    },
-    [hosts, setWorkspaces]
-  )
-
-  const handleAddSFTP = useCallback(
-    async (workspaceId: string, paneId: string, hostId: string) => {
-      const host = hosts.find((h) => h.id === hostId)
-      if (!host) return
-      try {
-        const result = await ConnectHost(hostId)
-        const channelId = await OpenSFTPChannel(result.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'sftp',
-          paneId: newPaneId,
-          connectionId: result.connectionId,
-          channelId,
-          hostId,
-          hostLabel: host.label,
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to add SFTP pane', { description: String(err) })
-      }
-    },
-    [hosts, setWorkspaces]
+    [workspaces, hosts, setWorkspaces]
   )
 
   async function buildLiveTree(node: TemplateNode): Promise<PaneNode> {
@@ -409,12 +328,10 @@ export function WorkspaceView() {
                 node={workspace.layout}
                 workspace={workspace}
                 isWorkspaceActive={isWorkspaceActive}
-                onSplit={(paneId, direction) => handleSplit(workspace.id, paneId, direction)}
+                onSplit={(paneId, direction, kind, hostId) =>
+                  handleSplit(workspace.id, paneId, direction, kind, hostId)
+                }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
-                onOpenFiles={(paneId) => handleOpenFiles(workspace.id, paneId)}
-                onAddLocal={(paneId) => handleAddLocal(workspace.id, paneId)}
-                onAddTerminal={(paneId, hostId) => handleAddTerminal(workspace.id, paneId, hostId)}
-                onAddSFTP={(paneId, hostId) => handleAddSFTP(workspace.id, paneId, hostId)}
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />

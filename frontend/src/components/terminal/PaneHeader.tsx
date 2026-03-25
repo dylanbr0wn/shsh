@@ -1,77 +1,96 @@
-import { SplitSquareVertical, SplitSquareHorizontal, X, Terminal, FolderOpen } from 'lucide-react'
+import {
+  GripVertical,
+  SplitSquareVertical,
+  SplitSquareHorizontal,
+  X,
+  Terminal,
+  FolderOpen,
+} from 'lucide-react'
 import { Button } from '../ui/button'
-import { AddPaneMenu } from '../workspace/AddPaneMenu'
+import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 
 interface Props {
   hostLabel: string
   hostColor?: string
+  hostId: string
   kind: 'terminal' | 'sftp' | 'local'
-  connectionId: string
-  onSplitVertical: () => void
-  onSplitHorizontal: () => void
+  onSplit: (
+    direction: 'horizontal' | 'vertical',
+    kind: 'terminal' | 'sftp' | 'local',
+    hostId: string
+  ) => void
   onClose: () => void
   canClose: boolean
-  onOpenFiles?: () => void
-  onAddLocal?: () => void
-  onAddTerminal?: (hostId: string) => void
-  onAddSFTP?: (hostId: string) => void
+  onToggle?: () => void // terminal<->SFTP toggle, undefined for local
 }
 
 export function PaneHeader({
   hostLabel,
   hostColor,
+  hostId,
   kind,
-  onSplitVertical,
-  onSplitHorizontal,
+  onSplit,
   onClose,
   canClose,
-  onOpenFiles,
-  onAddLocal,
-  onAddTerminal,
-  onAddSFTP,
+  onToggle,
 }: Props) {
   return (
-    <div className="absolute top-0 right-0 z-10 flex h-7 items-center gap-1 px-2 opacity-0 transition-opacity group-hover/pane:opacity-100">
+    <div
+      className="group/pane-header bg-muted flex h-5 items-center gap-1 px-1.5"
+      style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
+    >
+      <GripVertical className="text-muted-foreground size-3 shrink-0 cursor-grab" />
       <span
-        className="text-muted-foreground flex max-w-[160px] items-center gap-1 truncate font-mono text-[10px]"
+        className="truncate text-[11px] font-medium"
         style={hostColor ? { color: hostColor } : undefined}
       >
-        {kind === 'sftp' ? (
-          <FolderOpen className="size-3 shrink-0" />
-        ) : (
-          <Terminal className="size-3 shrink-0" />
-        )}
         {hostLabel}
       </span>
-      <div className="flex items-center gap-0.5">
-        {onOpenFiles && (
-          <Button variant="ghost" size="icon-xs" title="Open files" onClick={onOpenFiles}>
-            <FolderOpen className="size-3" />
+      <span
+        className="shrink-0 rounded px-1 text-[9px]"
+        style={{
+          backgroundColor: hostColor ? `${hostColor}20` : 'hsl(var(--muted))',
+          color: hostColor ?? 'hsl(var(--muted-foreground))',
+        }}
+      >
+        {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
+      </span>
+      <div className="flex-1" />
+      <div className="flex items-center gap-0.5 opacity-40 transition-opacity group-hover/pane:opacity-100">
+        {onToggle && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            title={kind === 'terminal' ? 'Open SFTP' : 'Open Terminal'}
+            onClick={onToggle}
+          >
+            {kind === 'terminal' ? (
+              <FolderOpen className="size-3" />
+            ) : (
+              <Terminal className="size-3" />
+            )}
           </Button>
         )}
-        {onAddLocal && onAddTerminal && onAddSFTP && (
-          <AddPaneMenu
-            onAddLocal={onAddLocal}
-            onAddTerminal={onAddTerminal}
-            onAddSFTP={onAddSFTP}
-          />
-        )}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          title="Split vertically (⌘D)"
-          onClick={onSplitVertical}
+        <PaneTypeChooser
+          currentHostId={hostId}
+          onSelectTerminal={(hId) => onSplit('vertical', 'terminal', hId)}
+          onSelectSFTP={(hId) => onSplit('vertical', 'sftp', hId)}
+          onSelectLocal={() => onSplit('vertical', 'local', 'local')}
         >
-          <SplitSquareVertical className="size-3" />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          title="Split horizontally (⌘⇧D)"
-          onClick={onSplitHorizontal}
+          <Button variant="ghost" size="icon-xs" title="Split vertically (⌘D)">
+            <SplitSquareVertical className="size-3" />
+          </Button>
+        </PaneTypeChooser>
+        <PaneTypeChooser
+          currentHostId={hostId}
+          onSelectTerminal={(hId) => onSplit('horizontal', 'terminal', hId)}
+          onSelectSFTP={(hId) => onSplit('horizontal', 'sftp', hId)}
+          onSelectLocal={() => onSplit('horizontal', 'local', 'local')}
         >
-          <SplitSquareHorizontal className="size-3" />
-        </Button>
+          <Button variant="ghost" size="icon-xs" title="Split horizontally (⌘⇧D)">
+            <SplitSquareHorizontal className="size-3" />
+          </Button>
+        </PaneTypeChooser>
         {canClose && (
           <Button variant="ghost" size="icon-xs" title="Close pane" onClick={onClose}>
             <X className="size-3" />

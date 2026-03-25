@@ -16,12 +16,8 @@ interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
-  onSplit: (paneId: string, direction: 'horizontal' | 'vertical') => void
+  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: string, hostId?: string) => void
   onClose: (paneId: string) => void
-  onOpenFiles: (paneId: string) => void
-  onAddLocal: (paneId: string) => void
-  onAddTerminal: (paneId: string, hostId: string) => void
-  onAddSFTP: (paneId: string, hostId: string) => void
 }
 
 export function PaneTree({
@@ -30,10 +26,6 @@ export function PaneTree({
   isWorkspaceActive,
   onSplit,
   onClose,
-  onOpenFiles,
-  onAddLocal,
-  onAddTerminal,
-  onAddSFTP,
 }: PaneTreeProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
@@ -59,10 +51,6 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
-            onOpenFiles={onOpenFiles}
-            onAddLocal={onAddLocal}
-            onAddTerminal={onAddTerminal}
-            onAddSFTP={onAddSFTP}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -73,10 +61,6 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
-            onOpenFiles={onOpenFiles}
-            onAddLocal={onAddLocal}
-            onAddTerminal={onAddTerminal}
-            onAddSFTP={onAddSFTP}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -93,44 +77,33 @@ export function PaneTree({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className="group/pane relative h-full w-full p-2"
+      className="group/pane relative h-full w-full"
       style={
         isFocused
           ? { boxShadow: `inset 0 0 0 1px ${host?.color ?? 'hsl(var(--border))'}` }
           : undefined
       }
       onMouseDown={() => setFocused(leaf.paneId)}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('application/x-shsh-host')) {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'copy'
-        }
-      }}
-      onDrop={(e) => {
-        const raw = e.dataTransfer.getData('application/x-shsh-host')
-        if (!raw) return
-        e.preventDefault()
-        const { hostId } = JSON.parse(raw) as { hostId: string }
-        if (e.shiftKey) {
-          onAddSFTP(leaf.paneId, hostId)
-        } else {
-          onAddTerminal(leaf.paneId, hostId)
-        }
-      }}
     >
       <PaneHeader
         hostLabel={leaf.hostLabel}
         hostColor={host?.color}
+        hostId={leaf.hostId}
         kind={leaf.kind}
-        connectionId={leaf.connectionId}
-        onSplitVertical={() => onSplit(leaf.paneId, 'vertical')}
-        onSplitHorizontal={() => onSplit(leaf.paneId, 'horizontal')}
+        onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
-        onOpenFiles={leaf.kind === 'terminal' ? () => onOpenFiles(leaf.paneId) : undefined}
-        onAddLocal={() => onAddLocal(leaf.paneId)}
-        onAddTerminal={(hostId) => onAddTerminal(leaf.paneId, hostId)}
-        onAddSFTP={(hostId) => onAddSFTP(leaf.paneId, hostId)}
+        onToggle={
+          leaf.kind !== 'local'
+            ? () =>
+                onSplit(
+                  leaf.paneId,
+                  'horizontal',
+                  leaf.kind === 'terminal' ? 'sftp' : 'terminal',
+                  leaf.hostId
+                )
+            : undefined
+        }
       />
       {leaf.kind === 'sftp' ? (
         <ErrorBoundary
