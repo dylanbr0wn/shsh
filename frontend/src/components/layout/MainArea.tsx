@@ -19,7 +19,11 @@ export function MainArea() {
 
   return (
     <div className="flex h-full min-w-0 flex-col">
-      <ErrorBoundary fallback="inline" zone="tabbar" onError={(e, i) => reportUIError(e, i, 'tabbar')}>
+      <ErrorBoundary
+        fallback="inline"
+        zone="tabbar"
+        onError={(e, i) => reportUIError(e, i, 'tabbar')}
+      >
         <TabBar />
       </ErrorBoundary>
       <div className="relative min-h-0 flex-1">

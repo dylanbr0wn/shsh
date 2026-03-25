@@ -5,11 +5,7 @@ import { getDefaultStore } from 'jotai'
 
 const store = getDefaultStore()
 
-export function reportUIError(
-  error: Error,
-  errorInfo: ErrorInfo,
-  zone: string
-): void {
+export function reportUIError(error: Error, errorInfo: ErrorInfo, zone: string): void {
   const entry: DebugLogEntry = {
     timestamp: new Date().toISOString(),
     category: 'ui',

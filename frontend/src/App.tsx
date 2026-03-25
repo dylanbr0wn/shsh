@@ -54,9 +54,17 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={400}>
-      <ErrorBoundary fallback="fullscreen" zone="app" onError={(e, i) => reportUIError(e, i, 'app')}>
+      <ErrorBoundary
+        fallback="fullscreen"
+        zone="app"
+        onError={(e, i) => reportUIError(e, i, 'app')}
+      >
         <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
-          <ErrorBoundary fallback="inline" zone="titlebar" onError={(e, i) => reportUIError(e, i, 'titlebar')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="titlebar"
+            onError={(e, i) => reportUIError(e, i, 'titlebar')}
+          >
             <TitleBar />
           </ErrorBoundary>
           <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
@@ -70,7 +78,11 @@ export default function App() {
               onResize={(size) => setSidebarCollapsed(size.inPixels === 0)}
               className="flex flex-col"
             >
-              <ErrorBoundary fallback="panel" zone="sidebar" onError={(e, i) => reportUIError(e, i, 'sidebar')}>
+              <ErrorBoundary
+                fallback="panel"
+                zone="sidebar"
+                onError={(e, i) => reportUIError(e, i, 'sidebar')}
+              >
                 <Sidebar />
               </ErrorBoundary>
             </ResizablePanel>
@@ -78,7 +90,11 @@ export default function App() {
             <ResizablePanel defaultSize="82%" className="flex min-h-0 flex-col overflow-hidden">
               <ResizablePanelGroup orientation="vertical" className="h-full">
                 <ResizablePanel defaultSize="100%" minSize="30%" className="overflow-hidden">
-                  <ErrorBoundary fallback="panel" zone="main" onError={(e, i) => reportUIError(e, i, 'main')}>
+                  <ErrorBoundary
+                    fallback="panel"
+                    zone="main"
+                    onError={(e, i) => reportUIError(e, i, 'main')}
+                  >
                     <MainArea />
                   </ErrorBoundary>
                 </ResizablePanel>
@@ -91,44 +107,92 @@ export default function App() {
                   collapsible
                   collapsedSize="0%"
                 >
-                  <ErrorBoundary fallback="inline" zone="debug" onError={(e, i) => reportUIError(e, i, 'debug')}>
+                  <ErrorBoundary
+                    fallback="inline"
+                    zone="debug"
+                    onError={(e, i) => reportUIError(e, i, 'debug')}
+                  >
                     <DebugPanel />
                   </ErrorBoundary>
                 </ResizablePanel>
               </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
-          <ErrorBoundary fallback="inline" zone="modal-add-host" onError={(e, i) => reportUIError(e, i, 'modal-add-host')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-add-host"
+            onError={(e, i) => reportUIError(e, i, 'modal-add-host')}
+          >
             <AddHostModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-edit-host" onError={(e, i) => reportUIError(e, i, 'modal-edit-host')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-edit-host"
+            onError={(e, i) => reportUIError(e, i, 'modal-edit-host')}
+          >
             <EditHostModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-settings" onError={(e, i) => reportUIError(e, i, 'modal-settings')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-settings"
+            onError={(e, i) => reportUIError(e, i, 'modal-settings')}
+          >
             <SettingsModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-host-key" onError={(e, i) => reportUIError(e, i, 'modal-host-key')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-host-key"
+            onError={(e, i) => reportUIError(e, i, 'modal-host-key')}
+          >
             <HostKeyDialog />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-import-ssh" onError={(e, i) => reportUIError(e, i, 'modal-import-ssh')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-import-ssh"
+            onError={(e, i) => reportUIError(e, i, 'modal-import-ssh')}
+          >
             <ImportSSHConfigModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-export-hosts" onError={(e, i) => reportUIError(e, i, 'modal-export-hosts')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-export-hosts"
+            onError={(e, i) => reportUIError(e, i, 'modal-export-hosts')}
+          >
             <ExportHostsModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-quick-connect" onError={(e, i) => reportUIError(e, i, 'modal-quick-connect')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-quick-connect"
+            onError={(e, i) => reportUIError(e, i, 'modal-quick-connect')}
+          >
             <QuickConnectModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-log-viewer" onError={(e, i) => reportUIError(e, i, 'modal-log-viewer')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-log-viewer"
+            onError={(e, i) => reportUIError(e, i, 'modal-log-viewer')}
+          >
             <LogViewerModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-add-port-forward" onError={(e, i) => reportUIError(e, i, 'modal-add-port-forward')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-add-port-forward"
+            onError={(e, i) => reportUIError(e, i, 'modal-add-port-forward')}
+          >
             <AddPortForwardModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-terminal-profiles" onError={(e, i) => reportUIError(e, i, 'modal-terminal-profiles')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-terminal-profiles"
+            onError={(e, i) => reportUIError(e, i, 'modal-terminal-profiles')}
+          >
             <TerminalProfilesModal />
           </ErrorBoundary>
-          <ErrorBoundary fallback="inline" zone="modal-deploy-key" onError={(e, i) => reportUIError(e, i, 'modal-deploy-key')}>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-deploy-key"
+            onError={(e, i) => reportUIError(e, i, 'modal-deploy-key')}
+          >
             <DeployKeyModal
               open={isDeployKeyOpen}
               onClose={() => setIsDeployKeyOpen(false)}

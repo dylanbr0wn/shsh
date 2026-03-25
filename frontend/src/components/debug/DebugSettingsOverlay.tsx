@@ -88,9 +88,7 @@ export function DebugSettingsOverlay({
           {/* Left: Global level */}
           <div className="min-w-48">
             <div className="mb-1 font-semibold">Global Level</div>
-            <div className="text-muted-foreground mb-2 text-[10px]">
-              Default for all categories
-            </div>
+            <div className="text-muted-foreground mb-2 text-[10px]">Default for all categories</div>
             <ToggleGroup
               type="single"
               variant="outline"
@@ -114,10 +112,7 @@ export function DebugSettingsOverlay({
               <span className="text-muted-foreground text-[10px] tracking-wider uppercase">
                 Category Overrides
               </span>
-              <button
-                onClick={handleResetAll}
-                className="text-primary text-[10px] hover:underline"
-              >
+              <button onClick={handleResetAll} className="text-primary text-[10px] hover:underline">
                 Reset All
               </button>
             </div>

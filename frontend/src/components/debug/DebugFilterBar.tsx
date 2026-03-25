@@ -129,7 +129,7 @@ export function DebugFilterBar({ onSettingsToggle, settingsOpen }: Props) {
       <div className="flex-1" />
 
       {/* Level display filter */}
-      <Field orientation="horizontal" className="min-w-0 w-32 shrink-0 grow-0">
+      <Field orientation="horizontal" className="w-32 min-w-0 shrink-0 grow-0">
         <FieldLabel>Level:</FieldLabel>
         <Select value={level} onValueChange={(v) => setLevel(v as DebugLevel)}>
           <SelectTrigger size="sm">

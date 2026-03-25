@@ -32,9 +32,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidUpdate(prevProps: Props) {
     if (!this.state.hasError || !this.props.resetKeys) return
-    const changed = this.props.resetKeys.some(
-      (key, i) => key !== prevProps.resetKeys?.[i]
-    )
+    const changed = this.props.resetKeys.some((key, i) => key !== prevProps.resetKeys?.[i])
     if (changed) {
       this.setState({ hasError: false, error: null })
     }
@@ -55,17 +53,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="bg-background text-foreground flex h-screen w-screen flex-col items-center justify-center gap-4">
           <AlertTriangle className="text-destructive size-10" />
           <h1 className="text-lg font-semibold">Something went wrong</h1>
-          <p className="text-muted-foreground max-w-md text-center text-sm">
-            {message}
-          </p>
+          <p className="text-muted-foreground max-w-md text-center text-sm">{message}</p>
           <div className="flex gap-2">
             <Button variant="outline" onClick={this.reset}>
               <RefreshCw className="mr-2 size-4" />
               Try Again
             </Button>
-            <Button onClick={() => window.location.reload()}>
-              Reload App
-            </Button>
+            <Button onClick={() => window.location.reload()}>Reload App</Button>
           </div>
         </div>
       )
@@ -75,9 +69,7 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="flex h-full w-full flex-col items-center justify-center gap-3 p-4">
           <AlertTriangle className="text-destructive size-6" />
-          <p className="text-muted-foreground text-center text-sm">
-            Error in {zone}
-          </p>
+          <p className="text-muted-foreground text-center text-sm">Error in {zone}</p>
           <Button variant="outline" size="sm" onClick={this.reset}>
             <RefreshCw className="mr-2 size-3.5" />
             Try Again
