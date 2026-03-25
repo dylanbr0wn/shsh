@@ -418,10 +418,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                       )
                     }}
                     onDragOver={(e) => {
-                      if (
-                        entry.isDir &&
-                        e.dataTransfer.types.includes('application/x-shsh-sftp')
-                      ) {
+                      if (entry.isDir && e.dataTransfer.types.includes('application/x-shsh-sftp')) {
                         // For same-panel drags, skip if hovering over the dragged item itself
                         if (draggedEntryRef.current?.path === entry.path) return
                         e.preventDefault()
