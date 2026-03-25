@@ -7,14 +7,24 @@ import {
   closeConfirmPrefAtom,
   hostsAtom,
   channelActivityAtom,
+  pendingTemplateAtom,
 } from '../../store/atoms'
 import { collectLeaves } from '../../lib/paneTree'
-import { CloseChannel } from '../../../wailsjs/go/main/App'
+import { CloseChannel, ListWorkspaceTemplates } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
-import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
 import { TabItem } from './TabItem'
 import { CloseConfirmDialog } from './CloseConfirmDialog'
+import { SaveTemplateDialog } from '../workspace/SaveTemplateDialog'
 import type { Workspace } from '../../store/workspaces'
+import type { WorkspaceTemplate } from '../../types'
 
 export function TabBar() {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom)
@@ -28,6 +38,35 @@ export function TabBar() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null)
   const [pendingCount, setPendingCount] = useState(1)
+
+  const [templates, setTemplates] = useState<WorkspaceTemplate[]>([])
+  const setPendingTemplate = useSetAtom(pendingTemplateAtom)
+
+  const [saveTemplateWorkspaceId, setSaveTemplateWorkspaceId] = useState<string | null>(null)
+  const saveTemplateWorkspace = workspaces.find((w) => w.id === saveTemplateWorkspaceId) ?? null
+
+  async function loadTemplates() {
+    try {
+      const list = await ListWorkspaceTemplates()
+      // layout field comes as number[] from Wails — keep as-is; WorkspaceView decodes it
+      setTemplates((list ?? []) as unknown as WorkspaceTemplate[])
+    } catch {
+      /* ignore */
+    }
+  }
+
+  function handleSaveTemplate(workspaceId: string) {
+    setSaveTemplateWorkspaceId(workspaceId)
+  }
+
+  function handleTemplateSaved(templateId: string) {
+    setWorkspaces((prev) =>
+      prev.map((w) =>
+        w.id === saveTemplateWorkspaceId ? { ...w, savedTemplateId: templateId } : w
+      )
+    )
+    setSaveTemplateWorkspaceId(null)
+  }
 
   function requestClose(action: () => void, count: number) {
     if (closeConfirmPref === false) {
@@ -104,6 +143,22 @@ export function TabBar() {
     }, workspaces.length)
   }
 
+  function handleRename(workspaceId: string, name: string) {
+    setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, name } : w)))
+  }
+
+  function getConnectionDots(ws: Workspace) {
+    const leaves = collectLeaves(ws.layout)
+    const seen = new Map<string, { color?: string; status: string }>()
+    for (const leaf of leaves) {
+      if (!seen.has(leaf.connectionId)) {
+        const host = hostById[leaf.hostId]
+        seen.set(leaf.connectionId, { color: host?.color, status: leaf.status })
+      }
+    }
+    return Array.from(seen.values())
+  }
+
   // Derive a tab session object from the first leaf's data
   function workspaceToTabSession(ws: Workspace) {
     const leaves = collectLeaves(ws.layout)
@@ -133,6 +188,10 @@ export function TabBar() {
             hasActivity={workspaceHasActivity(ws)}
             isFirst={idx === 0}
             isLast={idx === workspaces.length - 1}
+            workspaceName={ws.name}
+            connectionDots={getConnectionDots(ws)}
+            leaves={collectLeaves(ws.layout)}
+            hostById={hostById}
             onActivate={() => {
               setActiveWorkspaceId(ws.id)
               const ids = new Set(collectLeaves(ws.layout).map((l) => l.channelId))
@@ -143,17 +202,38 @@ export function TabBar() {
             onCloseToLeft={() => handleCloseToLeft(ws.id)}
             onCloseToRight={() => handleCloseToRight(ws.id)}
             onCloseAll={handleCloseAll}
+            onRename={(name) => handleRename(ws.id, name)}
+            onSaveTemplate={() => handleSaveTemplate(ws.id)}
           />
         ))}
         <div className="ml-auto flex shrink-0 items-center px-1">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-xs" onClick={() => setIsAddHostOpen(true)}>
+          <DropdownMenu
+            onOpenChange={(open) => {
+              if (open) loadTemplates()
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-xs" aria-label="New connection or template">
                 <Plus className="size-3.5" />
               </Button>
-            </TooltipTrigger>
-            <TooltipContent>New connection</TooltipContent>
-          </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => setIsAddHostOpen(true)}>
+                New connection
+              </DropdownMenuItem>
+              {templates.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Templates</DropdownMenuLabel>
+                  {templates.map((t) => (
+                    <DropdownMenuItem key={t.id} onSelect={() => setPendingTemplate(t)}>
+                      {t.name}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
       <CloseConfirmDialog
@@ -162,6 +242,16 @@ export function TabBar() {
         onConfirm={handleDialogConfirm}
         onCancel={handleDialogCancel}
       />
+      {saveTemplateWorkspace && (
+        <SaveTemplateDialog
+          open={!!saveTemplateWorkspaceId}
+          onOpenChange={(open) => {
+            if (!open) setSaveTemplateWorkspaceId(null)
+          }}
+          workspace={saveTemplateWorkspace}
+          onSaved={handleTemplateSaved}
+        />
+      )}
     </>
   )
 }

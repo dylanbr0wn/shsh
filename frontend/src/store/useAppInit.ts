@@ -71,13 +71,15 @@ export function useAppInit() {
   useEffect(() => {
     ListHosts()
       .then((hosts) => setHosts(hosts as unknown as Host[]))
-      .catch((err) => toast.error('Failed to load hosts', { description: String(err) }))
+      .catch((err: unknown) => toast.error('Failed to load hosts', { description: String(err) }))
     ListGroups()
       .then((groups) => setGroups(groups as unknown as Group[]))
-      .catch((err) => toast.error('Failed to load groups', { description: String(err) }))
+      .catch((err: unknown) => toast.error('Failed to load groups', { description: String(err) }))
     ListTerminalProfiles()
-      .then((profiles) => setTerminalProfiles(profiles as unknown as TerminalProfile[]))
-      .catch((err) => toast.error('Failed to load terminal profiles', { description: String(err) }))
+      .then((profiles: unknown) => setTerminalProfiles(profiles as unknown as TerminalProfile[]))
+      .catch((err: unknown) =>
+        toast.error('Failed to load terminal profiles', { description: String(err) })
+      )
   }, [setHosts, setGroups, setTerminalProfiles])
 
   useEffect(() => {

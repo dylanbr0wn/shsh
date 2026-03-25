@@ -84,6 +84,11 @@ export function HostListItem({
       <ContextMenuTrigger asChild>
         <div
           role="button"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.effectAllowed = 'copy'
+            e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
+          }}
           onDoubleClick={onConnect}
           className={cn(
             'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',

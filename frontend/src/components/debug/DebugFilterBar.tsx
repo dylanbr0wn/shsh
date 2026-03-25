@@ -29,6 +29,7 @@ const ALL_CATEGORIES: { key: DebugCategory; label: string }[] = [
   { key: 'portfwd', label: 'PortFwd' },
   { key: 'network', label: 'Network' },
   { key: 'app', label: 'App' },
+  { key: 'ui', label: 'UI' },
 ]
 
 const ALL_LEVELS: { key: DebugLevel; label: string }[] = [

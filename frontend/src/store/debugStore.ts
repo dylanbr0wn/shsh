@@ -58,7 +58,7 @@ export const debugPanelOpenAtom = atom(false)
 
 // Display filters (client-side only)
 export const debugFilterCategoriesAtom = atom<Set<DebugCategory>>(
-  new Set<DebugCategory>(['ssh', 'sftp', 'portfwd', 'network', 'app'])
+  new Set<DebugCategory>(['ssh', 'sftp', 'portfwd', 'network', 'app', 'ui'])
 )
 export const debugFilterLevelAtom = atom<DebugLevel>('trace')
 export const debugFilterSessionAtom = atom<string>('') // empty = all

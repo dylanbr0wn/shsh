@@ -41,6 +41,8 @@ import {
 } from '../ui/alert-dialog'
 import { HostListItem } from './HostListItem'
 import { EditGroupModal } from '../modals/EditGroupModal'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 
 interface Props {
   group: Group
@@ -319,18 +321,25 @@ export function HostGroupSection({
         {isExpanded && (
           <div className="flex flex-col gap-0.5 pl-2">
             {hosts.map((host) => (
-              <HostListItem
+              <ErrorBoundary
                 key={host.id}
-                host={host}
-                isConnected={connectedHostIds.has(host.id)}
-                isConnecting={connectingHostIds.has(host.id)}
-                onConnect={() => onConnect(host.id, host.label)}
-                onDelete={() => onDelete(host.id)}
-                onEdit={() => onEdit(host)}
-                onDeployKey={() => onDeployKey(host)}
-                onMoveToGroup={onMoveToGroup}
-                onOpenFiles={onOpenFiles ? () => onOpenFiles(host.id, host.label) : undefined}
-              />
+                fallback="inline"
+                zone={`host-${host.id}`}
+                onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                resetKeys={[host.id]}
+              >
+                <HostListItem
+                  host={host}
+                  isConnected={connectedHostIds.has(host.id)}
+                  isConnecting={connectingHostIds.has(host.id)}
+                  onConnect={() => onConnect(host.id, host.label)}
+                  onDelete={() => onDelete(host.id)}
+                  onEdit={() => onEdit(host)}
+                  onDeployKey={() => onDeployKey(host)}
+                  onMoveToGroup={onMoveToGroup}
+                  onOpenFiles={onOpenFiles ? () => onOpenFiles(host.id, host.label) : undefined}
+                />
+              </ErrorBoundary>
             ))}
           </div>
         )}

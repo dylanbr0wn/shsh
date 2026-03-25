@@ -36,6 +36,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
 import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, FolderPlus, Zap } from 'lucide-react'
 import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { Group, Host } from '../../types'
 import { collectLeaves } from '../../lib/paneTree'
@@ -477,17 +479,24 @@ export function HostList() {
                         · {group.name}
                       </span>
                     )}
-                    <HostListItem
-                      host={host}
-                      isConnected={connectedHostIds.has(host.id)}
-                      isConnecting={connectingHostIds.has(host.id)}
-                      onConnect={() => handleConnect(host.id, host.label)}
-                      onDelete={() => handleDelete(host.id)}
-                      onEdit={() => handleEdit(host)}
-                      onDeployKey={() => handleDeployKey(host)}
-                      onMoveToGroup={handleMoveToGroup}
-                      onOpenFiles={() => handleOpenFiles(host.id, host.label)}
-                    />
+                    <ErrorBoundary
+                      fallback="inline"
+                      zone={`host-${host.id}`}
+                      onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                      resetKeys={[host.id]}
+                    >
+                      <HostListItem
+                        host={host}
+                        isConnected={connectedHostIds.has(host.id)}
+                        isConnecting={connectingHostIds.has(host.id)}
+                        onConnect={() => handleConnect(host.id, host.label)}
+                        onDelete={() => handleDelete(host.id)}
+                        onEdit={() => handleEdit(host)}
+                        onDeployKey={() => handleDeployKey(host)}
+                        onMoveToGroup={handleMoveToGroup}
+                        onOpenFiles={() => handleOpenFiles(host.id, host.label)}
+                      />
+                    </ErrorBoundary>
                   </div>
                 )
               })
@@ -521,18 +530,25 @@ export function HostList() {
                     </span>
                   )}
                   {ungrouped.map((host) => (
-                    <HostListItem
+                    <ErrorBoundary
                       key={host.id}
-                      host={host}
-                      isConnected={connectedHostIds.has(host.id)}
-                      isConnecting={connectingHostIds.has(host.id)}
-                      onConnect={() => handleConnect(host.id, host.label)}
-                      onDelete={() => handleDelete(host.id)}
-                      onEdit={() => handleEdit(host)}
-                      onDeployKey={() => handleDeployKey(host)}
-                      onMoveToGroup={handleMoveToGroup}
-                      onOpenFiles={() => handleOpenFiles(host.id, host.label)}
-                    />
+                      fallback="inline"
+                      zone={`host-${host.id}`}
+                      onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                      resetKeys={[host.id]}
+                    >
+                      <HostListItem
+                        host={host}
+                        isConnected={connectedHostIds.has(host.id)}
+                        isConnecting={connectingHostIds.has(host.id)}
+                        onConnect={() => handleConnect(host.id, host.label)}
+                        onDelete={() => handleDelete(host.id)}
+                        onEdit={() => handleEdit(host)}
+                        onDeployKey={() => handleDeployKey(host)}
+                        onMoveToGroup={handleMoveToGroup}
+                        onOpenFiles={() => handleOpenFiles(host.id, host.label)}
+                      />
+                    </ErrorBoundary>
                   ))}
                 </div>
               )}

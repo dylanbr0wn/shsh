@@ -48,6 +48,7 @@ export interface PendingHostKey {
   fingerprint: string
   isNew: boolean
   hasChanged: boolean
+  oldKeyTypes?: string[]
 }
 export const pendingHostKeyAtom = atom<PendingHostKey | null>(null)
 
@@ -77,3 +78,7 @@ export const isDeployKeyOpenAtom = atom<boolean>(false)
 export const deployKeyHostAtom = atom<Host | null>(null)
 
 export const sidebarCollapsedAtom = atom<boolean>(false)
+
+// Pending template to open — set by TabBar, consumed by WorkspaceView
+import type { WorkspaceTemplate } from '../types'
+export const pendingTemplateAtom = atom<WorkspaceTemplate | null>(null)

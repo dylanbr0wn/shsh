@@ -29,6 +29,12 @@ jobs:
           go mod tidy
           git diff --exit-code go.mod go.sum
 
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: govulncheck
+        run: govulncheck ./...
+
   frontend:
     name: Frontend — typecheck, lint & build
     runs-on: ubuntu-latest
@@ -59,3 +65,6 @@ jobs:
 
       - name: Format check
         run: pnpm format:check
+
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=high

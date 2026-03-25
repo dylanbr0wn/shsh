@@ -19,6 +19,7 @@ type ChannelKind string
 const (
 	ChannelTerminal ChannelKind = "terminal"
 	ChannelSFTP     ChannelKind = "sftp"
+	ChannelLocalFS  ChannelKind = "local"
 )
 
 // Channel is an SSH subsystem opened on a Connection.
@@ -335,6 +336,11 @@ func (m *Manager) CloseChannel(channelID string) error {
 
 // teardownConnection closes a connection and all its port forwards.
 func (m *Manager) teardownConnection(conn *Connection) {
+	// The virtual local connection is a singleton that persists for app lifetime.
+	if conn.id == localConnectionID {
+		return
+	}
+
 	log.Info().Str("connectionId", conn.id).Msg("tearing down connection (no more channels)")
 
 	// Close all port forwards on this connection
