@@ -437,6 +437,39 @@ func (m *Manager) onReconnected(conn *Connection) {
 	log.Info().Str("connectionId", conn.id).Msg("connection reconnected successfully")
 }
 
+// RetryConnection allows manual retry after auto-reconnect fails.
+func (m *Manager) RetryConnection(connectionID string) error {
+	m.mu.Lock()
+	conn, ok := m.connections[connectionID]
+	m.mu.Unlock()
+	if !ok {
+		return fmt.Errorf("connection %s not found", connectionID)
+	}
+	conn.mu.RLock()
+	state := conn.state
+	conn.mu.RUnlock()
+	if state != stateFailed {
+		return fmt.Errorf("connection %s is not in failed state", connectionID)
+	}
+
+	// Reset state for new reconnect attempt
+	conn.mu.Lock()
+	conn.state = stateReconnecting
+	conn.deadOnce = sync.Once{}
+	conn.reconnectDone = make(chan struct{})
+	conn.mu.Unlock()
+
+	m.emitter.Emit("connection:status", ConnectionStatusEvent{
+		ConnectionID: conn.id,
+		Status:       StatusReconnecting,
+		Attempt:      0,
+		MaxRetries:   conn.reconnCfg.MaxRetries,
+	})
+
+	go m.reconnectLoop(conn)
+	return nil
+}
+
 // reconnectHostKeyCallback returns a callback that auto-rejects changed/unknown host keys.
 // During reconnect we don't prompt the user — changed keys fail the attempt.
 func (m *Manager) reconnectHostKeyCallback() ssh.HostKeyCallback {
