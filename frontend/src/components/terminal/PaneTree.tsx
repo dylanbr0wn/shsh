@@ -5,6 +5,7 @@ import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
 import { TerminalInstance } from './TerminalInstance'
 import { SFTPPanel } from '../sftp/SFTPPanel'
+import { LocalFSPanel } from '../localfs/LocalFSPanel'
 import { PaneHeader } from './PaneHeader'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resizable'
 import { hostsAtom } from '../../store/atoms'
@@ -99,6 +100,8 @@ export function PaneTree({
       />
       {leaf.kind === 'sftp' ? (
         <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+      ) : leaf.kind === 'local' ? (
+        <LocalFSPanel channelId={leaf.channelId} />
       ) : (
         <>
           <InitialFitTrigger isActive={isActive} />
