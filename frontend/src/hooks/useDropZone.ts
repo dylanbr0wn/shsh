@@ -43,7 +43,10 @@ export function useDropZone({ onDrop }: UseDropZoneOptions) {
     e.dataTransfer.dropEffect = mime === 'application/x-shsh-host' ? 'copy' : 'move'
     const rect = e.currentTarget.getBoundingClientRect()
     const edge = nearestEdge(rect, e.clientX, e.clientY)
-    setState({ edge, mime })
+    setState((prev) => {
+      if (prev.edge === edge && prev.mime === mime) return prev
+      return { edge, mime }
+    })
   }, [])
 
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
@@ -65,17 +68,18 @@ export function useDropZone({ onDrop }: UseDropZoneOptions) {
     (e: React.DragEvent<HTMLDivElement>) => {
       dragCountRef.current = 0
       const mime = detectMime(e.dataTransfer.types)
-      if (!mime || !state.edge) {
+      if (!mime) {
         setState({ edge: null, mime: null })
         return
       }
       e.preventDefault()
+      const rect = e.currentTarget.getBoundingClientRect()
+      const edge = nearestEdge(rect, e.clientX, e.clientY)
       const data = e.dataTransfer.getData(mime)
-      const edge = state.edge
       setState({ edge: null, mime: null })
       onDrop(edge, mime, data)
     },
-    [state.edge, onDrop],
+    [onDrop],
   )
 
   return {
