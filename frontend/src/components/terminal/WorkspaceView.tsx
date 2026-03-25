@@ -6,9 +6,11 @@ import {
   activeLogsAtom,
   isLogViewerOpenAtom,
   hostsAtom,
+  pendingTemplateAtom,
 } from '../../store/atoms'
 import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
-import type { PaneLeaf } from '../../store/workspaces'
+import type { PaneLeaf, PaneNode } from '../../store/workspaces'
+import type { TemplateNode, WorkspaceTemplate } from '../../types'
 import { PaneTree } from './PaneTree'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
@@ -25,11 +27,12 @@ import { toast } from 'sonner'
 
 export function WorkspaceView() {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom)
-  const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+  const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom)
   const hosts = useAtomValue(hostsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
 
   const handleSplit = useCallback(
     async (workspaceId: string, paneId: string, direction: 'horizontal' | 'vertical') => {
@@ -205,6 +208,108 @@ export function WorkspaceView() {
     },
     [hosts, setWorkspaces]
   )
+
+  async function buildLiveTree(node: TemplateNode): Promise<PaneNode> {
+    if ('direction' in node) {
+      const [left, right] = await Promise.all([buildLiveTree(node.left), buildLiveTree(node.right)])
+      return { type: 'split', direction: node.direction, ratio: node.ratio, left, right }
+    }
+
+    const paneId = crypto.randomUUID()
+
+    if (node.kind === 'local') {
+      const channelId = await OpenLocalFSChannel()
+      return {
+        type: 'leaf',
+        kind: 'local',
+        paneId,
+        connectionId: 'local',
+        channelId,
+        hostId: 'local',
+        hostLabel: 'Local',
+        status: 'connected',
+      } as PaneLeaf
+    }
+
+    const host = hosts.find((h) => h.id === node.hostId)
+    const hostLabel = host?.label ?? 'Unknown'
+
+    try {
+      const result = await ConnectHost(node.hostId)
+
+      if (node.kind === 'sftp') {
+        const channelId = await OpenSFTPChannel(result.connectionId)
+        return {
+          type: 'leaf',
+          kind: 'sftp',
+          paneId,
+          connectionId: result.connectionId,
+          channelId,
+          hostId: node.hostId,
+          hostLabel,
+          status: 'connected',
+        } as PaneLeaf
+      }
+
+      return {
+        type: 'leaf',
+        kind: 'terminal',
+        paneId,
+        connectionId: result.connectionId,
+        channelId: result.channelId,
+        hostId: node.hostId,
+        hostLabel,
+        status: 'connected',
+        connectedAt: new Date().toISOString(),
+      } as PaneLeaf
+    } catch {
+      return {
+        type: 'leaf',
+        kind: 'terminal',
+        paneId,
+        connectionId: '',
+        channelId: '',
+        hostId: node.hostId,
+        hostLabel,
+        status: 'error',
+      } as PaneLeaf
+    }
+  }
+
+  async function openTemplate(template: WorkspaceTemplate) {
+    try {
+      // layout may arrive as a number[] (JSON bytes) from Wails — decode it
+      const layoutRaw =
+        typeof template.layout === 'string'
+          ? template.layout
+          : new TextDecoder().decode(new Uint8Array(template.layout as unknown as number[]))
+      const templateNode = JSON.parse(layoutRaw) as TemplateNode
+      const liveTree = await buildLiveTree(templateNode)
+      const newWorkspaceId = crypto.randomUUID()
+      const leaf = firstLeaf(liveTree)
+      setWorkspaces((prev) => [
+        ...prev,
+        {
+          id: newWorkspaceId,
+          label: template.name,
+          name: template.name,
+          savedTemplateId: template.id,
+          layout: liveTree,
+          focusedPaneId: leaf.paneId,
+        },
+      ])
+      setActiveWorkspaceId(newWorkspaceId)
+    } catch (err) {
+      toast.error('Failed to open template', { description: String(err) })
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingTemplate) return
+    setPendingTemplate(null)
+    openTemplate(pendingTemplate)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingTemplate])
 
   const handleClose = useCallback(
     (workspaceId: string, paneId: string) => {
