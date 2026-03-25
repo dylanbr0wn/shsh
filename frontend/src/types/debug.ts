@@ -1,12 +1,12 @@
-export type DebugCategory = 'ssh' | 'sftp' | 'portfwd' | 'network' | 'app'
+export type DebugCategory = 'ssh' | 'sftp' | 'portfwd' | 'network' | 'app' | 'ui'
 export type DebugLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error'
 
 export interface DebugLogEntry {
   timestamp: string
   category: DebugCategory
   level: DebugLevel
-  sessionId: string
-  sessionLabel: string
+  sessionId?: string
+  sessionLabel?: string
   message: string
   fields?: Record<string, string | number>
 }
@@ -25,4 +25,5 @@ export const CATEGORY_COLORS: Record<DebugCategory, string> = {
   portfwd: '#d2a8ff',
   network: '#f0883e',
   app: '#8b949e',
+  ui: '#f85149',
 }
