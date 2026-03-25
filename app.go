@@ -552,8 +552,31 @@ func (a *App) OpenSFTPChannel(connectionID string) (string, error) {
 	return a.manager.OpenSFTPChannel(connectionID)
 }
 
+// OpenLocalFSChannel creates a new local filesystem channel.
+func (a *App) OpenLocalFSChannel() (string, error) {
+	return a.manager.OpenLocalFSChannel()
+}
+
 func (a *App) RespondHostKey(connectionID string, accepted bool) {
 	a.manager.RespondConnHostKey(connectionID, accepted)
+}
+
+// --- Local FS ---
+
+func (a *App) LocalListDir(channelID string, path string) ([]session.SFTPEntry, error) {
+	return a.manager.LocalListDir(channelID, path)
+}
+
+func (a *App) LocalMkdir(channelID string, path string) error {
+	return a.manager.LocalMkdir(channelID, path)
+}
+
+func (a *App) LocalDelete(channelID string, path string) error {
+	return a.manager.LocalDelete(channelID, path)
+}
+
+func (a *App) LocalRename(channelID string, oldPath string, newPath string) error {
+	return a.manager.LocalRename(channelID, oldPath, newPath)
 }
 
 // --- SFTP ---
@@ -609,9 +632,20 @@ func (a *App) SFTPRename(channelID string, oldPath string, newPath string) error
 	return a.manager.SFTPRename(channelID, oldPath, newPath)
 }
 
-// TransferBetweenHosts copies a file between two SFTP channels (cross-host transfer).
+// TransferBetweenChannels copies a file between any two channels (SFTP or local FS).
+func (a *App) TransferBetweenChannels(srcChannelID string, srcPath string, dstChannelID string, dstPath string) error {
+	return a.manager.TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, dstPath)
+}
+
+// TransferBetweenHosts is a deprecated alias for TransferBetweenChannels.
+// Kept temporarily until frontend references are updated.
 func (a *App) TransferBetweenHosts(srcChannelID string, srcPath string, dstChannelID string, dstPath string) error {
-	return a.manager.TransferBetweenHosts(srcChannelID, srcPath, dstChannelID, dstPath)
+	return a.manager.TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, dstPath)
+}
+
+// GetHomeDir returns the current user's home directory path.
+func (a *App) GetHomeDir() (string, error) {
+	return os.UserHomeDir()
 }
 
 // --- Port Forwarding ---
@@ -1097,6 +1131,20 @@ func (a *App) PingHosts(hostIDs []string) []PingResult {
 	}
 	wg.Wait()
 	return results
+}
+
+// --- Workspace Templates ---
+
+func (a *App) SaveWorkspaceTemplate(input store.CreateTemplateInput) (store.WorkspaceTemplate, error) {
+	return a.store.SaveWorkspaceTemplate(input)
+}
+
+func (a *App) ListWorkspaceTemplates() ([]store.WorkspaceTemplate, error) {
+	return a.store.ListWorkspaceTemplates()
+}
+
+func (a *App) DeleteWorkspaceTemplate(id string) error {
+	return a.store.DeleteWorkspaceTemplate(id)
 }
 
 // hostLabelFromFilename extracts the host label from a log filename.

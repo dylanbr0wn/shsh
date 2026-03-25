@@ -35,6 +35,8 @@ export function DeleteSessionLog(arg1:string):Promise<void>;
 
 export function DeleteTerminalProfile(arg1:string):Promise<void>;
 
+export function DeleteWorkspaceTemplate(arg1:string):Promise<void>;
+
 export function DeployPublicKey(arg1:string,arg2:string):Promise<string>;
 
 export function ExportHosts(arg1:main.ExportInput):Promise<string>;
@@ -42,6 +44,8 @@ export function ExportHosts(arg1:main.ExportInput):Promise<string>;
 export function GenerateSSHKey(arg1:main.GenerateKeyInput):Promise<main.GenerateKeyResult>;
 
 export function GetConfig():Promise<config.Config>;
+
+export function GetHomeDir():Promise<string>;
 
 export function GetSessionLogPath(arg1:string):Promise<string>;
 
@@ -58,6 +62,18 @@ export function ListSSHConfigHosts():Promise<Array<sshconfig.Entry>>;
 export function ListSessionLogs():Promise<Array<main.LogFileInfo>>;
 
 export function ListTerminalProfiles():Promise<Array<store.TerminalProfile>>;
+
+export function ListWorkspaceTemplates():Promise<Array<store.WorkspaceTemplate>>;
+
+export function LocalDelete(arg1:string,arg2:string):Promise<void>;
+
+export function LocalListDir(arg1:string,arg2:string):Promise<Array<session.SFTPEntry>>;
+
+export function LocalMkdir(arg1:string,arg2:string):Promise<void>;
+
+export function LocalRename(arg1:string,arg2:string,arg3:string):Promise<void>;
+
+export function OpenLocalFSChannel():Promise<string>;
 
 export function OpenLogsDirectory():Promise<void>;
 
@@ -95,6 +111,8 @@ export function SFTPUpload(arg1:string,arg2:string):Promise<void>;
 
 export function SFTPUploadPath(arg1:string,arg2:string,arg3:string):Promise<void>;
 
+export function SaveWorkspaceTemplate(arg1:store.CreateTemplateInput):Promise<store.WorkspaceTemplate>;
+
 export function SetDebugLevel(arg1:string,arg2:string):Promise<void>;
 
 
@@ -105,6 +123,8 @@ export function StopSessionLog(arg1:string):Promise<void>;
 export function TestCredentialRef(arg1:string,arg2:string):Promise<void>;
 
 export function TestHostCredential(arg1:string):Promise<void>;
+
+export function TransferBetweenChannels(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 
 export function TransferBetweenHosts(arg1:string,arg2:string,arg3:string,arg4:string):Promise<void>;
 

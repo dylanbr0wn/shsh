@@ -13,7 +13,7 @@ export function updateLeafByChannelId(
   patch: Partial<PaneLeaf>
 ): PaneNode {
   if (node.type === 'leaf') {
-    return node.channelId === channelId ? { ...node, ...patch } : node
+    return node.channelId === channelId ? ({ ...node, ...patch } as PaneLeaf) : node
   }
   return {
     ...node,

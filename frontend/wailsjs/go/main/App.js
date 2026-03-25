@@ -58,6 +58,10 @@ export function DeleteTerminalProfile(arg1) {
   return window['go']['main']['App']['DeleteTerminalProfile'](arg1);
 }
 
+export function DeleteWorkspaceTemplate(arg1) {
+  return window['go']['main']['App']['DeleteWorkspaceTemplate'](arg1);
+}
+
 export function DeployPublicKey(arg1, arg2) {
   return window['go']['main']['App']['DeployPublicKey'](arg1, arg2);
 }
@@ -72,6 +76,10 @@ export function GenerateSSHKey(arg1) {
 
 export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
+}
+
+export function GetHomeDir() {
+  return window['go']['main']['App']['GetHomeDir']();
 }
 
 export function GetSessionLogPath(arg1) {
@@ -104,6 +112,30 @@ export function ListSessionLogs() {
 
 export function ListTerminalProfiles() {
   return window['go']['main']['App']['ListTerminalProfiles']();
+}
+
+export function ListWorkspaceTemplates() {
+  return window['go']['main']['App']['ListWorkspaceTemplates']();
+}
+
+export function LocalDelete(arg1, arg2) {
+  return window['go']['main']['App']['LocalDelete'](arg1, arg2);
+}
+
+export function LocalListDir(arg1, arg2) {
+  return window['go']['main']['App']['LocalListDir'](arg1, arg2);
+}
+
+export function LocalMkdir(arg1, arg2) {
+  return window['go']['main']['App']['LocalMkdir'](arg1, arg2);
+}
+
+export function LocalRename(arg1, arg2, arg3) {
+  return window['go']['main']['App']['LocalRename'](arg1, arg2, arg3);
+}
+
+export function OpenLocalFSChannel() {
+  return window['go']['main']['App']['OpenLocalFSChannel']();
 }
 
 export function OpenLogsDirectory() {
@@ -178,6 +210,10 @@ export function SFTPUploadPath(arg1, arg2, arg3) {
   return window['go']['main']['App']['SFTPUploadPath'](arg1, arg2, arg3);
 }
 
+export function SaveWorkspaceTemplate(arg1) {
+  return window['go']['main']['App']['SaveWorkspaceTemplate'](arg1);
+}
+
 export function SetDebugLevel(arg1, arg2) {
   return window['go']['main']['App']['SetDebugLevel'](arg1, arg2);
 }
@@ -197,6 +233,10 @@ export function TestCredentialRef(arg1, arg2) {
 
 export function TestHostCredential(arg1) {
   return window['go']['main']['App']['TestHostCredential'](arg1);
+}
+
+export function TransferBetweenChannels(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['TransferBetweenChannels'](arg1, arg2, arg3, arg4);
 }
 
 export function TransferBetweenHosts(arg1, arg2, arg3, arg4) {

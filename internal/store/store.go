@@ -137,6 +137,22 @@ type UpdateHostInput struct {
 	JumpHostID        *string          `json:"jumpHostId,omitempty"`
 }
 
+// WorkspaceTemplate is a saved workspace layout that can be opened to recreate a workspace.
+type WorkspaceTemplate struct {
+	ID        string          `json:"id"`
+	Name      string          `json:"name"`
+	Layout    json.RawMessage `json:"layout"`
+	CreatedAt string          `json:"createdAt"`
+	UpdatedAt string          `json:"updatedAt"`
+}
+
+// CreateTemplateInput is the payload for creating or updating a workspace template.
+type CreateTemplateInput struct {
+	ID     string          `json:"id"`     // empty for create, set for update
+	Name   string          `json:"name"`
+	Layout json.RawMessage `json:"layout"`
+}
+
 // Store manages persistent host data in SQLite.
 type Store struct {
 	db *sql.DB
@@ -206,6 +222,18 @@ func New(dbPath string) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_source TEXT NOT NULL DEFAULT 'inline'`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_ref TEXT`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN jump_host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS workspace_templates (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    layout TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create workspace_templates table: %w", err)
+	}
 
 	return &Store{db: db}, nil
 }
@@ -721,6 +749,68 @@ func (s *Store) UpdateGroup(input UpdateGroupInput) (Group, error) {
 func (s *Store) DeleteGroup(id string) error {
 	_, err := s.db.Exec(`DELETE FROM groups WHERE id = ?`, id)
 	return err
+}
+
+// --- Workspace Template CRUD ---
+
+// SaveWorkspaceTemplate creates or updates a workspace template.
+func (s *Store) SaveWorkspaceTemplate(input CreateTemplateInput) (WorkspaceTemplate, error) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	id := input.ID
+	if id == "" {
+		id = uuid.New().String()
+	}
+	_, err := s.db.Exec(
+		`INSERT INTO workspace_templates (id, name, layout, created_at, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET name=excluded.name, layout=excluded.layout, updated_at=excluded.updated_at`,
+		id, input.Name, string(input.Layout), now, now,
+	)
+	if err != nil {
+		return WorkspaceTemplate{}, fmt.Errorf("save workspace template: %w", err)
+	}
+	return s.GetWorkspaceTemplate(id)
+}
+
+// ListWorkspaceTemplates returns all saved workspace templates ordered by most recent.
+func (s *Store) ListWorkspaceTemplates() ([]WorkspaceTemplate, error) {
+	rows, err := s.db.Query(`SELECT id, name, layout, created_at, updated_at FROM workspace_templates ORDER BY updated_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("list workspace templates: %w", err)
+	}
+	defer rows.Close()
+	var templates []WorkspaceTemplate
+	for rows.Next() {
+		var t WorkspaceTemplate
+		var layout string
+		if err := rows.Scan(&t.ID, &t.Name, &layout, &t.CreatedAt, &t.UpdatedAt); err != nil {
+			return nil, fmt.Errorf("scan workspace template: %w", err)
+		}
+		t.Layout = json.RawMessage(layout)
+		templates = append(templates, t)
+	}
+	return templates, rows.Err()
+}
+
+// GetWorkspaceTemplate returns a single workspace template by ID.
+func (s *Store) GetWorkspaceTemplate(id string) (WorkspaceTemplate, error) {
+	var t WorkspaceTemplate
+	var layout string
+	err := s.db.QueryRow(`SELECT id, name, layout, created_at, updated_at FROM workspace_templates WHERE id = ?`, id).
+		Scan(&t.ID, &t.Name, &layout, &t.CreatedAt, &t.UpdatedAt)
+	if err != nil {
+		return WorkspaceTemplate{}, fmt.Errorf("get workspace template: %w", err)
+	}
+	t.Layout = json.RawMessage(layout)
+	return t, nil
+}
+
+// DeleteWorkspaceTemplate removes a workspace template.
+func (s *Store) DeleteWorkspaceTemplate(id string) error {
+	_, err := s.db.Exec(`DELETE FROM workspace_templates WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete workspace template: %w", err)
+	}
+	return nil
 }
 
 // GetHostsByGroup returns all hosts belonging to the given group.
