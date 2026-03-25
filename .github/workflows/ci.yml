@@ -64,7 +64,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Wails bindings
-        run: wails generate module
+        run: |
+          mkdir -p frontend/dist
+          wails generate module
 
       - name: Type check & build
         working-directory: frontend
