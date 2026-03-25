@@ -95,7 +95,13 @@ type Host struct {
 	KeyPath           *string          `json:"keyPath,omitempty"`
 	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
 	CredentialRef     string           `json:"credentialRef,omitempty"`
-	JumpHostID        *string          `json:"jumpHostId,omitempty"`
+	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
+	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
+	ReconnectMaxRetries          *int             `json:"reconnectMaxRetries,omitempty"`
+	ReconnectInitialDelaySeconds *int             `json:"reconnectInitialDelaySeconds,omitempty"`
+	ReconnectMaxDelaySeconds     *int             `json:"reconnectMaxDelaySeconds,omitempty"`
+	KeepAliveIntervalSeconds     *int             `json:"keepAliveIntervalSeconds,omitempty"`
+	KeepAliveMaxMissed           *int             `json:"keepAliveMaxMissed,omitempty"`
 }
 
 // CreateHostInput is the payload for adding a new host.
@@ -112,9 +118,15 @@ type CreateHostInput struct {
 	Color             string           `json:"color,omitempty"`
 	Tags              []string         `json:"tags,omitempty"`
 	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
-	JumpHostID        *string          `json:"jumpHostId,omitempty"`
-	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
-	CredentialRef     string           `json:"credentialRef,omitempty"`
+	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
+	CredentialSource             credstore.Source `json:"credentialSource,omitempty"`
+	CredentialRef                string           `json:"credentialRef,omitempty"`
+	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
+	ReconnectMaxRetries          *int             `json:"reconnectMaxRetries,omitempty"`
+	ReconnectInitialDelaySeconds *int             `json:"reconnectInitialDelaySeconds,omitempty"`
+	ReconnectMaxDelaySeconds     *int             `json:"reconnectMaxDelaySeconds,omitempty"`
+	KeepAliveIntervalSeconds     *int             `json:"keepAliveIntervalSeconds,omitempty"`
+	KeepAliveMaxMissed           *int             `json:"keepAliveMaxMissed,omitempty"`
 }
 
 // UpdateHostInput is the payload for editing an existing host.
@@ -132,9 +144,15 @@ type UpdateHostInput struct {
 	Color             string           `json:"color,omitempty"`
 	Tags              []string         `json:"tags,omitempty"`
 	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
-	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
-	CredentialRef     string           `json:"credentialRef,omitempty"`
-	JumpHostID        *string          `json:"jumpHostId,omitempty"`
+	CredentialSource             credstore.Source `json:"credentialSource,omitempty"`
+	CredentialRef                string           `json:"credentialRef,omitempty"`
+	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
+	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
+	ReconnectMaxRetries          *int             `json:"reconnectMaxRetries,omitempty"`
+	ReconnectInitialDelaySeconds *int             `json:"reconnectInitialDelaySeconds,omitempty"`
+	ReconnectMaxDelaySeconds     *int             `json:"reconnectMaxDelaySeconds,omitempty"`
+	KeepAliveIntervalSeconds     *int             `json:"keepAliveIntervalSeconds,omitempty"`
+	KeepAliveMaxMissed           *int             `json:"keepAliveMaxMissed,omitempty"`
 }
 
 // WorkspaceTemplate is a saved workspace layout that can be opened to recreate a workspace.
@@ -222,6 +240,12 @@ func New(dbPath string) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_source TEXT NOT NULL DEFAULT 'inline'`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN credential_ref TEXT`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN jump_host_id TEXT REFERENCES hosts(id) ON DELETE SET NULL`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN reconnect_enabled INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN reconnect_max_retries INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN reconnect_initial_delay_seconds INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN reconnect_max_delay_seconds INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN keep_alive_interval_seconds INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN keep_alive_max_missed INTEGER`)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS workspace_templates (
     id TEXT PRIMARY KEY,
@@ -261,6 +285,26 @@ func nullStrPtr(p *string) sql.NullString {
 	return sql.NullString{String: *p, Valid: true}
 }
 
+// nullIntPtr returns a NullInt64 from a *int pointer.
+func nullIntPtr(p *int) sql.NullInt64 {
+	if p == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: int64(*p), Valid: true}
+}
+
+// nullBoolPtr returns a NullInt64 (stored as INTEGER) from a *bool pointer.
+// true → 1, false → 0, nil → NULL.
+func nullBoolPtr(p *bool) sql.NullInt64 {
+	if p == nil {
+		return sql.NullInt64{}
+	}
+	if *p {
+		return sql.NullInt64{Int64: 1, Valid: true}
+	}
+	return sql.NullInt64{Int64: 0, Valid: true}
+}
+
 // scanColorTags fills h.Color and h.Tags from nullable DB columns.
 func scanColorTags(h *Host, color, tags sql.NullString) {
 	if color.Valid {
@@ -268,6 +312,36 @@ func scanColorTags(h *Host, color, tags sql.NullString) {
 	}
 	if tags.Valid {
 		json.Unmarshal([]byte(tags.String), &h.Tags) //nolint:errcheck
+	}
+}
+
+// scanReconnectFields fills reconnect/keepalive override fields on h from nullable INT64 DB columns.
+func scanReconnectFields(h *Host,
+	reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64,
+) {
+	if reconnectEnabled.Valid {
+		v := reconnectEnabled.Int64 != 0
+		h.ReconnectEnabled = &v
+	}
+	if reconnectMaxRetries.Valid {
+		v := int(reconnectMaxRetries.Int64)
+		h.ReconnectMaxRetries = &v
+	}
+	if reconnectInitialDelay.Valid {
+		v := int(reconnectInitialDelay.Int64)
+		h.ReconnectInitialDelaySeconds = &v
+	}
+	if reconnectMaxDelay.Valid {
+		v := int(reconnectMaxDelay.Int64)
+		h.ReconnectMaxDelaySeconds = &v
+	}
+	if keepAliveInterval.Valid {
+		v := int(keepAliveInterval.Int64)
+		h.KeepAliveIntervalSeconds = &v
+	}
+	if keepAliveMaxMissed.Valid {
+		v := int(keepAliveMaxMissed.Int64)
+		h.KeepAliveMaxMissed = &v
 	}
 }
 
@@ -361,7 +435,7 @@ func (s *Store) DeleteProfile(id string) error {
 // ListHosts returns all saved hosts.
 func (s *Store) ListHosts() ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id FROM hosts ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -372,7 +446,8 @@ func (s *Store) ListHosts() ([]Host, error) {
 	for rows.Next() {
 		var h Host
 		var lastConn, groupID, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID); err != nil {
+		var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -397,6 +472,7 @@ func (s *Store) ListHosts() ([]Host, error) {
 			h.JumpHostID = &jumpHostID.String
 		}
 		scanColorTags(&h, color, tags)
+		scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 		hosts = append(hosts, h)
 	}
 	if hosts == nil {
@@ -413,21 +489,27 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	}
 
 	host := Host{
-		ID:                uuid.New().String(),
-		Label:             input.Label,
-		Hostname:          input.Hostname,
-		Port:              input.Port,
-		Username:          input.Username,
-		AuthMethod:        input.AuthMethod,
-		CreatedAt:         time.Now().UTC().Format(time.RFC3339),
-		GroupID:           input.GroupID,
-		Color:             input.Color,
-		Tags:              input.Tags,
-		TerminalProfileID: input.TerminalProfileID,
-		KeyPath:           input.KeyPath,
-		CredentialSource:  credSrc,
-		CredentialRef:     input.CredentialRef,
-		JumpHostID:        input.JumpHostID,
+		ID:                           uuid.New().String(),
+		Label:                        input.Label,
+		Hostname:                     input.Hostname,
+		Port:                         input.Port,
+		Username:                     input.Username,
+		AuthMethod:                   input.AuthMethod,
+		CreatedAt:                    time.Now().UTC().Format(time.RFC3339),
+		GroupID:                      input.GroupID,
+		Color:                        input.Color,
+		Tags:                         input.Tags,
+		TerminalProfileID:            input.TerminalProfileID,
+		KeyPath:                      input.KeyPath,
+		CredentialSource:             credSrc,
+		CredentialRef:                input.CredentialRef,
+		JumpHostID:                   input.JumpHostID,
+		ReconnectEnabled:             input.ReconnectEnabled,
+		ReconnectMaxRetries:          input.ReconnectMaxRetries,
+		ReconnectInitialDelaySeconds: input.ReconnectInitialDelaySeconds,
+		ReconnectMaxDelaySeconds:     input.ReconnectMaxDelaySeconds,
+		KeepAliveIntervalSeconds:     input.KeepAliveIntervalSeconds,
+		KeepAliveMaxMissed:           input.KeepAliveMaxMissed,
 	}
 
 	groupID := sql.NullString{}
@@ -438,9 +520,10 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		host.ID, host.Label, host.Hostname, host.Port, host.Username, host.AuthMethod, host.CreatedAt, groupID,
 		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath), string(credSrc), nullStr(input.CredentialRef), nullStrPtr(input.JumpHostID),
+		nullBoolPtr(input.ReconnectEnabled), nullIntPtr(input.ReconnectMaxRetries), nullIntPtr(input.ReconnectInitialDelaySeconds), nullIntPtr(input.ReconnectMaxDelaySeconds), nullIntPtr(input.KeepAliveIntervalSeconds), nullIntPtr(input.KeepAliveMaxMissed),
 	)
 	if err != nil {
 		return Host{}, err
@@ -483,10 +566,12 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	tagsJSON, _ := json.Marshal(input.Tags)
 
 	_, err := s.db.Exec(
-		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=?, credential_source=?, credential_ref=?, jump_host_id=? WHERE id=?`,
+		`UPDATE hosts SET label=?, hostname=?, port=?, username=?, auth_method=?, group_id=?, color=?, tags=?, terminal_profile_id=?, key_path=?, credential_source=?, credential_ref=?, jump_host_id=?, reconnect_enabled=?, reconnect_max_retries=?, reconnect_initial_delay_seconds=?, reconnect_max_delay_seconds=?, keep_alive_interval_seconds=?, keep_alive_max_missed=? WHERE id=?`,
 		input.Label, input.Hostname, input.Port, input.Username, input.AuthMethod, groupID,
 		nullStr(input.Color), nullStr(string(tagsJSON)), nullStrPtr(input.TerminalProfileID), nullStrPtr(input.KeyPath),
-		string(credSrc), nullStr(input.CredentialRef), nullStrPtr(input.JumpHostID), input.ID,
+		string(credSrc), nullStr(input.CredentialRef), nullStrPtr(input.JumpHostID),
+		nullBoolPtr(input.ReconnectEnabled), nullIntPtr(input.ReconnectMaxRetries), nullIntPtr(input.ReconnectInitialDelaySeconds), nullIntPtr(input.ReconnectMaxDelaySeconds), nullIntPtr(input.KeepAliveIntervalSeconds), nullIntPtr(input.KeepAliveMaxMissed),
+		input.ID,
 	)
 	if err != nil {
 		return Host{}, err
@@ -521,9 +606,10 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 
 	var h Host
 	var lastConn, gid, color, tags, profileID, keyPath, credSrcCol, credRefCol, jumpHostID sql.NullString
+	var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
 	err = s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id FROM hosts WHERE id=?`, input.ID,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrcCol, &credRefCol, &jumpHostID)
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE id=?`, input.ID,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrcCol, &credRefCol, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed)
 	if err != nil {
 		return Host{}, err
 	}
@@ -549,6 +635,7 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		h.JumpHostID = &jumpHostID.String
 	}
 	scanColorTags(&h, color, tags)
+	scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 	return h, nil
 }
 
@@ -568,9 +655,10 @@ func (s *Store) DeleteHost(id string) error {
 func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	var h Host
 	var dbPassword, keyPath, credSrc, credRef, jumpHostID sql.NullString
+	var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
 	err := s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, password, key_path, credential_source, credential_ref, jump_host_id FROM hosts WHERE id = ?`, id,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath, &credSrc, &credRef, &jumpHostID)
+		`SELECT id, label, hostname, port, username, auth_method, password, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE id = ?`, id,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &dbPassword, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed)
 	if err != nil {
 		return Host{}, "", fmt.Errorf("host not found: %w", err)
 	}
@@ -586,6 +674,7 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	if jumpHostID.Valid {
 		h.JumpHostID = &jumpHostID.String
 	}
+	scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 
 	switch h.AuthMethod {
 	case AuthPassword:

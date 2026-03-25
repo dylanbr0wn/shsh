@@ -61,6 +61,18 @@ type SSHConfig struct {
 	TerminalType string `json:"terminal_type"`
 	// PortForwardBindAddress is the local address port forwards listen on.
 	PortForwardBindAddress string `json:"port_forward_bind_address"`
+	// ReconnectEnabled controls whether dropped connections auto-reconnect.
+	ReconnectEnabled bool `json:"reconnect_enabled"`
+	// ReconnectMaxRetries is the max reconnect attempts before giving up.
+	ReconnectMaxRetries int `json:"reconnect_max_retries"`
+	// ReconnectInitialDelaySeconds is the delay before the first retry.
+	ReconnectInitialDelaySeconds int `json:"reconnect_initial_delay_seconds"`
+	// ReconnectMaxDelaySeconds caps the exponential backoff delay.
+	ReconnectMaxDelaySeconds int `json:"reconnect_max_delay_seconds"`
+	// KeepAliveIntervalSeconds is the interval between SSH keep-alive pings.
+	KeepAliveIntervalSeconds int `json:"keep_alive_interval_seconds"`
+	// KeepAliveMaxMissed is how many missed keep-alive pings trigger disconnect.
+	KeepAliveMaxMissed int `json:"keep_alive_max_missed"`
 }
 
 // SFTPConfig controls SFTP transfer behaviour.
@@ -79,12 +91,18 @@ type WindowConfig struct {
 func Default() *Config {
 	return &Config{
 		SSH: SSHConfig{
-			ConnectionTimeoutSeconds:          30,
+			ConnectionTimeoutSeconds:          15,
 			HostKeyVerificationTimeoutSeconds: 120,
 			TCPPingTimeoutSeconds:             5,
 			DefaultRSAKeyBits:                 4096,
 			TerminalType:                      "xterm-256color",
 			PortForwardBindAddress:            "127.0.0.1",
+			ReconnectEnabled:                  true,
+			ReconnectMaxRetries:               5,
+			ReconnectInitialDelaySeconds:      2,
+			ReconnectMaxDelaySeconds:          30,
+			KeepAliveIntervalSeconds:          30,
+			KeepAliveMaxMissed:                3,
 		},
 		SFTP: SFTPConfig{
 			BufferSizeKB: 32,

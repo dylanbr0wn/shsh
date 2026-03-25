@@ -39,10 +39,20 @@ type ChannelStatusEvent struct {
 	Error        string      `json:"error,omitempty"`
 }
 
+// ConnectionStatusEvent is emitted when a connection's status changes.
+type ConnectionStatusEvent struct {
+	ConnectionID string `json:"connectionId"`
+	Status       Status `json:"status"`
+	Attempt      int    `json:"attempt,omitempty"`
+	MaxRetries   int    `json:"maxRetries,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
 // TerminalChannel owns an SSH session with PTY.
 type TerminalChannel struct {
 	id           string
 	connectionID string
+	mu           sync.Mutex
 	sshSess      *ssh.Session
 	stdin        io.WriteCloser
 	ctx          context.Context
@@ -51,6 +61,7 @@ type TerminalChannel struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
+	markDeadFn   func() // called on read error to trigger reconnect
 }
 
 func (t *TerminalChannel) ID() string           { return t.id }
@@ -61,6 +72,76 @@ func (t *TerminalChannel) Close() error {
 	t.sshSess.Close()
 	t.wg.Wait() // Wait for output reader goroutine to finish
 	return nil
+}
+
+// reopen replaces the SSH session and pipes on a reconnected client.
+// Returns the stdout reader for the caller to pass to startReader().
+func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reader, error) {
+	tc.wg.Wait() // ensure old reader goroutine is done
+
+	sshSess, err := client.NewSession()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SSH session: %w", err)
+	}
+
+	if err := sshSess.RequestPty(termType, 24, 80, ssh.TerminalModes{}); err != nil {
+		sshSess.Close()
+		return nil, fmt.Errorf("failed to request PTY: %w", err)
+	}
+
+	stdin, err := sshSess.StdinPipe()
+	if err != nil {
+		sshSess.Close()
+		return nil, fmt.Errorf("failed to get stdin pipe: %w", err)
+	}
+
+	stdout, err := sshSess.StdoutPipe()
+	if err != nil {
+		sshSess.Close()
+		return nil, fmt.Errorf("failed to get stdout pipe: %w", err)
+	}
+
+	if err := sshSess.Shell(); err != nil {
+		sshSess.Close()
+		return nil, fmt.Errorf("failed to start shell: %w", err)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	tc.mu.Lock()
+	tc.sshSess = sshSess
+	tc.stdin = stdin
+	tc.ctx = ctx
+	tc.cancel = cancel
+	tc.mu.Unlock()
+
+	return stdout, nil
+}
+
+// startReader spawns the stdout reader goroutine. Called after reopen() or initial open.
+func (tc *TerminalChannel) startReader(stdout io.Reader, emitter EventEmitter) {
+	tc.wg.Go(func() {
+		buf := make([]byte, 4096)
+		for {
+			n, err := stdout.Read(buf)
+			if n > 0 {
+				chunk := string(buf[:n])
+				emitter.Emit("channel:output:"+tc.id, chunk)
+				tc.logMu.Lock()
+				if tc.logFile != nil {
+					tc.logFile.WriteString(ansiRe.ReplaceAllString(chunk, "")) //nolint:errcheck
+				}
+				tc.logMu.Unlock()
+			}
+			if err != nil {
+				break
+			}
+		}
+		tc.cancel()
+		if tc.markDeadFn != nil {
+			tc.markDeadFn()
+		}
+	})
 }
 
 // SFTPChannel owns an SFTP client subsystem.
@@ -82,6 +163,18 @@ func (s *SFTPChannel) Close() error {
 		s.client = nil
 		return err
 	}
+	return nil
+}
+
+// reopen replaces the SFTP client on a reconnected SSH connection.
+func (sc *SFTPChannel) reopen(client *ssh.Client) error {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	newClient, err := sftp.NewClient(client)
+	if err != nil {
+		return fmt.Errorf("sftp negotiation failed: %w", err)
+	}
+	sc.client = newClient
 	return nil
 }
 
@@ -131,6 +224,14 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 		ctx:          chCtx,
 		cancel:       cancel,
 	}
+	tc.markDeadFn = func() {
+		m.mu.Lock()
+		conn, ok := m.connections[connectionID]
+		m.mu.Unlock()
+		if ok {
+			m.markDead(conn)
+		}
+	}
 
 	conn.incrRefs()
 
@@ -145,26 +246,7 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 		Status:       StatusConnecting,
 	})
 
-	// Start output reader goroutine
-	tc.wg.Go(func() {
-		buf := make([]byte, 4096)
-		for {
-			n, err := stdout.Read(buf)
-			if n > 0 {
-				chunk := string(buf[:n])
-				m.emitter.Emit("channel:output:"+channelID, chunk)
-				tc.logMu.Lock()
-				if tc.logFile != nil {
-					tc.logFile.WriteString(ansiRe.ReplaceAllString(chunk, "")) //nolint:errcheck
-				}
-				tc.logMu.Unlock()
-			}
-			if err != nil {
-				break
-			}
-		}
-		tc.cancel()
-	})
+	tc.startReader(stdout, m.emitter)
 
 	m.emitter.Emit("channel:status", ChannelStatusEvent{
 		ChannelID:    channelID,
@@ -284,8 +366,8 @@ func (m *Manager) teardownConnection(conn *Connection) {
 	delete(m.connByIdent, ident)
 	m.mu.Unlock()
 
-	m.emitter.Emit("connection:status", map[string]any{
-		"connectionId": conn.id,
-		"status":       "disconnected",
+	m.emitter.Emit("connection:status", ConnectionStatusEvent{
+		ConnectionID: conn.id,
+		Status:       StatusDisconnected,
 	})
 }

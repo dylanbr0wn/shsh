@@ -11,7 +11,13 @@ export interface PasswordManagersStatus {
   onePassword: PMStatus
   bitwarden: PMStatus
 }
-export type SessionStatus = 'connecting' | 'connected' | 'disconnected' | 'error'
+export type SessionStatus =
+  | 'connecting'
+  | 'connected'
+  | 'disconnected'
+  | 'reconnecting'
+  | 'failed'
+  | 'error'
 export type CursorStyle = 'block' | 'underline' | 'bar'
 
 export interface TerminalProfile {
@@ -61,6 +67,12 @@ export interface Host {
   jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
+  reconnectEnabled?: boolean
+  reconnectMaxRetries?: number
+  reconnectInitialDelaySeconds?: number
+  reconnectMaxDelaySeconds?: number
+  keepAliveIntervalSeconds?: number
+  keepAliveMaxMissed?: number
 }
 
 export interface CreateHostInput {
@@ -79,6 +91,12 @@ export interface CreateHostInput {
   jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
+  reconnectEnabled?: boolean
+  reconnectMaxRetries?: number
+  reconnectInitialDelaySeconds?: number
+  reconnectMaxDelaySeconds?: number
+  keepAliveIntervalSeconds?: number
+  keepAliveMaxMissed?: number
 }
 
 export interface UpdateHostInput {
@@ -98,6 +116,12 @@ export interface UpdateHostInput {
   jumpHostId?: string
   credentialSource?: CredentialSource
   credentialRef?: string
+  reconnectEnabled?: boolean
+  reconnectMaxRetries?: number
+  reconnectInitialDelaySeconds?: number
+  reconnectMaxDelaySeconds?: number
+  keepAliveIntervalSeconds?: number
+  keepAliveMaxMissed?: number
 }
 
 export interface SFTPEntry {

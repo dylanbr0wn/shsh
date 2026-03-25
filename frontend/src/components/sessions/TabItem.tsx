@@ -17,6 +17,8 @@ import { cn } from '../../lib/utils'
 const statusDotClass: Record<string, string> = {
   connected: 'bg-green-500',
   connecting: 'bg-yellow-500 animate-pulse',
+  reconnecting: 'bg-amber-500 animate-pulse',
+  failed: 'bg-muted-foreground',
   disconnected: 'bg-muted-foreground',
   error: 'bg-destructive',
 }
@@ -60,6 +62,7 @@ interface Props {
   onCloseToLeft: () => void
   onCloseToRight: () => void
   onCloseAll: () => void
+  onRetry?: () => void
   onRename: (name: string) => void
   onSaveTemplate?: () => void
 }
@@ -160,6 +163,7 @@ export function TabItem({
   onCloseToLeft,
   onCloseToRight,
   onCloseAll,
+  onRetry,
   onRename,
   onSaveTemplate,
 }: Props) {
@@ -290,6 +294,12 @@ export function TabItem({
         <ContextMenuItem onSelect={onCloseToRight} disabled={isLast}>
           Close to the Right
         </ContextMenuItem>
+        {(session.status === 'failed' || session.status === 'disconnected') && onRetry && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={onRetry}>Retry Connection</ContextMenuItem>
+          </>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onSelect={onCloseAll}>
           Close All

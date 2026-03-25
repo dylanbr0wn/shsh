@@ -542,6 +542,11 @@ func (a *App) CloseChannel(channelID string) error {
 	return a.manager.CloseChannel(channelID)
 }
 
+// RetryConnection manually retries a failed connection.
+func (a *App) RetryConnection(connectionID string) error {
+	return a.manager.RetryConnection(connectionID)
+}
+
 // OpenTerminal opens a new terminal channel on an existing connection.
 func (a *App) OpenTerminal(connectionID string) (string, error) {
 	return a.manager.OpenTerminal(connectionID)

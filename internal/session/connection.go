@@ -24,17 +24,37 @@ import (
 type Connection struct {
 	id           string
 	hostID       string
-	jumpHostID   string // empty for direct connections
+	jumpHostID   string
 	hostLabel    string
 	client       *goph.Client
-	jumpClient   *ssh.Client // non-nil when connected via a jump host
+	jumpClient   *ssh.Client
 	ctx          context.Context
 	cancel       context.CancelFunc
-	mu           sync.Mutex
-	channelRefs  int // interactive channels only (terminal + SFTP)
+	mu           sync.RWMutex
+	channelRefs  int
 	portForwards map[string]*portForward
 	pfMu         sync.Mutex
+
+	// Credential & config caching for reconnect
+	host      store.Host
+	password  string
+	jumpHost  *store.Host
+	jumpPass  string
+	reconnCfg ReconnectConfig
+
+	// Reconnect state
+	state         connState
+	reconnectDone chan struct{}
+	deadOnce      sync.Once
 }
+
+type connState int
+
+const (
+	stateConnected    connState = iota
+	stateReconnecting
+	stateFailed
+)
 
 // connIdentity is the key used for connection reuse and in-flight dedup.
 type connIdentity struct {
@@ -60,7 +80,11 @@ type ConnHostKeyEvent struct {
 func (c *Connection) ID() string            { return c.id }
 func (c *Connection) HostID() string         { return c.hostID }
 func (c *Connection) HostLabel() string      { return c.hostLabel }
-func (c *Connection) SSHClient() *ssh.Client { return c.client.Client }
+func (c *Connection) SSHClient() *ssh.Client {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.client.Client
+}
 
 // incrRefs increments the interactive channel ref count.
 func (c *Connection) incrRefs() {
@@ -96,8 +120,37 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 	// Fast path: existing connection.
 	m.mu.Lock()
 	if conn, ok := m.connByIdent[ident]; ok {
+		conn.mu.RLock()
+		state := conn.state
+		done := conn.reconnectDone
+		conn.mu.RUnlock()
 		m.mu.Unlock()
-		return ConnectResult{ConnectionID: conn.id, Reused: true}, nil
+
+		if state == stateReconnecting {
+			select {
+			case <-done:
+			case <-m.ctx.Done():
+				return ConnectResult{}, fmt.Errorf("manager shutting down")
+			}
+			// Re-read state after reconnect completes
+			conn.mu.RLock()
+			state = conn.state
+			conn.mu.RUnlock()
+			if state == stateConnected {
+				return ConnectResult{ConnectionID: conn.id, Reused: true}, nil
+			}
+			// Reconnect failed — fall through to fresh dial
+		} else if state == stateConnected {
+			return ConnectResult{ConnectionID: conn.id, Reused: true}, nil
+		}
+		// stateFailed — fall through to fresh dial
+		m.mu.Lock()
+		delete(m.connByIdent, ident)
+		delete(m.connections, conn.id)
+		m.mu.Unlock()
+
+		// Re-enter from the top to hit the pending/gate path cleanly
+		return m.ConnectOrReuse(host, password, jumpHost, jumpPassword, onConnected)
 	}
 
 	// Check for in-flight dial.
@@ -213,15 +266,22 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 
 	connCtx, cancel := context.WithCancel(context.Background())
 	conn := &Connection{
-		id:           connectionID,
-		hostID:       host.ID,
-		jumpHostID:   jumpHostID,
-		hostLabel:    host.Label,
-		client:       client,
-		jumpClient:   jumpSSHClient,
-		ctx:          connCtx,
-		cancel:       cancel,
-		portForwards: make(map[string]*portForward),
+		id:            connectionID,
+		hostID:        host.ID,
+		jumpHostID:    jumpHostID,
+		hostLabel:     host.Label,
+		client:        client,
+		jumpClient:    jumpSSHClient,
+		ctx:           connCtx,
+		cancel:        cancel,
+		portForwards:  make(map[string]*portForward),
+		host:          host,
+		password:      password,
+		jumpHost:      jumpHost,
+		jumpPass:      jumpPassword,
+		reconnCfg:     resolveReconnectConfig(m.cfg.SSH, host),
+		state:         stateConnected,
+		reconnectDone: make(chan struct{}),
 	}
 
 	m.mu.Lock()
@@ -230,6 +290,8 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 	delete(m.pending, ident)
 	m.mu.Unlock()
 	close(gate)
+
+	m.startKeepAlive(conn)
 
 	if onConnected != nil {
 		onConnected()
