@@ -38,6 +38,8 @@ const (
 	StatusConnected    Status = "connected"
 	StatusDisconnected Status = "disconnected"
 	StatusError        Status = "error"
+	StatusReconnecting Status = "reconnecting"
+	StatusFailed       Status = "failed"
 )
 
 // SFTPEntry represents a single file or directory in an SFTP listing.

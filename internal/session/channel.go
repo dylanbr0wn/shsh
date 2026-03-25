@@ -38,6 +38,15 @@ type ChannelStatusEvent struct {
 	Error        string      `json:"error,omitempty"`
 }
 
+// ConnectionStatusEvent is emitted when a connection's status changes.
+type ConnectionStatusEvent struct {
+	ConnectionID string `json:"connectionId"`
+	Status       Status `json:"status"`
+	Attempt      int    `json:"attempt,omitempty"`
+	MaxRetries   int    `json:"maxRetries,omitempty"`
+	Error        string `json:"error,omitempty"`
+}
+
 // TerminalChannel owns an SSH session with PTY.
 type TerminalChannel struct {
 	id           string
@@ -278,8 +287,8 @@ func (m *Manager) teardownConnection(conn *Connection) {
 	delete(m.connByIdent, ident)
 	m.mu.Unlock()
 
-	m.emitter.Emit("connection:status", map[string]any{
-		"connectionId": conn.id,
-		"status":       "disconnected",
+	m.emitter.Emit("connection:status", ConnectionStatusEvent{
+		ConnectionID: conn.id,
+		Status:       StatusDisconnected,
 	})
 }

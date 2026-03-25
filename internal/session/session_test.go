@@ -47,3 +47,12 @@ func TestWrite_UnknownChannel(t *testing.T) {
 		t.Fatal("expected error for unknown channel, got nil")
 	}
 }
+
+func TestStatusConstants(t *testing.T) {
+	if session.StatusReconnecting != "reconnecting" {
+		t.Errorf("expected 'reconnecting', got %q", session.StatusReconnecting)
+	}
+	if session.StatusFailed != "failed" {
+		t.Errorf("expected 'failed', got %q", session.StatusFailed)
+	}
+}
