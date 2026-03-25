@@ -33,11 +33,12 @@ func (m *Manager) ensureLocalConnection() *Connection {
 		return conn
 	}
 
-	_, cancel := context.WithCancel(context.Background())
+	connCtx, cancel := context.WithCancel(m.ctx)
 	conn := &Connection{
 		id:           localConnectionID,
 		hostID:       localConnectionID,
 		hostLabel:    "Local",
+		ctx:          connCtx,
 		cancel:       cancel,
 		portForwards: make(map[string]*portForward),
 	}
