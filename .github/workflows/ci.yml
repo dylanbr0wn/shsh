@@ -38,11 +38,13 @@ jobs:
   frontend:
     name: Frontend — typecheck, lint & build
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
       - uses: pnpm/action-setup@v4
         with:
@@ -54,17 +56,28 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
-      - name: Install dependencies
+      - name: Install Wails CLI
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Wails bindings
+        run: wails generate module
+
       - name: Type check & build
+        working-directory: frontend
         run: pnpm build
 
       - name: Lint
+        working-directory: frontend
         run: pnpm lint
 
       - name: Format check
+        working-directory: frontend
         run: pnpm format:check
 
       - name: Audit dependencies
+        working-directory: frontend
         run: pnpm audit --audit-level=high
