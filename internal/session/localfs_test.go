@@ -2,6 +2,8 @@ package session
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
@@ -103,5 +105,123 @@ func TestCloseLocalFSChannel(t *testing.T) {
 	conn.mu.Unlock()
 	if refs != 0 {
 		t.Errorf("channelRefs = %d, want 0", refs)
+	}
+}
+
+func TestLocalListDir(t *testing.T) {
+	m := newTestManager()
+
+	channelID, err := m.OpenLocalFSChannel()
+	if err != nil {
+		t.Fatalf("OpenLocalFSChannel() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	subDir := filepath.Join(dir, "subdir")
+	if err := os.Mkdir(subDir, 0o755); err != nil {
+		t.Fatalf("Mkdir() error = %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "file.txt"), []byte("hello"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	entries, err := m.LocalListDir(channelID, dir)
+	if err != nil {
+		t.Fatalf("LocalListDir() error = %v", err)
+	}
+
+	if len(entries) != 2 {
+		t.Fatalf("len(entries) = %d, want 2", len(entries))
+	}
+
+	// Dirs first, then files
+	if !entries[0].IsDir {
+		t.Errorf("entries[0].IsDir = false, want true (dirs should come first)")
+	}
+	if entries[0].Name != "subdir" {
+		t.Errorf("entries[0].Name = %q, want %q", entries[0].Name, "subdir")
+	}
+	if entries[1].IsDir {
+		t.Errorf("entries[1].IsDir = true, want false")
+	}
+	if entries[1].Name != "file.txt" {
+		t.Errorf("entries[1].Name = %q, want %q", entries[1].Name, "file.txt")
+	}
+	if entries[1].Path != filepath.Join(dir, "file.txt") {
+		t.Errorf("entries[1].Path = %q, want %q", entries[1].Path, filepath.Join(dir, "file.txt"))
+	}
+}
+
+func TestLocalMkdir(t *testing.T) {
+	m := newTestManager()
+
+	channelID, err := m.OpenLocalFSChannel()
+	if err != nil {
+		t.Fatalf("OpenLocalFSChannel() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	newDir := filepath.Join(dir, "newdir", "nested")
+
+	if err := m.LocalMkdir(channelID, newDir); err != nil {
+		t.Fatalf("LocalMkdir() error = %v", err)
+	}
+
+	info, err := os.Stat(newDir)
+	if err != nil {
+		t.Fatalf("Stat() error = %v; directory was not created", err)
+	}
+	if !info.IsDir() {
+		t.Errorf("expected %q to be a directory", newDir)
+	}
+}
+
+func TestLocalDelete(t *testing.T) {
+	m := newTestManager()
+
+	channelID, err := m.OpenLocalFSChannel()
+	if err != nil {
+		t.Fatalf("OpenLocalFSChannel() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "todelete.txt")
+	if err := os.WriteFile(file, []byte("bye"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := m.LocalDelete(channelID, file); err != nil {
+		t.Fatalf("LocalDelete() error = %v", err)
+	}
+
+	if _, err := os.Stat(file); !os.IsNotExist(err) {
+		t.Errorf("expected file %q to be gone, got err = %v", file, err)
+	}
+}
+
+func TestLocalRename(t *testing.T) {
+	m := newTestManager()
+
+	channelID, err := m.OpenLocalFSChannel()
+	if err != nil {
+		t.Fatalf("OpenLocalFSChannel() error = %v", err)
+	}
+
+	dir := t.TempDir()
+	oldPath := filepath.Join(dir, "old.txt")
+	newPath := filepath.Join(dir, "new.txt")
+	if err := os.WriteFile(oldPath, []byte("content"), 0o644); err != nil {
+		t.Fatalf("WriteFile() error = %v", err)
+	}
+
+	if err := m.LocalRename(channelID, oldPath, newPath); err != nil {
+		t.Fatalf("LocalRename() error = %v", err)
+	}
+
+	if _, err := os.Stat(oldPath); !os.IsNotExist(err) {
+		t.Errorf("expected old path %q to be gone, got err = %v", oldPath, err)
+	}
+	if _, err := os.Stat(newPath); err != nil {
+		t.Errorf("expected new path %q to exist, got err = %v", newPath, err)
 	}
 }
