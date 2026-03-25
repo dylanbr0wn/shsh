@@ -21,6 +21,7 @@ A React class component (required for `componentDidCatch`).
 | `fallback` | `"inline" \| "panel" \| "fullscreen"` | Fallback UI variant |
 | `zone` | `string` | Label for error reporting (e.g. `"sftp"`, `"terminal"`, `"modal"`) |
 | `onError` | `(error: Error, errorInfo: React.ErrorInfo) => void` | Callback wired to UI error reporting |
+| `resetKeys` | `unknown[]` (optional) | When any value changes, auto-reset the boundary |
 | `children` | `React.ReactNode` | Components to protect |
 
 **Fallback variants:**
@@ -34,6 +35,7 @@ A React class component (required for `componentDidCatch`).
 - `componentDidCatch(error, errorInfo)` calls `onError` prop
 - `getDerivedStateFromError` sets `hasError: true`, renders fallback
 - "Try Again" button clears `hasError`, re-renders children
+- `componentDidUpdate` checks `resetKeys` against previous values — if any changed, clears `hasError` automatically. This ensures boundaries wrapping dynamic content (e.g., a pane that gets replaced) don't stay stuck in error state.
 
 ### 2. `useErrorHandler()` — `hooks/useErrorHandler.ts`
 
@@ -79,6 +81,7 @@ This is what gets passed as the `onError` prop to every `<ErrorBoundary>`.
 
 | Location | Wraps | Fallback |
 |----------|-------|----------|
+| `App.tsx` | `<TitleBar />` | `"inline"` |
 | `App.tsx` | `<Sidebar />` | `"panel"` |
 | `App.tsx` | `<MainArea />` | `"panel"` |
 | `App.tsx` | `<DebugPanel />` | `"inline"` |
@@ -89,9 +92,17 @@ This is what gets passed as the `onError` prop to every `<ErrorBoundary>`.
 |----------|-------|----------|
 | `PaneTree.tsx` | Each `<TerminalInstance />` leaf | `"inline"` |
 | `PaneTree.tsx` | Each `<SFTPPanel />` leaf | `"inline"` |
-| `App.tsx` | Each modal (all 11) | `"inline"` |
-| `TerminalSidebar.tsx` | `<PortForwardsPanel />` | `"inline"` |
-| `Sidebar.tsx` | Each `<HostListItem />` | `"inline"` |
+| `App.tsx` | Each modal (all 11 in App.tsx) | `"inline"` |
+| `MainArea.tsx` | `<TabBar />` separately from `<WorkspaceView />` | `"inline"` |
+| `TerminalSidebar.tsx` | `<PortForwardsPanel />` inside `PopoverContent` | `"inline"` |
+| `HostList.tsx` | Each `<HostListItem />` | `"inline"` |
+| `HostGroupSection.tsx` | Each `<HostListItem />` | `"inline"` |
+
+**Dynamic zone labels:** Boundaries in loops should include a discriminator in the `zone` prop for debuggability: e.g., `zone={\`terminal-\${leaf.channelId}\`}`, `zone={\`host-\${host.id}\`}`. This makes UI error entries in the debug panel distinguishable.
+
+**Modals outside App.tsx:** `EditGroupModal` (in `HostGroupSection.tsx`) and `CloseConfirmDialog` (in TabBar) are covered by their respective Tier 2 zone boundaries (Sidebar and MainArea). No dedicated Tier 3 boundary needed.
+
+**Portal behavior:** `PortForwardsPanel` renders inside a Radix `PopoverContent` which uses a React portal. Radix portals preserve the React component tree hierarchy, so the boundary wrapping content inside `PopoverContent` will catch errors correctly.
 
 **Isolation guarantee:** A render error in one terminal pane, SFTP panel, modal, or host list item is contained. Sibling components and other zones continue working. The user can close the broken pane/modal and retry.
 
@@ -101,6 +112,7 @@ This is what gets passed as the `onError` prop to every `<ErrorBoundary>`.
 
 - `DebugCategory` adds `"ui"`: `'ssh' | 'sftp' | 'portfwd' | 'network' | 'app' | 'ui'`
 - `CATEGORY_COLORS` adds `ui` entry (e.g., `'#f85149'` — red, signals errors)
+- `sessionId` and `sessionLabel` become optional fields on `DebugLogEntry` (UI errors have no session). Filter logic in `debugFilteredEntriesAtom` needs a guard: `if (sessionFilter && e.sessionId !== sessionFilter) return false` already handles undefined correctly since `undefined !== "some-id"`.
 
 ### Store changes — `store/debugStore.ts`
 
@@ -110,6 +122,7 @@ This is what gets passed as the `onError` prop to every `<ErrorBoundary>`.
 
 - `ALL_CATEGORIES` gets `{ key: 'ui', label: 'UI' }` entry
 - New pill appears in filter bar alongside SSH, SFTP, PortFwd, Network, App
+- Session dropdown extraction skips entries with no `sessionId`
 
 ### No structural changes
 
@@ -119,7 +132,7 @@ The virtualized list, filtering logic, settings overlay, and log row rendering a
 
 | File | Purpose |
 |------|---------|
-| `frontend/src/components/ErrorBoundary.tsx` | Reusable error boundary class component |
+| `frontend/src/components/ErrorBoundary.tsx` | Reusable error boundary class component with `resetKeys` support |
 | `frontend/src/hooks/useErrorHandler.ts` | Hook to push async errors into boundaries |
 | `frontend/src/lib/reportUIError.ts` | Formats and pushes UI errors to debug ring buffer |
 
@@ -127,10 +140,21 @@ The virtualized list, filtering logic, settings overlay, and log row rendering a
 
 | File | Change |
 |------|--------|
-| `frontend/src/types/debug.ts` | Add `"ui"` to `DebugCategory`, add color |
+| `frontend/src/types/debug.ts` | Add `"ui"` to `DebugCategory`, add color, make `sessionId`/`sessionLabel` optional |
 | `frontend/src/store/debugStore.ts` | Add `"ui"` to default filter categories |
-| `frontend/src/components/debug/DebugFilterBar.tsx` | Add UI category pill |
-| `frontend/src/App.tsx` | Wrap zones and modals with `<ErrorBoundary>` |
+| `frontend/src/components/debug/DebugFilterBar.tsx` | Add UI category pill, guard session extraction for optional `sessionId` |
+| `frontend/src/App.tsx` | Wrap TitleBar, zones, and modals with `<ErrorBoundary>` |
+| `frontend/src/components/layout/MainArea.tsx` | Wrap `<TabBar />` separately with `<ErrorBoundary>` |
 | `frontend/src/components/terminal/PaneTree.tsx` | Wrap terminal/SFTP leaves with `<ErrorBoundary>` |
-| `frontend/src/components/layout/Sidebar.tsx` | Wrap `<HostListItem>` with `<ErrorBoundary>` |
-| `frontend/src/components/terminal/TerminalSidebar.tsx` | Wrap `<PortForwardsPanel>` with `<ErrorBoundary>` |
+| `frontend/src/components/sidebar/HostList.tsx` | Wrap `<HostListItem>` with `<ErrorBoundary>` |
+| `frontend/src/components/sidebar/HostGroupSection.tsx` | Wrap `<HostListItem>` with `<ErrorBoundary>` |
+| `frontend/src/components/terminal/TerminalSidebar.tsx` | Wrap `<PortForwardsPanel>` inside `PopoverContent` with `<ErrorBoundary>` |
+
+## Testing
+
+Error boundaries require actual React render errors to test. Strategy:
+
+- **Manual verification:** Temporarily add `throw new Error('test')` inside a leaf component (e.g., `HostListItem` render body) and confirm the inline fallback renders while siblings remain functional.
+- **`useErrorHandler` verification:** Call `reportError(new Error('test'))` from an async handler and confirm the boundary catches it.
+- **Debug panel verification:** Trigger a boundary catch and confirm a `"ui"` category entry appears in the debug panel log with the correct zone label.
+- **Reset verification:** Trigger an error in a dynamic boundary (e.g., a terminal pane), close the pane, open a new one, and confirm the boundary resets (no stale error state).
