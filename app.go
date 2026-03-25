@@ -617,6 +617,11 @@ func (a *App) TransferBetweenHosts(srcChannelID string, srcPath string, dstChann
 	return a.manager.TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, dstPath)
 }
 
+// GetHomeDir returns the current user's home directory path.
+func (a *App) GetHomeDir() (string, error) {
+	return os.UserHomeDir()
+}
+
 // --- Port Forwarding ---
 
 func (a *App) AddPortForward(connectionID string, localPort int, remoteHost string, remotePort int) (session.PortForwardInfo, error) {

@@ -78,6 +78,10 @@ export function GetConfig() {
   return window['go']['main']['App']['GetConfig']();
 }
 
+export function GetHomeDir() {
+  return window['go']['main']['App']['GetHomeDir']();
+}
+
 export function GetSessionLogPath(arg1) {
   return window['go']['main']['App']['GetSessionLogPath'](arg1);
 }

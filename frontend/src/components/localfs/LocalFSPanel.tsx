@@ -19,6 +19,7 @@ import {
   LocalDelete,
   LocalRename,
   TransferBetweenChannels,
+  GetHomeDir,
 } from '../../../wailsjs/go/main/App'
 import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
 import { Button } from '../ui/button'
@@ -69,7 +70,6 @@ export function LocalFSPanel({ channelId }: Props) {
   const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
   const draggedEntryRef = useRef<SFTPEntry | null>(null)
   const dragCounterRef = useRef(0)
-  const isDragOverRef = useRef(false)
 
   const listDir = useCallback(
     async (path: string) => {
@@ -84,14 +84,15 @@ export function LocalFSPanel({ channelId }: Props) {
     [channelId, setState]
   )
 
-  // List root on mount (channel lifecycle managed externally)
+  // List home dir on mount (channel lifecycle managed externally)
   useEffect(() => {
     let cancelled = false
 
     async function init() {
       setState({ isLoading: true, error: null, entries: [], currentPath: '' })
       try {
-        if (!cancelled) await listDir('/')
+        const home = await GetHomeDir()
+        if (!cancelled) await listDir(home || '/')
       } catch (err) {
         if (!cancelled) setState({ isLoading: false, error: String(err) })
       }
@@ -206,7 +207,6 @@ export function LocalFSPanel({ channelId }: Props) {
           e.preventDefault()
           dragCounterRef.current++
           if (dragCounterRef.current === 1) {
-            isDragOverRef.current = true
             setIsDragOver(true)
           }
         }
@@ -220,14 +220,12 @@ export function LocalFSPanel({ channelId }: Props) {
       onDragLeave={() => {
         dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
         if (dragCounterRef.current === 0) {
-          isDragOverRef.current = false
           setIsDragOver(false)
         }
       }}
       onDrop={async (e) => {
         e.preventDefault()
         dragCounterRef.current = 0
-        isDragOverRef.current = false
         setIsDragOver(false)
 
         // Handle cross-panel drops onto the panel background (into currentPath)

@@ -45,6 +45,8 @@ export function GenerateSSHKey(arg1:main.GenerateKeyInput):Promise<main.Generate
 
 export function GetConfig():Promise<config.Config>;
 
+export function GetHomeDir():Promise<string>;
+
 export function GetSessionLogPath(arg1:string):Promise<string>;
 
 export function ImportSSHConfigHosts(arg1:Array<string>):Promise<Array<store.Host>>;
