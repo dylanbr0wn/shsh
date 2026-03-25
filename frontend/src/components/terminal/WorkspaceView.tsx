@@ -5,6 +5,7 @@ import {
   activeWorkspaceIdAtom,
   activeLogsAtom,
   isLogViewerOpenAtom,
+  hostsAtom,
 } from '../../store/atoms'
 import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
 import type { PaneLeaf } from '../../store/workspaces'
@@ -16,6 +17,8 @@ import {
   StopSessionLog,
   OpenTerminal,
   OpenSFTPChannel,
+  OpenLocalFSChannel,
+  ConnectHost,
   CloseChannel,
 } from '../../../wailsjs/go/main/App'
 import { toast } from 'sonner'
@@ -23,6 +26,7 @@ import { toast } from 'sonner'
 export function WorkspaceView() {
   const [workspaces, setWorkspaces] = useAtom(workspacesAtom)
   const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+  const hosts = useAtomValue(hostsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
@@ -98,6 +102,108 @@ export function WorkspaceView() {
       }
     },
     [workspaces, setWorkspaces]
+  )
+
+  const handleAddLocal = useCallback(
+    async (workspaceId: string, paneId: string) => {
+      try {
+        const channelId = await OpenLocalFSChannel()
+        const newPaneId = crypto.randomUUID()
+        const newLeaf: PaneLeaf = {
+          type: 'leaf',
+          kind: 'local',
+          paneId: newPaneId,
+          connectionId: 'local',
+          channelId,
+          hostId: 'local',
+          hostLabel: 'Local',
+          status: 'connected',
+        }
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w
+            return {
+              ...w,
+              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
+              focusedPaneId: newPaneId,
+            }
+          })
+        )
+      } catch (err) {
+        toast.error('Failed to open local files', { description: String(err) })
+      }
+    },
+    [setWorkspaces]
+  )
+
+  const handleAddTerminal = useCallback(
+    async (workspaceId: string, paneId: string, hostId: string) => {
+      const host = hosts.find((h) => h.id === hostId)
+      if (!host) return
+      try {
+        const result = await ConnectHost(hostId)
+        const newPaneId = crypto.randomUUID()
+        const newLeaf: PaneLeaf = {
+          type: 'leaf',
+          kind: 'terminal',
+          paneId: newPaneId,
+          connectionId: result.connectionId,
+          channelId: result.channelId,
+          hostId,
+          hostLabel: host.label,
+          status: 'connected',
+          connectedAt: new Date().toISOString(),
+        }
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w
+            return {
+              ...w,
+              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
+              focusedPaneId: newPaneId,
+            }
+          })
+        )
+      } catch (err) {
+        toast.error('Failed to add terminal', { description: String(err) })
+      }
+    },
+    [hosts, setWorkspaces]
+  )
+
+  const handleAddSFTP = useCallback(
+    async (workspaceId: string, paneId: string, hostId: string) => {
+      const host = hosts.find((h) => h.id === hostId)
+      if (!host) return
+      try {
+        const result = await ConnectHost(hostId)
+        const channelId = await OpenSFTPChannel(result.connectionId)
+        const newPaneId = crypto.randomUUID()
+        const newLeaf: PaneLeaf = {
+          type: 'leaf',
+          kind: 'sftp',
+          paneId: newPaneId,
+          connectionId: result.connectionId,
+          channelId,
+          hostId,
+          hostLabel: host.label,
+          status: 'connected',
+        }
+        setWorkspaces((prev) =>
+          prev.map((w) => {
+            if (w.id !== workspaceId) return w
+            return {
+              ...w,
+              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
+              focusedPaneId: newPaneId,
+            }
+          })
+        )
+      } catch (err) {
+        toast.error('Failed to add SFTP pane', { description: String(err) })
+      }
+    },
+    [hosts, setWorkspaces]
   )
 
   const handleClose = useCallback(
@@ -201,6 +307,9 @@ export function WorkspaceView() {
                 onSplit={(paneId, direction) => handleSplit(workspace.id, paneId, direction)}
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
                 onOpenFiles={(paneId) => handleOpenFiles(workspace.id, paneId)}
+                onAddLocal={(paneId) => handleAddLocal(workspace.id, paneId)}
+                onAddTerminal={(paneId, hostId) => handleAddTerminal(workspace.id, paneId, hostId)}
+                onAddSFTP={(paneId, hostId) => handleAddSFTP(workspace.id, paneId, hostId)}
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />

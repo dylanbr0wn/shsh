@@ -17,6 +17,9 @@ interface PaneTreeProps {
   onSplit: (paneId: string, direction: 'horizontal' | 'vertical') => void
   onClose: (paneId: string) => void
   onOpenFiles: (paneId: string) => void
+  onAddLocal: (paneId: string) => void
+  onAddTerminal: (paneId: string, hostId: string) => void
+  onAddSFTP: (paneId: string, hostId: string) => void
 }
 
 export function PaneTree({
@@ -26,6 +29,9 @@ export function PaneTree({
   onSplit,
   onClose,
   onOpenFiles,
+  onAddLocal,
+  onAddTerminal,
+  onAddSFTP,
 }: PaneTreeProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
@@ -52,6 +58,9 @@ export function PaneTree({
             onSplit={onSplit}
             onClose={onClose}
             onOpenFiles={onOpenFiles}
+            onAddLocal={onAddLocal}
+            onAddTerminal={onAddTerminal}
+            onAddSFTP={onAddSFTP}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -63,6 +72,9 @@ export function PaneTree({
             onSplit={onSplit}
             onClose={onClose}
             onOpenFiles={onOpenFiles}
+            onAddLocal={onAddLocal}
+            onAddTerminal={onAddTerminal}
+            onAddSFTP={onAddSFTP}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -86,6 +98,23 @@ export function PaneTree({
           : undefined
       }
       onMouseDown={() => setFocused(leaf.paneId)}
+      onDragOver={(e) => {
+        if (e.dataTransfer.types.includes('application/x-shsh-host')) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'copy'
+        }
+      }}
+      onDrop={(e) => {
+        const raw = e.dataTransfer.getData('application/x-shsh-host')
+        if (!raw) return
+        e.preventDefault()
+        const { hostId } = JSON.parse(raw) as { hostId: string }
+        if (e.shiftKey) {
+          onAddSFTP(leaf.paneId, hostId)
+        } else {
+          onAddTerminal(leaf.paneId, hostId)
+        }
+      }}
     >
       <PaneHeader
         hostLabel={leaf.hostLabel}
@@ -97,6 +126,9 @@ export function PaneTree({
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
         onOpenFiles={leaf.kind === 'terminal' ? () => onOpenFiles(leaf.paneId) : undefined}
+        onAddLocal={() => onAddLocal(leaf.paneId)}
+        onAddTerminal={(hostId) => onAddTerminal(leaf.paneId, hostId)}
+        onAddSFTP={(hostId) => onAddSFTP(leaf.paneId, hostId)}
       />
       {leaf.kind === 'sftp' ? (
         <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />

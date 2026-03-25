@@ -1,5 +1,6 @@
 import { SplitSquareVertical, SplitSquareHorizontal, X, Terminal, FolderOpen } from 'lucide-react'
 import { Button } from '../ui/button'
+import { AddPaneMenu } from '../workspace/AddPaneMenu'
 
 interface Props {
   hostLabel: string
@@ -11,6 +12,9 @@ interface Props {
   onClose: () => void
   canClose: boolean
   onOpenFiles?: () => void
+  onAddLocal?: () => void
+  onAddTerminal?: (hostId: string) => void
+  onAddSFTP?: (hostId: string) => void
 }
 
 export function PaneHeader({
@@ -22,6 +26,9 @@ export function PaneHeader({
   onClose,
   canClose,
   onOpenFiles,
+  onAddLocal,
+  onAddTerminal,
+  onAddSFTP,
 }: Props) {
   return (
     <div className="absolute top-0 right-0 z-10 flex h-7 items-center gap-1 px-2 opacity-0 transition-opacity group-hover/pane:opacity-100">
@@ -41,6 +48,13 @@ export function PaneHeader({
           <Button variant="ghost" size="icon-xs" title="Open files" onClick={onOpenFiles}>
             <FolderOpen className="size-3" />
           </Button>
+        )}
+        {onAddLocal && onAddTerminal && onAddSFTP && (
+          <AddPaneMenu
+            onAddLocal={onAddLocal}
+            onAddTerminal={onAddTerminal}
+            onAddSFTP={onAddSFTP}
+          />
         )}
         <Button
           variant="ghost"
