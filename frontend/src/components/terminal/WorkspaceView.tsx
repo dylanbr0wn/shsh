@@ -13,6 +13,7 @@ import type { PaneLeaf, PaneNode, Workspace } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
 import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { PaneTree } from './PaneTree'
+import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
 import {
@@ -34,6 +35,13 @@ export function WorkspaceView() {
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
+  const [pendingHostDrop, setPendingHostDrop] = useState<{
+    workspaceId: string
+    paneId: string
+    hostId: string
+    direction: 'horizontal' | 'vertical'
+    position: 'before' | 'after'
+  } | null>(null)
 
   const handleSplit = useCallback(
     async (
@@ -41,7 +49,8 @@ export function WorkspaceView() {
       paneId: string,
       direction: 'horizontal' | 'vertical',
       kind?: PaneLeaf['kind'],
-      hostId?: string
+      hostId?: string,
+      position?: 'before' | 'after'
     ) => {
       const ws = workspaces.find((w) => w.id === workspaceId)
       if (!ws) return
@@ -121,9 +130,12 @@ export function WorkspaceView() {
         setWorkspaces((prev) =>
           prev.map((w) => {
             if (w.id !== workspaceId) return w
+            const newLayout = position
+              ? insertLeaf(w.layout, paneId, direction, newLeaf, position)
+              : splitLeaf(w.layout, paneId, direction, newLeaf)
             return {
               ...w,
-              layout: splitLeaf(w.layout, paneId, direction, newLeaf),
+              layout: newLayout,
               focusedPaneId: newLeaf.paneId,
             }
           })
@@ -321,7 +333,8 @@ export function WorkspaceView() {
       paneId: string,
       edge: DropEdge,
       mime: DropMime,
-      data: string
+      data: string,
+      shiftKey: boolean
     ) => {
       const edgeToSplit: Record<
         DropEdge,
@@ -336,8 +349,13 @@ export function WorkspaceView() {
 
       if (mime === 'application/x-shsh-host') {
         const { hostId } = JSON.parse(data) as { hostId: string }
-        // Default to terminal for now; Task 6 adds the type chooser popover
-        handleSplit(workspaceId, paneId, direction, 'terminal', hostId)
+        if (shiftKey) {
+          // Shift+drag fast path: directly open SFTP
+          handleSplit(workspaceId, paneId, direction, 'sftp', hostId, position)
+        } else {
+          // Show type chooser popover
+          setPendingHostDrop({ workspaceId, paneId, hostId, direction, position })
+        }
       } else if (mime === 'application/x-shsh-pane') {
         const { paneId: sourcePaneId, workspaceId: sourceWorkspaceId } = JSON.parse(data) as {
           paneId: string
@@ -430,8 +448,8 @@ export function WorkspaceView() {
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
-                onDrop={(paneId, edge, mime, data) =>
-                  handleDrop(workspace.id, paneId, edge, mime, data)
+                onDrop={(paneId, edge, mime, data, shiftKey) =>
+                  handleDrop(workspace.id, paneId, edge, mime, data, shiftKey)
                 }
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
@@ -450,6 +468,54 @@ export function WorkspaceView() {
           </div>
         )
       })}
+      {pendingHostDrop && (
+        <div className="pointer-events-none fixed inset-0 z-50">
+          <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+            <PaneTypeChooser
+              currentHostId={pendingHostDrop.hostId}
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) setPendingHostDrop(null)
+              }}
+              onSelectTerminal={(hostId) => {
+                handleSplit(
+                  pendingHostDrop.workspaceId,
+                  pendingHostDrop.paneId,
+                  pendingHostDrop.direction,
+                  'terminal',
+                  hostId,
+                  pendingHostDrop.position
+                )
+                setPendingHostDrop(null)
+              }}
+              onSelectSFTP={(hostId) => {
+                handleSplit(
+                  pendingHostDrop.workspaceId,
+                  pendingHostDrop.paneId,
+                  pendingHostDrop.direction,
+                  'sftp',
+                  hostId,
+                  pendingHostDrop.position
+                )
+                setPendingHostDrop(null)
+              }}
+              onSelectLocal={() => {
+                handleSplit(
+                  pendingHostDrop.workspaceId,
+                  pendingHostDrop.paneId,
+                  pendingHostDrop.direction,
+                  'local',
+                  undefined,
+                  pendingHostDrop.position
+                )
+                setPendingHostDrop(null)
+              }}
+            >
+              <button className="sr-only">Choose pane type</button>
+            </PaneTypeChooser>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

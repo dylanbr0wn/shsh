@@ -11,7 +11,7 @@ interface DropZoneState {
 }
 
 interface UseDropZoneOptions {
-  onDrop: (edge: DropEdge, mime: DropMime, data: string) => void
+  onDrop: (edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) => void
 }
 
 export function useDropZone({ onDrop }: UseDropZoneOptions) {
@@ -77,7 +77,7 @@ export function useDropZone({ onDrop }: UseDropZoneOptions) {
       const edge = nearestEdge(rect, e.clientX, e.clientY)
       const data = e.dataTransfer.getData(mime)
       setState({ edge: null, mime: null })
-      onDrop(edge, mime, data)
+      onDrop(edge, mime, data, e.shiftKey)
     },
     [onDrop],
   )

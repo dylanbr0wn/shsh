@@ -20,6 +20,10 @@ interface Props {
   onSelectTerminal: (hostId: string) => void
   onSelectSFTP: (hostId: string) => void
   onSelectLocal: () => void
+  /** Controlled open state (optional) */
+  open?: boolean
+  /** Callback when open state changes (optional) */
+  onOpenChange?: (open: boolean) => void
 }
 
 export function PaneTypeChooser({
@@ -28,6 +32,8 @@ export function PaneTypeChooser({
   onSelectTerminal,
   onSelectSFTP,
   onSelectLocal,
+  open,
+  onOpenChange,
 }: Props) {
   const hosts = useAtomValue(hostsAtom)
   const currentHost = hosts.find((h) => h.id === currentHostId)
@@ -69,7 +75,7 @@ export function PaneTypeChooser({
   }
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuSub>
