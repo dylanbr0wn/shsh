@@ -583,9 +583,15 @@ func (a *App) SFTPRename(channelID string, oldPath string, newPath string) error
 	return a.manager.SFTPRename(channelID, oldPath, newPath)
 }
 
-// TransferBetweenHosts copies a file between two SFTP channels (cross-host transfer).
+// TransferBetweenChannels copies a file between any two channels (SFTP or local FS).
+func (a *App) TransferBetweenChannels(srcChannelID string, srcPath string, dstChannelID string, dstPath string) error {
+	return a.manager.TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, dstPath)
+}
+
+// TransferBetweenHosts is a deprecated alias for TransferBetweenChannels.
+// Kept temporarily until frontend references are updated.
 func (a *App) TransferBetweenHosts(srcChannelID string, srcPath string, dstChannelID string, dstPath string) error {
-	return a.manager.TransferBetweenHosts(srcChannelID, srcPath, dstChannelID, dstPath)
+	return a.manager.TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, dstPath)
 }
 
 // --- Port Forwarding ---
