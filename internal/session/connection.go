@@ -50,10 +50,11 @@ type ConnectResult struct {
 
 // ConnHostKeyEvent is emitted when an unknown or changed host key is encountered on a connection.
 type ConnHostKeyEvent struct {
-	ConnectionID string `json:"connectionId"`
-	Fingerprint  string `json:"fingerprint"`
-	IsNew        bool   `json:"isNew"`
-	HasChanged   bool   `json:"hasChanged"`
+	ConnectionID string   `json:"connectionId"`
+	Fingerprint  string   `json:"fingerprint"`
+	IsNew        bool     `json:"isNew"`
+	HasChanged   bool     `json:"hasChanged"`
+	OldKeyTypes  []string `json:"oldKeyTypes,omitempty"`
 }
 
 func (c *Connection) ID() string            { return c.id }
@@ -83,6 +84,9 @@ func (c *Connection) decrRefs() bool {
 // so that concurrent callers wait for and share the same result.
 // The onConnected callback fires only for NEW connections (not reuse).
 func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *store.Host, jumpPassword string, onConnected func()) (ConnectResult, error) {
+	defer clearString(&password)
+	defer clearString(&jumpPassword)
+
 	jumpHostID := ""
 	if jumpHost != nil {
 		jumpHostID = jumpHost.ID
@@ -277,6 +281,13 @@ func (m *Manager) connHostKeyCallback(connectionID string) ssh.HostKeyCallback {
 		isNew := len(keyErr.Want) == 0
 		hasChanged := !isNew
 
+		var oldKeyTypes []string
+		if hasChanged {
+			for _, wk := range keyErr.Want {
+				oldKeyTypes = append(oldKeyTypes, wk.Key.Type())
+			}
+		}
+
 		ch := make(chan bool, 1)
 		m.mu.Lock()
 		m.pendingConnKeys[connectionID] = ch
@@ -292,6 +303,7 @@ func (m *Manager) connHostKeyCallback(connectionID string) ssh.HostKeyCallback {
 			Fingerprint:  fingerprint,
 			IsNew:        isNew,
 			HasChanged:   hasChanged,
+			OldKeyTypes:  oldKeyTypes,
 		})
 
 		select {
