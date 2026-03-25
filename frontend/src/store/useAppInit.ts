@@ -154,35 +154,82 @@ export function useAppInit() {
     return () => cancel()
   }, [setConnectingIds, setWorkspaces, setPortForwards])
 
-  // When a connection drops, mark all channels on that connection as disconnected.
+  // When a connection drops or reconnects, update all channels on that connection.
   useEffect(() => {
     const cancel = EventsOn(
       'connection:status',
-      (event: { connectionId: string; status: string }) => {
-        if (event.status !== 'disconnected') return
+      (event: {
+        connectionId: string
+        status: string
+        attempt?: number
+        maxRetries?: number
+        error?: string
+      }) => {
         const { connectionId } = event
         const allLeaves = workspacesRef.current.flatMap((w) => collectLeaves(w.layout))
         const affected = allLeaves.filter((l) => l.connectionId === connectionId)
         if (affected.length === 0) return
 
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            let layout = w.layout
-            for (const leaf of affected) {
-              layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'disconnected' })
-            }
-            return { ...w, layout }
-          })
-        )
+        if (event.status === 'reconnecting') {
+          setWorkspaces((prev) =>
+            prev.map((w) => {
+              let layout = w.layout
+              for (const leaf of affected) {
+                layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'reconnecting' })
+              }
+              return { ...w, layout }
+            })
+          )
+          return
+        }
 
-        // Clean up port forwards for all affected channels
-        setPortForwards((prev) => {
-          const next = { ...prev }
-          for (const leaf of affected) {
-            delete next[leaf.channelId]
-          }
-          return next
-        })
+        if (event.status === 'connected') {
+          setWorkspaces((prev) =>
+            prev.map((w) => {
+              let layout = w.layout
+              for (const leaf of affected) {
+                layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'connected' })
+              }
+              return { ...w, layout }
+            })
+          )
+          return
+        }
+
+        if (event.status === 'failed') {
+          setWorkspaces((prev) =>
+            prev.map((w) => {
+              let layout = w.layout
+              for (const leaf of affected) {
+                layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'failed' })
+              }
+              return { ...w, layout }
+            })
+          )
+          toast.error('Reconnection failed', { description: event.error })
+          return
+        }
+
+        if (event.status === 'disconnected') {
+          setWorkspaces((prev) =>
+            prev.map((w) => {
+              let layout = w.layout
+              for (const leaf of affected) {
+                layout = updateLeafByChannelId(layout, leaf.channelId, { status: 'disconnected' })
+              }
+              return { ...w, layout }
+            })
+          )
+
+          // Clean up port forwards for all affected channels
+          setPortForwards((prev) => {
+            const next = { ...prev }
+            for (const leaf of affected) {
+              delete next[leaf.channelId]
+            }
+            return next
+          })
+        }
       }
     )
     return () => cancel()
