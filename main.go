@@ -83,6 +83,12 @@ func buildMenu(app *App) *menu.Menu {
 	if goruntime.GOOS == "darwin" {
 		m.Append(menu.EditMenu())
 	}
+
+	help := m.AddSubmenu("Help")
+	help.AddText("Documentation", nil, func(_ *menu.CallbackData) {
+		runtime.BrowserOpenURL(app.ctx, "https://dylanbr0wn.github.io/shsh/")
+	})
+
 	return m
 }
 
