@@ -419,6 +419,35 @@ func TestGetHostForConnect_InlineKeychain(t *testing.T) {
 	}
 }
 
+func TestGetHostForConnect_KeychainUnavailable(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "l", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "db-fallback",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Simulate the state where keychain was unavailable at AddHost time:
+	// the password is stored in the DB column as fallback.
+	s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, "db-fallback", added.ID) //nolint:errcheck
+
+	// Make InlineSecret fail (keychain unavailable at connect time).
+	fr.InlineSecretFn = func(key, fallback string) (string, error) {
+		return "", ErrKeychainUnavailable
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "db-fallback" {
+		t.Errorf("password = %q, want %q (DB fallback)", pw, "db-fallback")
+	}
+}
+
 func TestGetHostForConnect_ExternalPM(t *testing.T) {
 	s, fr := newTestStore(t)
 	fr.ResolveFn = func(ctx context.Context, source, ref string) (string, error) {

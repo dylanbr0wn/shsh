@@ -99,54 +99,13 @@ func checkBitwarden() PMStatus {
 // FetchFrom1Password retrieves the password field of a 1Password item.
 // ref can be an item UUID, name, or a `op://vault/item/field` URI.
 func FetchFrom1Password(ref string) (string, error) {
-	if _, err := exec.LookPath("op"); err != nil {
-		return "", fmt.Errorf("1Password CLI (op) not installed")
-	}
-
-	// Support `op://` URIs directly; otherwise use `op item get` with --fields.
-	var args []string
-	if strings.HasPrefix(ref, "op://") {
-		args = []string{"read", ref}
-	} else {
-		args = []string{"item", "get", ref, "--fields", "label=password", "--reveal"}
-	}
-
-	out, err := exec.Command("op", args...).Output() //nolint:gosec
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("1Password: %s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return "", fmt.Errorf("1Password fetch failed: %w", err)
-	}
-
-	return strings.TrimSpace(string(out)), nil
+	return fetchFrom1PasswordCtx(context.Background(), ref)
 }
 
 // FetchFromBitwarden retrieves the password of a Bitwarden vault item.
 // ref is the item name or UUID.
 func FetchFromBitwarden(ref string) (string, error) {
-	if _, err := exec.LookPath("bw"); err != nil {
-		return "", fmt.Errorf("Bitwarden CLI (bw) not installed")
-	}
-
-	mu.Lock()
-	sessionKey := bwSessionKey
-	mu.Unlock()
-
-	args := []string{"get", "password", ref}
-	if sessionKey != "" {
-		args = append(args, "--session", sessionKey)
-	}
-
-	out, err := exec.Command("bw", args...).Output() //nolint:gosec
-	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("Bitwarden: %s", strings.TrimSpace(string(exitErr.Stderr)))
-		}
-		return "", fmt.Errorf("Bitwarden fetch failed: %w", err)
-	}
-
-	return strings.TrimSpace(string(out)), nil
+	return fetchFromBitwardenCtx(context.Background(), ref)
 }
 
 // Fetch retrieves a credential from the given external source using ref.
