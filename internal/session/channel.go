@@ -30,6 +30,19 @@ type Channel interface {
 	Close() error
 }
 
+// Reopenable is implemented by channels that can restore themselves on a new SSH connection.
+type Reopenable interface {
+	Channel
+	Reopen(client *ssh.Client, cfg ReopenConfig) (postHook func(), err error)
+}
+
+// ReopenConfig provides dependencies needed by channels during reconnect.
+type ReopenConfig struct {
+	TerminalType string
+	MarkDead     func()
+	Emitter      EventEmitter
+}
+
 // ChannelStatusEvent is emitted when a channel's status changes.
 type ChannelStatusEvent struct {
 	ChannelID    string      `json:"channelId"`
@@ -78,9 +91,8 @@ func (t *TerminalChannel) Close() error {
 	return nil
 }
 
-// reopen replaces the SSH session and pipes on a reconnected client.
-// Returns the stdout reader for the caller to pass to startReader().
-func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reader, error) {
+// Reopen replaces the SSH session and pipes on a reconnected client.
+func (tc *TerminalChannel) Reopen(client *ssh.Client, cfg ReopenConfig) (func(), error) {
 	tc.wg.Wait() // ensure old reader goroutine is done
 
 	sshSess, err := client.NewSession()
@@ -88,7 +100,7 @@ func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reade
 		return nil, fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
-	if err := sshSess.RequestPty(termType, 24, 80, ssh.TerminalModes{}); err != nil {
+	if err := sshSess.RequestPty(cfg.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 		sshSess.Close()
 		return nil, fmt.Errorf("failed to request PTY: %w", err)
 	}
@@ -117,9 +129,10 @@ func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reade
 	tc.stdin = stdin
 	tc.ctx = ctx
 	tc.cancel = cancel
+	tc.markDeadFn = cfg.MarkDead
 	tc.mu.Unlock()
 
-	return stdout, nil
+	return func() { tc.startReader(stdout, cfg.Emitter) }, nil
 }
 
 // startReader spawns the stdout reader goroutine. Called after reopen() or initial open.
@@ -176,16 +189,16 @@ func (s *SFTPChannel) Close() error {
 	return nil
 }
 
-// reopen replaces the SFTP client on a reconnected SSH connection.
-func (sc *SFTPChannel) reopen(client *ssh.Client) error {
+// Reopen replaces the SFTP client on a reconnected SSH connection.
+func (sc *SFTPChannel) Reopen(client *ssh.Client, cfg ReopenConfig) (func(), error) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 	newClient, err := sftp.NewClient(client)
 	if err != nil {
-		return fmt.Errorf("sftp negotiation failed: %w", err)
+		return nil, fmt.Errorf("sftp negotiation failed: %w", err)
 	}
 	sc.client = newClient
-	return nil
+	return nil, nil
 }
 
 // OpenTerminal opens a new PTY shell channel on the given connection.

@@ -6,12 +6,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/store"
-	"github.com/melbahja/goph"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -276,75 +274,16 @@ func (m *Manager) reconnectLoop(conn *Connection) {
 
 // attemptReconnect tries to re-dial the SSH connection.
 func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) error {
-	var client *goph.Client
-	var jumpSSHClient *ssh.Client
-
-	hostKeyCallback := m.reconnectHostKeyCallback()
-
-	if conn.jumpHost != nil {
-		jumpAuth, err := ResolveAuth(*conn.jumpHost, conn.jumpPass)
-		if err != nil {
-			return fmt.Errorf("jump host auth: %w", err)
-		}
-		jumpCfg := &ssh.ClientConfig{
-			User:            conn.jumpHost.Username,
-			Auth:            jumpAuth,
-			HostKeyCallback: hostKeyCallback,
-			Timeout:         timeout,
-		}
-		jumpTCPConn, err := net.DialTimeout("tcp",
-			net.JoinHostPort(conn.jumpHost.Hostname, strconv.Itoa(conn.jumpHost.Port)),
-			timeout)
-		if err != nil {
-			return fmt.Errorf("dial jump host: %w", err)
-		}
-		jumpNCC, chans, reqs, err := ssh.NewClientConn(jumpTCPConn, conn.jumpHost.Hostname, jumpCfg)
-		if err != nil {
-			jumpTCPConn.Close()
-			return fmt.Errorf("ssh to jump host: %w", err)
-		}
-		jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
-
-		targetAuth, err := ResolveAuth(conn.host, conn.password)
-		if err != nil {
-			jumpSSHClient.Close()
-			return fmt.Errorf("target auth: %w", err)
-		}
-		targetCfg := &ssh.ClientConfig{
-			User:            conn.host.Username,
-			Auth:            targetAuth,
-			HostKeyCallback: hostKeyCallback,
-			Timeout:         timeout,
-		}
-		tunnelConn, err := jumpSSHClient.Dial("tcp",
-			net.JoinHostPort(conn.host.Hostname, strconv.Itoa(conn.host.Port)))
-		if err != nil {
-			jumpSSHClient.Close()
-			return fmt.Errorf("dial target through jump: %w", err)
-		}
-		targetNCC, targetChans, targetReqs, err := ssh.NewClientConn(tunnelConn, conn.host.Hostname, targetCfg)
-		if err != nil {
-			tunnelConn.Close()
-			jumpSSHClient.Close()
-			return fmt.Errorf("ssh to target: %w", err)
-		}
-		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
-	} else {
-		auth, err := ResolveAuth(conn.host, conn.password)
-		if err != nil {
-			return fmt.Errorf("auth: %w", err)
-		}
-		client, err = goph.NewConn(&goph.Config{
-			User:     conn.host.Username,
-			Addr:     conn.host.Hostname,
-			Port:     uint(conn.host.Port),
-			Auth:     auth,
-			Timeout:  timeout,
-			Callback: hostKeyCallback,
-		})
-		if err != nil {
-			return fmt.Errorf("connect: %w", err)
-		}
+	result, err := Dial(DialRequest{
+		Host:            conn.host,
+		Password:        conn.password,
+		JumpHost:        conn.jumpHost,
+		JumpPassword:    conn.jumpPass,
+		Timeout:         timeout,
+		HostKeyCallback: m.reconnectHostKeyCallback(),
+	})
+	if err != nil {
+		return err
 	}
 
 	// Close old port forward listeners before swapping client
@@ -358,8 +297,8 @@ func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) erro
 	conn.mu.Lock()
 	oldClient := conn.client
 	oldJumpClient := conn.jumpClient
-	conn.client = client
-	conn.jumpClient = jumpSSHClient
+	conn.client = result.Client
+	conn.jumpClient = result.JumpClient
 	newCtx, cancel := context.WithCancel(context.Background())
 	conn.ctx = newCtx
 	conn.cancel = cancel
@@ -405,47 +344,35 @@ func (m *Manager) onReconnected(conn *Connection) {
 
 	sshClient := conn.SSHClient()
 	for _, ch := range channels {
-		switch c := ch.(type) {
-		case *TerminalChannel:
-			stdout, err := c.reopen(sshClient, m.cfg.SSH.TerminalType)
-			if err != nil {
-				log.Error().Err(err).Str("channelId", c.id).Msg("failed to reopen terminal channel")
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    c.id,
-					ConnectionID: conn.id,
-					Kind:         ChannelTerminal,
-					Status:       StatusFailed,
-					Error:        err.Error(),
-				})
-				continue
-			}
-			c.markDeadFn = func() { m.markDead(conn, gen) }
-			c.startReader(stdout, m.emitter)
-			m.emitter.Emit("channel:status", ChannelStatusEvent{
-				ChannelID:    c.id,
-				ConnectionID: conn.id,
-				Kind:         ChannelTerminal,
-				Status:       StatusConnected,
-			})
-		case *SFTPChannel:
-			if err := c.reopen(sshClient); err != nil {
-				log.Error().Err(err).Str("channelId", c.id).Msg("failed to reopen SFTP channel")
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    c.id,
-					ConnectionID: conn.id,
-					Kind:         ChannelSFTP,
-					Status:       StatusFailed,
-					Error:        err.Error(),
-				})
-				continue
-			}
-			m.emitter.Emit("channel:status", ChannelStatusEvent{
-				ChannelID:    c.id,
-				ConnectionID: conn.id,
-				Kind:         ChannelSFTP,
-				Status:       StatusConnected,
-			})
+		r, ok := ch.(Reopenable)
+		if !ok {
+			continue
 		}
+		hook, err := r.Reopen(sshClient, ReopenConfig{
+			TerminalType: m.cfg.SSH.TerminalType,
+			MarkDead:     func() { m.markDead(conn, gen) },
+			Emitter:      m.emitter,
+		})
+		if err != nil {
+			log.Error().Err(err).Str("channelId", ch.ID()).Msg("failed to reopen channel")
+			m.emitter.Emit("channel:status", ChannelStatusEvent{
+				ChannelID:    ch.ID(),
+				ConnectionID: conn.id,
+				Kind:         ch.Kind(),
+				Status:       StatusFailed,
+				Error:        err.Error(),
+			})
+			continue
+		}
+		if hook != nil {
+			hook()
+		}
+		m.emitter.Emit("channel:status", ChannelStatusEvent{
+			ChannelID:    ch.ID(),
+			ConnectionID: conn.id,
+			Kind:         ch.Kind(),
+			Status:       StatusConnected,
+		})
 	}
 
 	// Start keep-alive after channels are restored so the generation is stable.

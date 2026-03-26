@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -184,84 +183,17 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 
 	timeout := time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second
 
-	var client *goph.Client
-	var jumpSSHClient *ssh.Client
-
-	if jumpHost != nil {
-		// --- Jump host path ---
-		jumpAuth, err := ResolveAuth(*jumpHost, jumpPassword)
-		if err != nil {
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to build jump host auth: %w", err)
-		}
-
-		jumpSSHConfig := &ssh.ClientConfig{
-			User:            jumpHost.Username,
-			Auth:            jumpAuth,
-			HostKeyCallback: m.connHostKeyCallback(connectionID),
-			Timeout:         timeout,
-		}
-		jumpTCPConn, err := net.DialTimeout("tcp",
-			net.JoinHostPort(jumpHost.Hostname, strconv.Itoa(jumpHost.Port)),
-			timeout)
-		if err != nil {
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to dial jump host: %w", err)
-		}
-		jumpNCC, chans, reqs, err := ssh.NewClientConn(jumpTCPConn, jumpHost.Hostname, jumpSSHConfig)
-		if err != nil {
-			jumpTCPConn.Close()
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to establish SSH connection to jump host: %w", err)
-		}
-		jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
-
-		targetAuth, err := ResolveAuth(host, password)
-		if err != nil {
-			jumpSSHClient.Close()
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to build target host auth: %w", err)
-		}
-		targetSSHConfig := &ssh.ClientConfig{
-			User:            host.Username,
-			Auth:            targetAuth,
-			HostKeyCallback: m.connHostKeyCallback(connectionID),
-			Timeout:         timeout,
-		}
-		tunnelConn, err := jumpSSHClient.Dial("tcp",
-			net.JoinHostPort(host.Hostname, strconv.Itoa(host.Port)))
-		if err != nil {
-			jumpSSHClient.Close()
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to dial target through jump host: %w", err)
-		}
-		targetNCC, targetChans, targetReqs, err := ssh.NewClientConn(tunnelConn, host.Hostname, targetSSHConfig)
-		if err != nil {
-			tunnelConn.Close()
-			jumpSSHClient.Close()
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to establish SSH connection to target via jump host: %w", err)
-		}
-		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
-	} else {
-		// --- Direct connection path ---
-		auth, err := ResolveAuth(host, password)
-		if err != nil {
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to build auth: %w", err)
-		}
-		client, err = goph.NewConn(&goph.Config{
-			User:     host.Username,
-			Addr:     host.Hostname,
-			Port:     uint(host.Port),
-			Auth:     auth,
-			Timeout:  timeout,
-			Callback: m.connHostKeyCallback(connectionID),
-		})
-		if err != nil {
-			cleanup()
-			return ConnectResult{}, fmt.Errorf("failed to connect to host: %w", err)
-		}
+	result, err := Dial(DialRequest{
+		Host:            host,
+		Password:        password,
+		JumpHost:        jumpHost,
+		JumpPassword:    jumpPassword,
+		Timeout:         timeout,
+		HostKeyCallback: m.connHostKeyCallback(connectionID),
+	})
+	if err != nil {
+		cleanup()
+		return ConnectResult{}, err
 	}
 
 	connCtx, cancel := context.WithCancel(context.Background())
@@ -270,8 +202,8 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 		hostID:        host.ID,
 		jumpHostID:    jumpHostID,
 		hostLabel:     host.Label,
-		client:        client,
-		jumpClient:    jumpSSHClient,
+		client:        result.Client,
+		jumpClient:    result.JumpClient,
 		ctx:           connCtx,
 		cancel:        cancel,
 		portForwards:  make(map[string]*portForward),
