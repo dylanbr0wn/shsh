@@ -1,5 +1,5 @@
 import { useAtomValue, useAtom } from 'jotai'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -15,8 +15,9 @@ import {
   firstLeaf,
   moveLeaf,
   insertLeaf,
+  movePaneAcrossWorkspaces,
 } from '../../lib/paneTree'
-import type { PaneLeaf, PaneNode, Workspace } from '../../store/workspaces'
+import type { PaneLeaf, PaneNode } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
 import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { PaneTree } from './PaneTree'
@@ -49,6 +50,11 @@ export function WorkspaceView() {
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
+  const workspacesRef = useRef(workspaces)
+  workspacesRef.current = workspaces
+  const hostsRef = useRef(hosts)
+  hostsRef.current = hosts
+
   const [pendingHostDrop, setPendingHostDrop] = useState<{
     workspaceId: string
     paneId: string
@@ -68,7 +74,7 @@ export function WorkspaceView() {
       hostId?: string,
       position?: 'before' | 'after'
     ) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
+      const ws = workspacesRef.current.find((w) => w.id === workspaceId)
       if (!ws) return
       const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
       if (!leaf) return
@@ -91,7 +97,7 @@ export function WorkspaceView() {
           }
         } else if (kind === 'terminal' && hostId) {
           // Terminal pane on a specific host
-          const host = hosts.find((h) => h.id === hostId)
+          const host = hostsRef.current.find((h) => h.id === hostId)
           if (!host) {
             toast.error('Host not found')
             return
@@ -110,7 +116,7 @@ export function WorkspaceView() {
           }
         } else if (kind === 'sftp' && hostId) {
           // SFTP pane on a specific host
-          const host = hosts.find((h) => h.id === hostId)
+          const host = hostsRef.current.find((h) => h.id === hostId)
           if (!host) {
             toast.error('Host not found')
             return
@@ -160,7 +166,7 @@ export function WorkspaceView() {
         toast.error('Split failed', { description: String(err) })
       }
     },
-    [workspaces, hosts, setWorkspaces]
+    [setWorkspaces]
   )
 
   async function buildLiveTree(node: TemplateNode): Promise<PaneNode> {
@@ -306,38 +312,15 @@ export function WorkspaceView() {
           })
         }
         // Cross-workspace move
-        const sourceWs = prev.find((w) => w.id === sourceWorkspaceId)
-        const targetWs = prev.find((w) => w.id === targetWorkspaceId)
-        if (!sourceWs || !targetWs) return prev
-
-        const sourceLeaf = collectLeaves(sourceWs.layout).find((l) => l.paneId === sourcePaneId)
-        if (!sourceLeaf) return prev
-
-        const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
-        const newTargetLayout = insertLeaf(
-          targetWs.layout,
+        return movePaneAcrossWorkspaces(
+          prev,
+          sourcePaneId,
+          sourceWorkspaceId,
+          targetWorkspaceId,
           targetPaneId,
           direction,
-          sourceLeaf,
           position
         )
-
-        return prev
-          .map((w) => {
-            if (w.id === sourceWorkspaceId) {
-              if (newSourceLayout === null) return null
-              const newFocused =
-                w.focusedPaneId === sourcePaneId
-                  ? firstLeaf(newSourceLayout).paneId
-                  : w.focusedPaneId
-              return { ...w, layout: newSourceLayout, focusedPaneId: newFocused }
-            }
-            if (w.id === targetWorkspaceId) {
-              return { ...w, layout: newTargetLayout, focusedPaneId: sourcePaneId }
-            }
-            return w
-          })
-          .filter((w): w is Workspace => w !== null)
       })
     },
     [setWorkspaces]
@@ -403,7 +386,7 @@ export function WorkspaceView() {
         return
       }
       if (!activeWorkspaceId) return
-      const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+      const ws = workspacesRef.current.find((w) => w.id === activeWorkspaceId)
       if (!ws || !ws.focusedPaneId) return
 
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'd') {
@@ -415,7 +398,7 @@ export function WorkspaceView() {
         handleSplit(activeWorkspaceId, ws.focusedPaneId, 'horizontal')
       }
     },
-    [activeWorkspaceId, workspaces, handleSplit]
+    [activeWorkspaceId, handleSplit]
   )
 
   useEffect(() => {

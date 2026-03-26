@@ -21,27 +21,27 @@ interface UseDropZoneOptions {
   ) => void
 }
 
+function detectMime(types: readonly string[]): DropMime | null {
+  if (types.includes('application/x-shsh-pane')) return 'application/x-shsh-pane'
+  if (types.includes('application/x-shsh-host')) return 'application/x-shsh-host'
+  return null
+}
+
+function nearestEdge(rect: DOMRect, clientX: number, clientY: number): DropEdge {
+  const top = clientY - rect.top
+  const bottom = rect.bottom - clientY
+  const left = clientX - rect.left
+  const right = rect.right - clientX
+  const min = Math.min(top, bottom, left, right)
+  if (min === top) return 'top'
+  if (min === bottom) return 'bottom'
+  if (min === left) return 'left'
+  return 'right'
+}
+
 export function useDropZone({ onDrop }: UseDropZoneOptions) {
   const [state, setState] = useState<DropZoneState>({ edge: null, mime: null })
   const dragCountRef = useRef(0)
-
-  function detectMime(types: readonly string[]): DropMime | null {
-    if (types.includes('application/x-shsh-pane')) return 'application/x-shsh-pane'
-    if (types.includes('application/x-shsh-host')) return 'application/x-shsh-host'
-    return null
-  }
-
-  function nearestEdge(rect: DOMRect, clientX: number, clientY: number): DropEdge {
-    const top = clientY - rect.top
-    const bottom = rect.bottom - clientY
-    const left = clientX - rect.left
-    const right = rect.right - clientX
-    const min = Math.min(top, bottom, left, right)
-    if (min === top) return 'top'
-    if (min === bottom) return 'bottom'
-    if (min === left) return 'left'
-    return 'right'
-  }
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     const mime = detectMime(e.dataTransfer.types)

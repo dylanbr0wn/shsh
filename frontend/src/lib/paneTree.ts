@@ -1,4 +1,4 @@
-import type { PaneLeaf, PaneNode } from '../store/workspaces'
+import type { PaneLeaf, PaneNode, Workspace } from '../store/workspaces'
 
 /** Flatten all leaf nodes from a pane tree. */
 export function collectLeaves(node: PaneNode): PaneLeaf[] {
@@ -102,4 +102,44 @@ export function removeLeaf(node: PaneNode, paneId: string): PaneNode | null {
 export function firstLeaf(node: PaneNode): PaneLeaf {
   if (node.type === 'leaf') return node
   return firstLeaf(node.left)
+}
+
+/**
+ * Move a pane from one workspace to another.
+ * Returns a new workspaces array with the source workspace updated (or removed if empty)
+ * and the target workspace updated with the moved pane.
+ */
+export function movePaneAcrossWorkspaces(
+  workspaces: Workspace[],
+  sourcePaneId: string,
+  sourceWorkspaceId: string,
+  targetWorkspaceId: string,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  position: 'before' | 'after'
+): Workspace[] {
+  const sourceWs = workspaces.find((w) => w.id === sourceWorkspaceId)
+  const targetWs = workspaces.find((w) => w.id === targetWorkspaceId)
+  if (!sourceWs || !targetWs) return workspaces
+
+  const sourceLeaf = collectLeaves(sourceWs.layout).find((l) => l.paneId === sourcePaneId)
+  if (!sourceLeaf) return workspaces
+
+  const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
+  const newTargetLayout = insertLeaf(targetWs.layout, targetPaneId, direction, sourceLeaf, position)
+
+  return workspaces
+    .map((w) => {
+      if (w.id === sourceWorkspaceId) {
+        if (newSourceLayout === null) return null
+        const newFocused =
+          w.focusedPaneId === sourcePaneId ? firstLeaf(newSourceLayout).paneId : w.focusedPaneId
+        return { ...w, layout: newSourceLayout, focusedPaneId: newFocused }
+      }
+      if (w.id === targetWorkspaceId) {
+        return { ...w, layout: newTargetLayout, focusedPaneId: sourcePaneId }
+      }
+      return w
+    })
+    .filter((w): w is Workspace => w !== null)
 }

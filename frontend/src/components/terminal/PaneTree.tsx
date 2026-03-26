@@ -132,6 +132,7 @@ function PaneLeafView({
   const canClose = totalLeaves > 1
 
   function setFocused(paneId: string) {
+    if (paneId === workspace.focusedPaneId) return
     setWorkspaces((prev) =>
       prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
     )

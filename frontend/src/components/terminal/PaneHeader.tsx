@@ -11,6 +11,12 @@ import { Button } from '../ui/button'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
 
+const typeColors = {
+  terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
+  sftp: { bg: 'hsl(35 80% 35% / 0.15)', text: 'hsl(35 80% 65%)' },
+  local: { bg: 'hsl(140 60% 30% / 0.15)', text: 'hsl(140 60% 60%)' },
+} as const
+
 interface Props {
   hostLabel: string
   hostColor?: string
@@ -49,11 +55,6 @@ export function PaneHeader({
     onDragStateChange?.(isDragging)
   }, [isDragging, onDragStateChange])
 
-  const typeColors = {
-    terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
-    sftp: { bg: 'hsl(35 80% 35% / 0.15)', text: 'hsl(35 80% 65%)' },
-    local: { bg: 'hsl(140 60% 30% / 0.15)', text: 'hsl(140 60% 60%)' },
-  }
   const typeStyle = typeColors[kind]
 
   return (

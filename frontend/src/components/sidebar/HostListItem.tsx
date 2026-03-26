@@ -42,18 +42,6 @@ interface Props {
   onOpenFiles?: () => void
 }
 
-// function relativeTime(iso: string): string {
-//   const diff = Date.now() - new Date(iso).getTime()
-//   const mins = Math.floor(diff / 60_000)
-//   const hours = Math.floor(diff / 3_600_000)
-//   const days = Math.floor(diff / 86_400_000)
-//   if (mins < 1) return 'just now'
-//   if (mins < 60) return `${mins}m ago`
-//   if (hours < 24) return `${hours}h ago`
-//   if (days < 30) return `${days}d ago`
-//   return new Date(iso).toLocaleDateString()
-// }
-
 function latencyValue(latencyMs: number | undefined): { text: string; color: string } {
   if (latencyMs === undefined) return { text: '', color: '' }
   const text = `${latencyMs}ms`
@@ -129,11 +117,6 @@ export function HostListItem({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center gap-3">
               <div className="truncate text-sm font-medium">{host.label}</div>
-              {/* {host.lastConnectedAt && (
-                <span className="text-muted-foreground/60 text-[10px] leading-none">
-                  Last session {relativeTime(host.lastConnectedAt)}
-                </span>
-              )} */}
             </div>
 
             <div className="text-muted-foreground truncate text-xs">
@@ -160,13 +143,8 @@ export function HostListItem({
             )}
           </div>
 
-          {/* Right: last connected + action buttons */}
+          {/* Right: action buttons */}
           <div className="flex shrink-0 flex-col items-end gap-0.5">
-            {/* {host.lastConnectedAt && (
-              <span className="text-muted-foreground/60 text-[10px] leading-none">
-                {relativeTime(host.lastConnectedAt)}
-              </span>
-            )} */}
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
