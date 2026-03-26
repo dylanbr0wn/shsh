@@ -20,9 +20,22 @@ interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
-  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
+  onSplit: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    kind?: PaneLeaf['kind'],
+    hostId?: string
+  ) => void
   onClose: (paneId: string) => void
-  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) => void
+  onDrop: (
+    paneId: string,
+    edge: DropEdge,
+    mime: DropMime,
+    data: string,
+    shiftKey: boolean,
+    clientX: number,
+    clientY: number
+  ) => void
 }
 
 export function PaneTree({
@@ -82,9 +95,22 @@ interface PaneLeafViewProps {
   leaf: PaneLeaf
   workspace: Workspace
   isWorkspaceActive: boolean
-  onSplit: (paneId: string, direction: 'horizontal' | 'vertical', kind?: PaneLeaf['kind'], hostId?: string) => void
+  onSplit: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    kind?: PaneLeaf['kind'],
+    hostId?: string
+  ) => void
   onClose: (paneId: string) => void
-  onDrop: (paneId: string, edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) => void
+  onDrop: (
+    paneId: string,
+    edge: DropEdge,
+    mime: DropMime,
+    data: string,
+    shiftKey: boolean,
+    clientX: number,
+    clientY: number
+  ) => void
 }
 
 function PaneLeafView({
@@ -112,8 +138,14 @@ function PaneLeafView({
   }
 
   const handleDrop = useCallback(
-    (edge: DropEdge, mime: DropMime, data: string, shiftKey: boolean) =>
-      onDrop(leaf.paneId, edge, mime, data, shiftKey),
+    (
+      edge: DropEdge,
+      mime: DropMime,
+      data: string,
+      shiftKey: boolean,
+      clientX: number,
+      clientY: number
+    ) => onDrop(leaf.paneId, edge, mime, data, shiftKey, clientX, clientY),
     [onDrop, leaf.paneId]
   )
 
@@ -124,7 +156,7 @@ function PaneLeafView({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className={cn('group/pane relative h-full w-full', isDragging && 'opacity-30')}
+      className={cn('group/pane relative flex h-full w-full flex-col', isDragging && 'opacity-30')}
       {...dropHandlers}
       onMouseDown={() => setFocused(leaf.paneId)}
       style={
@@ -162,31 +194,33 @@ function PaneLeafView({
           color={dropState.mime === 'application/x-shsh-host' ? host?.color : undefined}
         />
       )}
-      {leaf.kind === 'sftp' ? (
-        <ErrorBoundary
-          fallback="inline"
-          zone={`sftp-${leaf.channelId}`}
-          onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
-          resetKeys={[leaf.channelId]}
-        >
-          <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
-        </ErrorBoundary>
-      ) : leaf.kind === 'local' ? (
-        <LocalFSPanel channelId={leaf.channelId} />
-      ) : (
-        <ErrorBoundary
-          fallback="inline"
-          zone={`terminal-${leaf.channelId}`}
-          onError={(e, i) => reportUIError(e, i, `terminal-${leaf.channelId}`)}
-          resetKeys={[leaf.channelId]}
-        >
-          <InitialFitTrigger isActive={isActive} />
-          <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
-        </ErrorBoundary>
-      )}
-      {(leaf.status === 'disconnected' || leaf.status === 'error') && (
-        <DisconnectedOverlay onReconnect={() => {}} />
-      )}
+      <div className="relative min-h-0 flex-1">
+        {leaf.kind === 'sftp' ? (
+          <ErrorBoundary
+            fallback="inline"
+            zone={`sftp-${leaf.channelId}`}
+            onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
+            resetKeys={[leaf.channelId]}
+          >
+            <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+          </ErrorBoundary>
+        ) : leaf.kind === 'local' ? (
+          <LocalFSPanel channelId={leaf.channelId} />
+        ) : (
+          <ErrorBoundary
+            fallback="inline"
+            zone={`terminal-${leaf.channelId}`}
+            onError={(e, i) => reportUIError(e, i, `terminal-${leaf.channelId}`)}
+            resetKeys={[leaf.channelId]}
+          >
+            <InitialFitTrigger isActive={isActive} />
+            <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
+          </ErrorBoundary>
+        )}
+        {(leaf.status === 'disconnected' || leaf.status === 'error') && (
+          <DisconnectedOverlay onReconnect={() => {}} />
+        )}
+      </div>
     </div>
   )
 }

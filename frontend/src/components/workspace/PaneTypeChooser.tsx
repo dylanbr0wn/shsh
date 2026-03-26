@@ -67,9 +67,7 @@ export function PaneTypeChooser({
             {host.label}
           </DropdownMenuItem>
         ))}
-        {hosts.length === 0 && (
-          <DropdownMenuItem disabled>No hosts configured</DropdownMenuItem>
-        )}
+        {hosts.length === 0 && <DropdownMenuItem disabled>No hosts configured</DropdownMenuItem>}
       </>
     )
   }
@@ -83,18 +81,14 @@ export function PaneTypeChooser({
             <Terminal className="mr-2 size-4" />
             Terminal
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {renderHostList(onSelectTerminal)}
-          </DropdownMenuSubContent>
+          <DropdownMenuSubContent>{renderHostList(onSelectTerminal)}</DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <FolderOpen className="mr-2 size-4" />
             SFTP
           </DropdownMenuSubTrigger>
-          <DropdownMenuSubContent>
-            {renderHostList(onSelectSFTP)}
-          </DropdownMenuSubContent>
+          <DropdownMenuSubContent>{renderHostList(onSelectSFTP)}</DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={onSelectLocal}>

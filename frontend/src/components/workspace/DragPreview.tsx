@@ -9,9 +9,7 @@ export function HostDragPreview({ label, color }: HostPreviewProps) {
       className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
       style={{ position: 'fixed', left: -9999, top: -9999 }}
     >
-      {color && (
-        <span className="size-2 rounded-full" style={{ backgroundColor: color }} />
-      )}
+      {color && <span className="size-2 rounded-full" style={{ backgroundColor: color }} />}
       {label}
     </div>
   )

@@ -13,10 +13,7 @@ export function usePaneDrag({ paneId, workspaceId, previewRef }: UsePaneDragOpti
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
       e.dataTransfer.effectAllowed = 'move'
-      e.dataTransfer.setData(
-        'application/x-shsh-pane',
-        JSON.stringify({ paneId, workspaceId })
-      )
+      e.dataTransfer.setData('application/x-shsh-pane', JSON.stringify({ paneId, workspaceId }))
       if (previewRef?.current) {
         previewRef.current.style.left = '0px'
         previewRef.current.style.top = '0px'

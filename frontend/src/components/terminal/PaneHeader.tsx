@@ -49,10 +49,17 @@ export function PaneHeader({
     onDragStateChange?.(isDragging)
   }, [isDragging, onDragStateChange])
 
+  const typeColors = {
+    terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
+    sftp: { bg: 'hsl(35 80% 35% / 0.15)', text: 'hsl(35 80% 65%)' },
+    local: { bg: 'hsl(140 60% 30% / 0.15)', text: 'hsl(140 60% 60%)' },
+  }
+  const typeStyle = typeColors[kind]
+
   return (
     <div
-      className="bg-muted flex h-5 items-center gap-1 px-1.5"
-      style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
+      className="bg-muted border-border flex h-5 items-center gap-1 border-b px-1.5"
+      style={hostColor ? { borderBottomColor: hostColor } : undefined}
     >
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
@@ -64,10 +71,10 @@ export function PaneHeader({
         {hostLabel}
       </span>
       <span
-        className="shrink-0 rounded px-1 text-[9px]"
+        className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
         style={{
-          backgroundColor: hostColor ? `${hostColor}20` : 'hsl(var(--muted))',
-          color: hostColor ?? 'hsl(var(--muted-foreground))',
+          backgroundColor: typeStyle.bg,
+          color: typeStyle.text,
         }}
       >
         {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
@@ -125,10 +132,10 @@ export function PaneHeader({
           style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
         >
           <span
-            className="rounded px-1 text-[9px]"
+            className="rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
             style={{
-              backgroundColor: hostColor ? `${hostColor}20` : 'hsl(var(--muted))',
-              color: hostColor ?? 'hsl(var(--muted-foreground))',
+              backgroundColor: typeStyle.bg,
+              color: typeStyle.text,
             }}
           >
             {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}

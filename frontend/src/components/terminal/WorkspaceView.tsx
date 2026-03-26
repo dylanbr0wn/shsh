@@ -8,12 +8,26 @@ import {
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import { collectLeaves, splitLeaf, removeLeaf, firstLeaf, moveLeaf, insertLeaf } from '../../lib/paneTree'
+import {
+  collectLeaves,
+  splitLeaf,
+  removeLeaf,
+  firstLeaf,
+  moveLeaf,
+  insertLeaf,
+} from '../../lib/paneTree'
 import type { PaneLeaf, PaneNode, Workspace } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
 import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { PaneTree } from './PaneTree'
-import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
+import { Terminal, FolderOpen, HardDrive } from 'lucide-react'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
 import {
@@ -41,6 +55,8 @@ export function WorkspaceView() {
     hostId: string
     direction: 'horizontal' | 'vertical'
     position: 'before' | 'after'
+    x: number
+    y: number
   } | null>(null)
 
   const handleSplit = useCallback(
@@ -334,16 +350,18 @@ export function WorkspaceView() {
       edge: DropEdge,
       mime: DropMime,
       data: string,
-      shiftKey: boolean
+      shiftKey: boolean,
+      clientX: number,
+      clientY: number
     ) => {
       const edgeToSplit: Record<
         DropEdge,
         { direction: 'horizontal' | 'vertical'; position: 'before' | 'after' }
       > = {
-        top: { direction: 'horizontal', position: 'before' },
-        bottom: { direction: 'horizontal', position: 'after' },
-        left: { direction: 'vertical', position: 'before' },
-        right: { direction: 'vertical', position: 'after' },
+        top: { direction: 'vertical', position: 'before' },
+        bottom: { direction: 'vertical', position: 'after' },
+        left: { direction: 'horizontal', position: 'before' },
+        right: { direction: 'horizontal', position: 'after' },
       }
       const { direction, position } = edgeToSplit[edge]
 
@@ -354,7 +372,15 @@ export function WorkspaceView() {
           handleSplit(workspaceId, paneId, direction, 'sftp', hostId, position)
         } else {
           // Show type chooser popover
-          setPendingHostDrop({ workspaceId, paneId, hostId, direction, position })
+          setPendingHostDrop({
+            workspaceId,
+            paneId,
+            hostId,
+            direction,
+            position,
+            x: clientX,
+            y: clientY,
+          })
         }
       } else if (mime === 'application/x-shsh-pane') {
         const { paneId: sourcePaneId, workspaceId: sourceWorkspaceId } = JSON.parse(data) as {
@@ -448,8 +474,8 @@ export function WorkspaceView() {
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
-                onDrop={(paneId, edge, mime, data, shiftKey) =>
-                  handleDrop(workspace.id, paneId, edge, mime, data, shiftKey)
+                onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
+                  handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
                 }
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
@@ -470,49 +496,71 @@ export function WorkspaceView() {
       })}
       {pendingHostDrop && (
         <div className="pointer-events-none fixed inset-0 z-50">
-          <div className="pointer-events-auto absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
-            <PaneTypeChooser
-              currentHostId={pendingHostDrop.hostId}
+          <div
+            className="pointer-events-auto absolute"
+            style={{ left: pendingHostDrop.x, top: pendingHostDrop.y }}
+          >
+            <DropdownMenu
               open={true}
               onOpenChange={(open) => {
                 if (!open) setPendingHostDrop(null)
               }}
-              onSelectTerminal={(hostId) => {
-                handleSplit(
-                  pendingHostDrop.workspaceId,
-                  pendingHostDrop.paneId,
-                  pendingHostDrop.direction,
-                  'terminal',
-                  hostId,
-                  pendingHostDrop.position
-                )
-                setPendingHostDrop(null)
-              }}
-              onSelectSFTP={(hostId) => {
-                handleSplit(
-                  pendingHostDrop.workspaceId,
-                  pendingHostDrop.paneId,
-                  pendingHostDrop.direction,
-                  'sftp',
-                  hostId,
-                  pendingHostDrop.position
-                )
-                setPendingHostDrop(null)
-              }}
-              onSelectLocal={() => {
-                handleSplit(
-                  pendingHostDrop.workspaceId,
-                  pendingHostDrop.paneId,
-                  pendingHostDrop.direction,
-                  'local',
-                  undefined,
-                  pendingHostDrop.position
-                )
-                setPendingHostDrop(null)
-              }}
             >
-              <button className="sr-only">Choose pane type</button>
-            </PaneTypeChooser>
+              <DropdownMenuTrigger asChild>
+                <button className="sr-only">Choose pane type</button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'terminal',
+                      pendingHostDrop.hostId,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <Terminal className="mr-2 size-4" />
+                  Terminal
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'sftp',
+                      pendingHostDrop.hostId,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <FolderOpen className="mr-2 size-4" />
+                  SFTP
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'local',
+                      undefined,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <HardDrive className="mr-2 size-4" />
+                  Local Files
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       )}

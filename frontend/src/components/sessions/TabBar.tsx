@@ -147,7 +147,11 @@ export function TabBar() {
     setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, name } : w)))
   }
 
-  function handlePaneDrop(sourcePaneId: string, sourceWorkspaceId: string, targetWorkspaceId: string) {
+  function handlePaneDrop(
+    sourcePaneId: string,
+    sourceWorkspaceId: string,
+    targetWorkspaceId: string
+  ) {
     if (sourceWorkspaceId === targetWorkspaceId) return
     setWorkspaces((prev) => {
       const sourceWs = prev.find((w) => w.id === sourceWorkspaceId)
@@ -159,7 +163,13 @@ export function TabBar() {
 
       const targetPane = firstLeaf(targetWs.layout)
       const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
-      const newTargetLayout = insertLeaf(targetWs.layout, targetPane.paneId, 'horizontal', sourceLeaf, 'after')
+      const newTargetLayout = insertLeaf(
+        targetWs.layout,
+        targetPane.paneId,
+        'horizontal',
+        sourceLeaf,
+        'after'
+      )
 
       return prev
         .map((w) => {
