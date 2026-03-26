@@ -71,7 +71,6 @@ export function PaneHeader({
       return {
         ...base,
         borderBottomColor: '#fbbf24',
-        boxShadow: '0 2px 8px #fbbf2426',
         animation: 'pane-glow-pulse 2s ease-in-out infinite',
       }
     }

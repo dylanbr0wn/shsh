@@ -227,8 +227,8 @@ html {
 
 /* Pane header glow pulse for connecting/reconnecting state */
 @keyframes pane-glow-pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%, 100% { box-shadow: 0 2px 8px oklch(0.82 0.16 85 / 0.10); }
+  50% { box-shadow: 0 2px 8px oklch(0.82 0.16 85 / 0.25); }
 }
 
 /* Staggered entrance animation for host list items */
