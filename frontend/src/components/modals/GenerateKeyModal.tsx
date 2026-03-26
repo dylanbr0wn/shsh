@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { CheckCircle, Copy, Info } from 'lucide-react'
-import { GenerateSSHKey } from '../../../wailsjs/go/main/App'
+import { GenerateSSHKey } from '../../../wailsjs/go/main/KeysFacade'
 import {
   Dialog,
   DialogBody,

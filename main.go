@@ -28,56 +28,56 @@ func buildMenu(app *App) *menu.Menu {
 
 	file := m.AddSubmenu("File")
 	file.AddText("Quick Connect...", keys.CmdOrCtrl("n"), func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:new-connection")
+		runtime.EventsEmit(app.deps.Ctx, "menu:new-connection")
 	})
 	file.AddText("Add Saved Host...", keys.Combo("n", keys.CmdOrCtrlKey, keys.ShiftKey), func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:add-host")
+		runtime.EventsEmit(app.deps.Ctx, "menu:add-host")
 	})
 	file.AddText("Import SSH Config...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:import-ssh-config")
+		runtime.EventsEmit(app.deps.Ctx, "menu:import-ssh-config")
 	})
 	file.AddText("Export Hosts...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:export-hosts")
+		runtime.EventsEmit(app.deps.Ctx, "menu:export-hosts")
 	})
 	file.AddSeparator()
 	file.AddText("New Group...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:new-group")
+		runtime.EventsEmit(app.deps.Ctx, "menu:new-group")
 	})
 	file.AddText("Terminal Profiles...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:terminal-profiles")
+		runtime.EventsEmit(app.deps.Ctx, "menu:terminal-profiles")
 	})
 	file.AddSeparator()
 	file.AddText("Settings...", keys.CmdOrCtrl(","), func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:settings")
+		runtime.EventsEmit(app.deps.Ctx, "menu:settings")
 	})
 	file.AddSeparator()
 	file.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
-		runtime.Quit(app.ctx)
+		runtime.Quit(app.deps.Ctx)
 	})
 
 	session := m.AddSubmenu("Session")
 	session.AddText("Disconnect", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:disconnect")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:disconnect")
 	})
 	session.AddText("Disconnect All", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:disconnect-all")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:disconnect-all")
 	})
 	session.AddSeparator()
 	session.AddText("Add Port Forward...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:add-port-forward")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:add-port-forward")
 	})
 	session.AddSeparator()
 	session.AddText("Start Logging", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:start-log")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:start-log")
 	})
 	session.AddText("Stop Logging", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:stop-log")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:stop-log")
 	})
 	session.AddText("View Logs...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:view-logs")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:view-logs")
 	})
 	session.AddText("Open Logs Folder", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.ctx, "menu:session:open-logs-folder")
+		runtime.EventsEmit(app.deps.Ctx, "menu:session:open-logs-folder")
 	})
 
 	if goruntime.GOOS == "darwin" {
@@ -133,6 +133,10 @@ func main() {
 		OnShutdown:       app.shutdown,
 		Bind: []any{
 			app,
+			app.hosts,
+			app.sessions,
+			app.keys,
+			app.tools,
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHidden(),

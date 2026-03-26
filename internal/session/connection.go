@@ -189,7 +189,7 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 
 	if jumpHost != nil {
 		// --- Jump host path ---
-		jumpAuth, err := resolveAuth(*jumpHost, jumpPassword)
+		jumpAuth, err := ResolveAuth(*jumpHost, jumpPassword)
 		if err != nil {
 			cleanup()
 			return ConnectResult{}, fmt.Errorf("failed to build jump host auth: %w", err)
@@ -216,7 +216,7 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 		}
 		jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
 
-		targetAuth, err := resolveAuth(host, password)
+		targetAuth, err := ResolveAuth(host, password)
 		if err != nil {
 			jumpSSHClient.Close()
 			cleanup()
@@ -245,7 +245,7 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
 	} else {
 		// --- Direct connection path ---
-		auth, err := resolveAuth(host, password)
+		auth, err := ResolveAuth(host, password)
 		if err != nil {
 			cleanup()
 			return ConnectResult{}, fmt.Errorf("failed to build auth: %w", err)

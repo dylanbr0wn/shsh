@@ -252,7 +252,7 @@ func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) erro
 	hostKeyCallback := m.reconnectHostKeyCallback()
 
 	if conn.jumpHost != nil {
-		jumpAuth, err := resolveAuth(*conn.jumpHost, conn.jumpPass)
+		jumpAuth, err := ResolveAuth(*conn.jumpHost, conn.jumpPass)
 		if err != nil {
 			return fmt.Errorf("jump host auth: %w", err)
 		}
@@ -275,7 +275,7 @@ func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) erro
 		}
 		jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
 
-		targetAuth, err := resolveAuth(conn.host, conn.password)
+		targetAuth, err := ResolveAuth(conn.host, conn.password)
 		if err != nil {
 			jumpSSHClient.Close()
 			return fmt.Errorf("target auth: %w", err)
@@ -300,7 +300,7 @@ func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) erro
 		}
 		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
 	} else {
-		auth, err := resolveAuth(conn.host, conn.password)
+		auth, err := ResolveAuth(conn.host, conn.password)
 		if err != nil {
 			return fmt.Errorf("auth: %w", err)
 		}

@@ -22,7 +22,7 @@ import {
   OpenLocalFSChannel,
   ConnectHost,
   CloseChannel,
-} from '../../../wailsjs/go/main/App'
+} from '../../../wailsjs/go/main/SessionFacade'
 import { toast } from 'sonner'
 
 export function WorkspaceView() {
