@@ -76,12 +76,15 @@ export function PaneHeader({
 
     const style: Record<string, string> = {
       borderLeft: `2px solid ${accentColor}`,
-      backgroundColor: `color-mix(in oklch, ${accentColor} ${tintPercent}, var(--muted))`,
       transition: 'background-color 300ms ease-out, border-color 300ms ease-out',
     }
 
+    if (!isConnecting) {
+      style.backgroundColor = `color-mix(in oklch, ${accentColor} ${tintPercent}, var(--muted))`
+    }
+
     if (isFocused && (status === 'connected' || isConnecting)) {
-      style.boxShadow = `2px 0 8px color-mix(in oklch, ${accentColor} 25%, transparent)`
+      style.boxShadow = `0 0 8px color-mix(in oklch, ${accentColor} 25%, transparent)`
     }
 
     if (isConnecting) {
@@ -166,7 +169,7 @@ export function PaneHeader({
       >
         <div
           className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
-          style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
+          style={{ borderLeft: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
         >
           <span
             className="rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
