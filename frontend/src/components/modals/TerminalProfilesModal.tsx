@@ -8,7 +8,7 @@ import {
   AddTerminalProfile,
   UpdateTerminalProfile,
   DeleteTerminalProfile,
-} from '../../../wailsjs/go/main/App'
+} from '../../../wailsjs/go/main/HostFacade'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog'
 import {
   AlertDialog,

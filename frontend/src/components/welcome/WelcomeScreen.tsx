@@ -10,7 +10,7 @@ import {
   isImportSSHConfigOpenAtom,
 } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
-import { ConnectHost } from '../../../wailsjs/go/main/App'
+import { ConnectHost } from '../../../wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { Separator } from '../ui/separator'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'

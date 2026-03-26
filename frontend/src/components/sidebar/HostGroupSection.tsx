@@ -11,7 +11,8 @@ import {
   type Workspace,
   type TerminalLeaf,
 } from '../../store/workspaces'
-import { DeleteGroup, UpdateGroup, BulkConnectGroup } from '../../../wailsjs/go/main/App'
+import { DeleteGroup, UpdateGroup } from '../../../wailsjs/go/main/HostFacade'
+import { BulkConnectGroup } from '../../../wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Input } from '../ui/input'

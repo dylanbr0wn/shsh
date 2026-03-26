@@ -2,15 +2,9 @@ import { useEffect, useLayoutEffect, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
 import type { SessionStatus, Host, Group, TerminalProfile } from '../types'
-import {
-  ListHosts,
-  ListGroups,
-  ListTerminalProfiles,
-  CloseChannel,
-  StartSessionLog,
-  StopSessionLog,
-  OpenLogsDirectory,
-} from '../../wailsjs/go/main/App'
+import { ListHosts, ListGroups, ListTerminalProfiles } from '../../wailsjs/go/main/HostFacade'
+import { CloseChannel, StartSessionLog, StopSessionLog } from '../../wailsjs/go/main/SessionFacade'
+import { OpenLogsDirectory } from '../../wailsjs/go/main/ToolsFacade'
 import { EventsOn } from '../../wailsjs/runtime/runtime'
 import {
   hostsAtom,
