@@ -95,7 +95,7 @@ export function WelcomeScreen() {
         >
           <ArrowRight className="text-primary size-3.5 shrink-0" />
           <span className="text-muted-foreground flex-1 text-sm">
-            Connect or search hosts...
+            Quick connect...
           </span>
           <kbd className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
             ⌘K
@@ -119,7 +119,7 @@ export function WelcomeScreen() {
                     type="button"
                     onClick={() => handleConnect(host)}
                     disabled={isConnecting}
-                    className="host-item-animate bg-card hover:bg-accent/50 flex items-center gap-3 rounded-md px-3 py-2 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
+                    className="host-item-animate bg-card hover:bg-accent flex items-center gap-3 rounded-md px-3 py-2 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
                     style={{
                       borderLeft: `2.5px solid ${host.color ?? 'transparent'}`,
                       paddingLeft: 9,
