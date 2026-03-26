@@ -10,6 +10,7 @@ import {
   Loader2,
   HelpCircle,
 } from 'lucide-react'
+import { DOCS_BASE_URL } from '../../lib/constants'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -352,7 +353,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
         <Tooltip>
           <TooltipTrigger asChild>
             <a
-              href="https://dylanbr0wn.github.io/shsh/features/sftp/"
+              href={`${DOCS_BASE_URL}/features/sftp/`}
               target="_blank"
               rel="noopener noreferrer"
               className="text-muted-foreground hover:text-foreground inline-flex size-7 items-center justify-center rounded-md transition-colors"

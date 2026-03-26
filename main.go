@@ -20,6 +20,8 @@ import (
 	"gopkg.in/lumberjack.v2"
 )
 
+const docsBaseURL = "https://dylanbr0wn.github.io/shsh"
+
 func buildMenu(app *App) *menu.Menu {
 	m := menu.NewMenu()
 	if goruntime.GOOS == "darwin" {
@@ -86,7 +88,7 @@ func buildMenu(app *App) *menu.Menu {
 
 	help := m.AddSubmenu("Help")
 	help.AddText("Documentation", nil, func(_ *menu.CallbackData) {
-		runtime.BrowserOpenURL(app.ctx, "https://dylanbr0wn.github.io/shsh/")
+		runtime.BrowserOpenURL(app.deps.Ctx, docsBaseURL)
 	})
 
 	return m
