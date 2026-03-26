@@ -30,7 +30,10 @@ export function useChannelEvents() {
           return next
         })
       }
-      patchLeaf({ channelId, patch: { status: 'connected', connectedAt: new Date().toISOString() } })
+      patchLeaf({
+        channelId,
+        patch: { status: 'connected', connectedAt: new Date().toISOString() },
+      })
       return
     }
 

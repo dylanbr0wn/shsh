@@ -1,11 +1,7 @@
 import { useSetAtom } from 'jotai'
 import { toast } from 'sonner'
 import { useWailsEvent } from './useWailsEvent'
-import {
-  addPortForwardConnectionIdAtom,
-  activeLogsAtom,
-  isLogViewerOpenAtom,
-} from '../store/atoms'
+import { addPortForwardConnectionIdAtom, activeLogsAtom, isLogViewerOpenAtom } from '../store/atoms'
 import { requireActiveLeafAtom, disconnectAllAtom } from '../store/workspaceActions'
 import { CloseChannel, StartSessionLog, StopSessionLog } from '../../wailsjs/go/main/SessionFacade'
 import { OpenLogsDirectory } from '../../wailsjs/go/main/ToolsFacade'
