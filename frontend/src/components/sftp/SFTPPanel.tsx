@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Home,
   Loader2,
+  HelpCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
@@ -347,6 +348,19 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>New folder</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href="https://dylanbr0wn.github.io/shsh/features/sftp/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground inline-flex size-7 items-center justify-center rounded-md transition-colors"
+            >
+              <HelpCircle className="size-3.5" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>SFTP documentation</TooltipContent>
         </Tooltip>
       </div>
 
