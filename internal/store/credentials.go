@@ -2,14 +2,12 @@ package store
 
 import (
 	"context"
-
-	"github.com/dylanbr0wn/shsh/internal/credstore"
+	"errors"
 )
 
 // ErrKeychainUnavailable is returned when the OS credential store cannot be
 // reached (e.g., headless Linux without a Secret Service daemon).
-// It is an alias for credstore.ErrKeychainUnavailable.
-var ErrKeychainUnavailable = credstore.ErrKeychainUnavailable
+var ErrKeychainUnavailable = errors.New("keychain unavailable")
 
 // CredentialResolver abstracts secret storage and retrieval so the store
 // package has no direct dependency on credential backends.

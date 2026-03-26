@@ -4,6 +4,7 @@
 package credstore
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -159,4 +160,60 @@ func Fetch(source Source, ref string) (string, error) {
 	default:
 		return "", fmt.Errorf("unsupported credential source: %s", source)
 	}
+}
+
+// fetchFrom1PasswordCtx is like FetchFrom1Password but respects context for timeout.
+func fetchFrom1PasswordCtx(ctx context.Context, ref string) (string, error) {
+	if _, err := exec.LookPath("op"); err != nil {
+		return "", fmt.Errorf("1Password CLI (op) not installed")
+	}
+
+	var args []string
+	if strings.HasPrefix(ref, "op://") {
+		args = []string{"read", ref}
+	} else {
+		args = []string{"item", "get", ref, "--fields", "label=password", "--reveal"}
+	}
+
+	out, err := exec.CommandContext(ctx, "op", args...).Output() //nolint:gosec
+	if err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("1Password: %w", ctx.Err())
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("1Password: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return "", fmt.Errorf("1Password fetch failed: %w", err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
+}
+
+// fetchFromBitwardenCtx is like FetchFromBitwarden but respects context for timeout.
+func fetchFromBitwardenCtx(ctx context.Context, ref string) (string, error) {
+	if _, err := exec.LookPath("bw"); err != nil {
+		return "", fmt.Errorf("Bitwarden CLI (bw) not installed")
+	}
+
+	mu.Lock()
+	sessionKey := bwSessionKey
+	mu.Unlock()
+
+	args := []string{"get", "password", ref}
+	if sessionKey != "" {
+		args = append(args, "--session", sessionKey)
+	}
+
+	out, err := exec.CommandContext(ctx, "bw", args...).Output() //nolint:gosec
+	if err != nil {
+		if ctx.Err() != nil {
+			return "", fmt.Errorf("Bitwarden: %w", ctx.Err())
+		}
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("Bitwarden: %s", strings.TrimSpace(string(exitErr.Stderr)))
+		}
+		return "", fmt.Errorf("Bitwarden fetch failed: %w", err)
+	}
+
+	return strings.TrimSpace(string(out)), nil
 }

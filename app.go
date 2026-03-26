@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/credstore"
 	"github.com/dylanbr0wn/shsh/internal/debuglog"
 	"github.com/dylanbr0wn/shsh/internal/deps"
 	"github.com/dylanbr0wn/shsh/internal/session"
@@ -70,7 +71,7 @@ func (a *App) startup(ctx context.Context) {
 
 	dbPath := filepath.Join(dbDir, "shsh.db")
 
-	s, err := store.New(dbPath)
+	s, err := store.New(dbPath, credstore.NewResolver())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		return

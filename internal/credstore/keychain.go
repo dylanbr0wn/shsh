@@ -4,12 +4,9 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/zalando/go-keyring"
 )
-
-// ErrKeychainUnavailable is returned when the OS credential store cannot be
-// reached (e.g., headless Linux without a Secret Service daemon).
-var ErrKeychainUnavailable = errors.New("keychain unavailable")
 
 const keychainService = "shsh"
 
@@ -18,7 +15,7 @@ func KeychainSet(key, password string) error {
 	err := keyring.Set(keychainService, key, password)
 	if err != nil {
 		if isKeychainUnavailable(err) {
-			return ErrKeychainUnavailable
+			return store.ErrKeychainUnavailable
 		}
 		return err
 	}
@@ -34,7 +31,7 @@ func KeychainGet(key string) (string, error) {
 			return "", nil
 		}
 		if isKeychainUnavailable(err) {
-			return "", ErrKeychainUnavailable
+			return "", store.ErrKeychainUnavailable
 		}
 		return "", err
 	}
@@ -47,7 +44,7 @@ func KeychainDelete(key string) error {
 	err := keyring.Delete(keychainService, key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		if isKeychainUnavailable(err) {
-			return ErrKeychainUnavailable
+			return store.ErrKeychainUnavailable
 		}
 		return err
 	}
