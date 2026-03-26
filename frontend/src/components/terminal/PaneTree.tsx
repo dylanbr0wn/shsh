@@ -1,8 +1,11 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
 import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
+import { useDropZone } from '../../hooks/useDropZone'
+import type { DropEdge, DropMime } from '../../hooks/useDropZone'
+import { DropZoneOverlay } from '../workspace/DropZoneOverlay'
 import { TerminalInstance } from './TerminalInstance'
 import { SFTPPanel } from '../sftp/SFTPPanel'
 import { LocalFSPanel } from '../localfs/LocalFSPanel'
@@ -11,17 +14,28 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '../ui/resi
 import { hostsAtom } from '../../store/atoms'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
+import { cn } from '../../lib/utils'
 
 interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
-  onSplit: (paneId: string, direction: 'horizontal' | 'vertical') => void
+  onSplit: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    kind?: PaneLeaf['kind'],
+    hostId?: string
+  ) => void
   onClose: (paneId: string) => void
-  onOpenFiles: (paneId: string) => void
-  onAddLocal: (paneId: string) => void
-  onAddTerminal: (paneId: string, hostId: string) => void
-  onAddSFTP: (paneId: string, hostId: string) => void
+  onDrop: (
+    paneId: string,
+    edge: DropEdge,
+    mime: DropMime,
+    data: string,
+    shiftKey: boolean,
+    clientX: number,
+    clientY: number
+  ) => void
 }
 
 export function PaneTree({
@@ -30,20 +44,8 @@ export function PaneTree({
   isWorkspaceActive,
   onSplit,
   onClose,
-  onOpenFiles,
-  onAddLocal,
-  onAddTerminal,
-  onAddSFTP,
+  onDrop,
 }: PaneTreeProps) {
-  const [, setWorkspaces] = useAtom(workspacesAtom)
-  const hosts = useAtomValue(hostsAtom)
-
-  function setFocused(paneId: string) {
-    setWorkspaces((prev) =>
-      prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
-    )
-  }
-
   if (node.type === 'split') {
     const leftPct = node.ratio * 100
     const rightPct = (1 - node.ratio) * 100
@@ -59,10 +61,7 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
-            onOpenFiles={onOpenFiles}
-            onAddLocal={onAddLocal}
-            onAddTerminal={onAddTerminal}
-            onAddSFTP={onAddSFTP}
+            onDrop={onDrop}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -73,90 +72,156 @@ export function PaneTree({
             isWorkspaceActive={isWorkspaceActive}
             onSplit={onSplit}
             onClose={onClose}
-            onOpenFiles={onOpenFiles}
-            onAddLocal={onAddLocal}
-            onAddTerminal={onAddTerminal}
-            onAddSFTP={onAddSFTP}
+            onDrop={onDrop}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
     )
   }
 
-  const leaf: PaneLeaf = node
+  return (
+    <PaneLeafView
+      leaf={node}
+      workspace={workspace}
+      isWorkspaceActive={isWorkspaceActive}
+      onSplit={onSplit}
+      onClose={onClose}
+      onDrop={onDrop}
+    />
+  )
+}
+
+interface PaneLeafViewProps {
+  leaf: PaneLeaf
+  workspace: Workspace
+  isWorkspaceActive: boolean
+  onSplit: (
+    paneId: string,
+    direction: 'horizontal' | 'vertical',
+    kind?: PaneLeaf['kind'],
+    hostId?: string
+  ) => void
+  onClose: (paneId: string) => void
+  onDrop: (
+    paneId: string,
+    edge: DropEdge,
+    mime: DropMime,
+    data: string,
+    shiftKey: boolean,
+    clientX: number,
+    clientY: number
+  ) => void
+}
+
+function PaneLeafView({
+  leaf,
+  workspace,
+  isWorkspaceActive,
+  onSplit,
+  onClose,
+  onDrop,
+}: PaneLeafViewProps) {
+  const [, setWorkspaces] = useAtom(workspacesAtom)
+  const hosts = useAtomValue(hostsAtom)
+  const [isDragging, setIsDragging] = useState(false)
+
   const isFocused = leaf.paneId === workspace.focusedPaneId
   const isActive = isWorkspaceActive && isFocused
   const host = hosts.find((h) => h.id === leaf.hostId)
   const totalLeaves = collectLeaves(workspace.layout).length
   const canClose = totalLeaves > 1
 
+  function setFocused(paneId: string) {
+    if (paneId === workspace.focusedPaneId) return
+    setWorkspaces((prev) =>
+      prev.map((w) => (w.id === workspace.id ? { ...w, focusedPaneId: paneId } : w))
+    )
+  }
+
+  const handleDrop = useCallback(
+    (
+      edge: DropEdge,
+      mime: DropMime,
+      data: string,
+      shiftKey: boolean,
+      clientX: number,
+      clientY: number
+    ) => onDrop(leaf.paneId, edge, mime, data, shiftKey, clientX, clientY),
+    [onDrop, leaf.paneId]
+  )
+
+  const { state: dropState, handlers: dropHandlers } = useDropZone({
+    onDrop: handleDrop,
+  })
+
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className="group/pane relative h-full w-full p-2"
+      className={cn('group/pane relative flex h-full w-full flex-col', isDragging && 'opacity-30')}
+      {...dropHandlers}
+      onMouseDown={() => setFocused(leaf.paneId)}
       style={
         isFocused
           ? { boxShadow: `inset 0 0 0 1px ${host?.color ?? 'hsl(var(--border))'}` }
           : undefined
       }
-      onMouseDown={() => setFocused(leaf.paneId)}
-      onDragOver={(e) => {
-        if (e.dataTransfer.types.includes('application/x-shsh-host')) {
-          e.preventDefault()
-          e.dataTransfer.dropEffect = 'copy'
-        }
-      }}
-      onDrop={(e) => {
-        const raw = e.dataTransfer.getData('application/x-shsh-host')
-        if (!raw) return
-        e.preventDefault()
-        const { hostId } = JSON.parse(raw) as { hostId: string }
-        if (e.shiftKey) {
-          onAddSFTP(leaf.paneId, hostId)
-        } else {
-          onAddTerminal(leaf.paneId, hostId)
-        }
-      }}
     >
       <PaneHeader
         hostLabel={leaf.hostLabel}
         hostColor={host?.color}
+        hostId={leaf.hostId}
         kind={leaf.kind}
-        connectionId={leaf.connectionId}
-        onSplitVertical={() => onSplit(leaf.paneId, 'vertical')}
-        onSplitHorizontal={() => onSplit(leaf.paneId, 'horizontal')}
+        paneId={leaf.paneId}
+        workspaceId={workspace.id}
+        onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
-        onOpenFiles={leaf.kind === 'terminal' ? () => onOpenFiles(leaf.paneId) : undefined}
-        onAddLocal={() => onAddLocal(leaf.paneId)}
-        onAddTerminal={(hostId) => onAddTerminal(leaf.paneId, hostId)}
-        onAddSFTP={(hostId) => onAddSFTP(leaf.paneId, hostId)}
+        onDragStateChange={setIsDragging}
+        onToggle={
+          leaf.kind !== 'local'
+            ? () =>
+                onSplit(
+                  leaf.paneId,
+                  'horizontal',
+                  leaf.kind === 'terminal' ? 'sftp' : 'terminal',
+                  leaf.hostId
+                )
+            : undefined
+        }
       />
-      {leaf.kind === 'sftp' ? (
-        <ErrorBoundary
-          fallback="inline"
-          zone={`sftp-${leaf.channelId}`}
-          onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
-          resetKeys={[leaf.channelId]}
-        >
-          <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
-        </ErrorBoundary>
-      ) : leaf.kind === 'local' ? (
-        <LocalFSPanel channelId={leaf.channelId} />
-      ) : (
-        <ErrorBoundary
-          fallback="inline"
-          zone={`terminal-${leaf.channelId}`}
-          onError={(e, i) => reportUIError(e, i, `terminal-${leaf.channelId}`)}
-          resetKeys={[leaf.channelId]}
-        >
-          <InitialFitTrigger isActive={isActive} />
-          <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
-        </ErrorBoundary>
+      {dropState.edge && (
+        <DropZoneOverlay
+          edge={dropState.edge}
+          color={dropState.mime === 'application/x-shsh-host' ? host?.color : undefined}
+        />
       )}
-      {(leaf.status === 'disconnected' || leaf.status === 'error') && (
-        <DisconnectedOverlay onReconnect={() => {}} />
-      )}
+      <div className="relative min-h-0 flex-1">
+        {leaf.kind === 'sftp' ? (
+          <ErrorBoundary
+            fallback="inline"
+            zone={`sftp-${leaf.channelId}`}
+            onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
+            resetKeys={[leaf.channelId]}
+          >
+            <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+          </ErrorBoundary>
+        ) : leaf.kind === 'local' ? (
+          <LocalFSPanel channelId={leaf.channelId} />
+        ) : (
+          <ErrorBoundary
+            fallback="inline"
+            zone={`terminal-${leaf.channelId}`}
+            onError={(e, i) => reportUIError(e, i, `terminal-${leaf.channelId}`)}
+            resetKeys={[leaf.channelId]}
+          >
+            <InitialFitTrigger isActive={isActive} />
+            <TerminalInstance channelId={leaf.channelId} hostId={leaf.hostId} isActive={isActive} />
+          </ErrorBoundary>
+        )}
+        {(leaf.status === 'disconnected' || leaf.status === 'error') && (
+          <DisconnectedOverlay onReconnect={() => {}} />
+        )}
+      </div>
     </div>
   )
 }

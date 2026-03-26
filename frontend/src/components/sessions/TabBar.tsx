@@ -9,7 +9,7 @@ import {
   channelActivityAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import { collectLeaves } from '../../lib/paneTree'
+import { collectLeaves, firstLeaf, movePaneAcrossWorkspaces } from '../../lib/paneTree'
 import { CloseChannel, ListWorkspaceTemplates } from '../../../wailsjs/go/main/App'
 import { Button } from '../ui/button'
 import {
@@ -23,7 +23,7 @@ import {
 import { TabItem } from './TabItem'
 import { CloseConfirmDialog } from './CloseConfirmDialog'
 import { SaveTemplateDialog } from '../workspace/SaveTemplateDialog'
-import type { Workspace } from '../../store/workspaces'
+import type { PaneLeaf, Workspace } from '../../store/workspaces'
 import type { WorkspaceTemplate } from '../../types'
 
 export function TabBar() {
@@ -147,8 +147,30 @@ export function TabBar() {
     setWorkspaces((prev) => prev.map((w) => (w.id === workspaceId ? { ...w, name } : w)))
   }
 
-  function getConnectionDots(ws: Workspace) {
-    const leaves = collectLeaves(ws.layout)
+  function handlePaneDrop(
+    sourcePaneId: string,
+    sourceWorkspaceId: string,
+    targetWorkspaceId: string
+  ) {
+    if (sourceWorkspaceId === targetWorkspaceId) return
+    setWorkspaces((prev) => {
+      const targetWs = prev.find((w) => w.id === targetWorkspaceId)
+      if (!targetWs) return prev
+      const targetPane = firstLeaf(targetWs.layout)
+      return movePaneAcrossWorkspaces(
+        prev,
+        sourcePaneId,
+        sourceWorkspaceId,
+        targetWorkspaceId,
+        targetPane.paneId,
+        'horizontal',
+        'after'
+      )
+    })
+    setActiveWorkspaceId(targetWorkspaceId)
+  }
+
+  function getConnectionDots(leaves: PaneLeaf[]) {
     const seen = new Map<string, { color?: string; status: string }>()
     for (const leaf of leaves) {
       if (!seen.has(leaf.connectionId)) {
@@ -160,8 +182,7 @@ export function TabBar() {
   }
 
   // Derive a tab session object from the first leaf's data
-  function workspaceToTabSession(ws: Workspace) {
-    const leaves = collectLeaves(ws.layout)
+  function workspaceToTabSession(ws: Workspace, leaves: PaneLeaf[]) {
     const primaryLeaf = leaves[0]
     return {
       id: ws.id,
@@ -173,39 +194,46 @@ export function TabBar() {
     }
   }
 
-  const workspaceHasActivity = (ws: Workspace) =>
-    collectLeaves(ws.layout).some((l) => channelActivity.includes(l.channelId))
+  const workspaceHasActivity = (leaves: PaneLeaf[]) =>
+    leaves.some((l) => channelActivity.includes(l.channelId))
 
   return (
     <>
       <div className="border-border bg-muted/30 flex h-8 shrink-0 items-stretch overflow-x-auto border-b">
-        {workspaces.map((ws, idx) => (
-          <TabItem
-            key={ws.id}
-            session={workspaceToTabSession(ws)}
-            host={hostById[collectLeaves(ws.layout)[0]?.hostId ?? '']}
-            isActive={ws.id === activeWorkspaceId}
-            hasActivity={workspaceHasActivity(ws)}
-            isFirst={idx === 0}
-            isLast={idx === workspaces.length - 1}
-            workspaceName={ws.name}
-            connectionDots={getConnectionDots(ws)}
-            leaves={collectLeaves(ws.layout)}
-            hostById={hostById}
-            onActivate={() => {
-              setActiveWorkspaceId(ws.id)
-              const ids = new Set(collectLeaves(ws.layout).map((l) => l.channelId))
-              setChannelActivity((prev) => prev.filter((id) => !ids.has(id)))
-            }}
-            onClose={() => handleClose(ws.id)}
-            onCloseOthers={() => handleCloseOthers(ws.id)}
-            onCloseToLeft={() => handleCloseToLeft(ws.id)}
-            onCloseToRight={() => handleCloseToRight(ws.id)}
-            onCloseAll={handleCloseAll}
-            onRename={(name) => handleRename(ws.id, name)}
-            onSaveTemplate={() => handleSaveTemplate(ws.id)}
-          />
-        ))}
+        {workspaces.map((ws, idx) => {
+          const leaves = collectLeaves(ws.layout)
+          return (
+            <TabItem
+              key={ws.id}
+              session={workspaceToTabSession(ws, leaves)}
+              host={hostById[leaves[0]?.hostId ?? '']}
+              isActive={ws.id === activeWorkspaceId}
+              hasActivity={workspaceHasActivity(leaves)}
+              isFirst={idx === 0}
+              isLast={idx === workspaces.length - 1}
+              workspaceName={ws.name}
+              connectionDots={getConnectionDots(leaves)}
+              leaves={leaves}
+              hostById={hostById}
+              onActivate={() => {
+                setActiveWorkspaceId(ws.id)
+                const ids = new Set(leaves.map((l) => l.channelId))
+                setChannelActivity((prev) => prev.filter((id) => !ids.has(id)))
+              }}
+              onClose={() => handleClose(ws.id)}
+              onCloseOthers={() => handleCloseOthers(ws.id)}
+              onCloseToLeft={() => handleCloseToLeft(ws.id)}
+              onCloseToRight={() => handleCloseToRight(ws.id)}
+              onCloseAll={handleCloseAll}
+              onRename={(name) => handleRename(ws.id, name)}
+              onSaveTemplate={() => handleSaveTemplate(ws.id)}
+              onDragHover={() => setActiveWorkspaceId(ws.id)}
+              onPaneDrop={(sourcePaneId, sourceWorkspaceId) =>
+                handlePaneDrop(sourcePaneId, sourceWorkspaceId, ws.id)
+              }
+            />
+          )
+        })}
         <div className="ml-auto flex shrink-0 items-center px-1">
           <DropdownMenu
             onOpenChange={(open) => {

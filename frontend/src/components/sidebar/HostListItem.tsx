@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { Loader2, MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
@@ -41,18 +42,6 @@ interface Props {
   onOpenFiles?: () => void
 }
 
-// function relativeTime(iso: string): string {
-//   const diff = Date.now() - new Date(iso).getTime()
-//   const mins = Math.floor(diff / 60_000)
-//   const hours = Math.floor(diff / 3_600_000)
-//   const days = Math.floor(diff / 86_400_000)
-//   if (mins < 1) return 'just now'
-//   if (mins < 60) return `${mins}m ago`
-//   if (hours < 24) return `${hours}h ago`
-//   if (days < 30) return `${days}d ago`
-//   return new Date(iso).toLocaleDateString()
-// }
-
 function latencyValue(latencyMs: number | undefined): { text: string; color: string } {
   if (latencyMs === undefined) return { text: '', color: '' }
   const text = `${latencyMs}ms`
@@ -79,6 +68,7 @@ export function HostListItem({
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
   const { text, color } = latencyValue(health[host.id])
+  const previewRef = useRef<HTMLDivElement>(null)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -88,6 +78,17 @@ export function HostListItem({
           onDragStart={(e) => {
             e.dataTransfer.effectAllowed = 'copy'
             e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
+            if (previewRef.current) {
+              previewRef.current.style.left = '0px'
+              previewRef.current.style.top = '0px'
+              e.dataTransfer.setDragImage(previewRef.current, 0, 0)
+              requestAnimationFrame(() => {
+                if (previewRef.current) {
+                  previewRef.current.style.left = '-9999px'
+                  previewRef.current.style.top = '-9999px'
+                }
+              })
+            }
           }}
           onDoubleClick={onConnect}
           className={cn(
@@ -116,11 +117,6 @@ export function HostListItem({
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center gap-3">
               <div className="truncate text-sm font-medium">{host.label}</div>
-              {/* {host.lastConnectedAt && (
-                <span className="text-muted-foreground/60 text-[10px] leading-none">
-                  Last session {relativeTime(host.lastConnectedAt)}
-                </span>
-              )} */}
             </div>
 
             <div className="text-muted-foreground truncate text-xs">
@@ -147,13 +143,8 @@ export function HostListItem({
             )}
           </div>
 
-          {/* Right: last connected + action buttons */}
+          {/* Right: action buttons */}
           <div className="flex shrink-0 flex-col items-end gap-0.5">
-            {/* {host.lastConnectedAt && (
-              <span className="text-muted-foreground/60 text-[10px] leading-none">
-                {relativeTime(host.lastConnectedAt)}
-              </span>
-            )} */}
             <div className="flex items-center gap-1">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -238,6 +229,19 @@ export function HostListItem({
           </div>
         </div>
       </ContextMenuTrigger>
+      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
+      <div
+        ref={previewRef}
+        className="pointer-events-none fixed"
+        style={{ left: '-9999px', top: '-9999px' }}
+      >
+        <div className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md">
+          {host.color && (
+            <span className="size-2 rounded-full" style={{ backgroundColor: host.color }} />
+          )}
+          {host.label}
+        </div>
+      </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}

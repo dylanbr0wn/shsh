@@ -65,6 +65,8 @@ interface Props {
   onRetry?: () => void
   onRename: (name: string) => void
   onSaveTemplate?: () => void
+  onDragHover?: () => void
+  onPaneDrop?: (sourcePaneId: string, sourceWorkspaceId: string) => void
 }
 
 const kindLabel: Record<string, string> = {
@@ -166,16 +168,67 @@ export function TabItem({
   onRetry,
   onRename,
   onSaveTemplate,
+  onDragHover,
+  onPaneDrop,
 }: Props) {
   const [isRenaming, setIsRenaming] = useState(false)
   const [renameValue, setRenameValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (isRenaming) {
       inputRef.current?.focus()
     }
   }, [isRenaming])
+
+  useEffect(() => {
+    return () => {
+      if (hoverTimerRef.current !== null) {
+        clearTimeout(hoverTimerRef.current)
+      }
+    }
+  }, [])
+
+  function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+    if (hoverTimerRef.current !== null) return
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null
+      onDragHover?.()
+    }, 300)
+  }
+
+  function handleDragLeave() {
+    if (hoverTimerRef.current !== null) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+    if (hoverTimerRef.current !== null) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/x-shsh-pane')) as {
+        paneId: string
+        workspaceId: string
+      }
+      onPaneDrop?.(data.paneId, data.workspaceId)
+    } catch {
+      /* ignore malformed data */
+    }
+  }
 
   function handleDoubleClick() {
     setRenameValue(workspaceName ?? session.hostLabel)
@@ -201,6 +254,10 @@ export function TabItem({
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') onActivate()
               }}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
             >
               <div className="relative flex shrink-0 items-center gap-0.5">
                 {connectionDots.length > 0 ? (

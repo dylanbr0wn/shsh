@@ -1,5 +1,5 @@
 import { useAtomValue, useAtom } from 'jotai'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -8,10 +8,27 @@ import {
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import { collectLeaves, splitLeaf, removeLeaf, firstLeaf } from '../../lib/paneTree'
+import {
+  collectLeaves,
+  splitLeaf,
+  removeLeaf,
+  firstLeaf,
+  moveLeaf,
+  insertLeaf,
+  movePaneAcrossWorkspaces,
+} from '../../lib/paneTree'
 import type { PaneLeaf, PaneNode } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
+import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { PaneTree } from './PaneTree'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu'
+import { Terminal, FolderOpen, HardDrive } from 'lucide-react'
 import { TerminalSearch } from './TerminalSearch'
 import { TerminalSidebar } from './TerminalSidebar'
 import {
@@ -33,34 +50,115 @@ export function WorkspaceView() {
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
+  const workspacesRef = useRef(workspaces)
+  workspacesRef.current = workspaces
+  const hostsRef = useRef(hosts)
+  hostsRef.current = hosts
+
+  const [pendingHostDrop, setPendingHostDrop] = useState<{
+    workspaceId: string
+    paneId: string
+    hostId: string
+    direction: 'horizontal' | 'vertical'
+    position: 'before' | 'after'
+    x: number
+    y: number
+  } | null>(null)
 
   const handleSplit = useCallback(
-    async (workspaceId: string, paneId: string, direction: 'horizontal' | 'vertical') => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
+    async (
+      workspaceId: string,
+      paneId: string,
+      direction: 'horizontal' | 'vertical',
+      kind?: PaneLeaf['kind'],
+      hostId?: string,
+      position?: 'before' | 'after'
+    ) => {
+      const ws = workspacesRef.current.find((w) => w.id === workspaceId)
       if (!ws) return
       const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
       if (!leaf) return
+
       try {
-        const channelId = await OpenTerminal(leaf.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'terminal',
-          paneId: newPaneId,
-          connectionId: leaf.connectionId,
-          channelId,
-          hostId: leaf.hostId,
-          hostLabel: leaf.hostLabel,
-          status: 'connected',
-          connectedAt: new Date().toISOString(),
+        let newLeaf: PaneLeaf
+
+        if (kind === 'local') {
+          // Local filesystem pane
+          const channelId = await OpenLocalFSChannel()
+          newLeaf = {
+            type: 'leaf',
+            kind: 'local',
+            paneId: crypto.randomUUID(),
+            connectionId: 'local',
+            channelId,
+            hostId: 'local',
+            hostLabel: 'Local',
+            status: 'connected',
+          }
+        } else if (kind === 'terminal' && hostId) {
+          // Terminal pane on a specific host
+          const host = hostsRef.current.find((h) => h.id === hostId)
+          if (!host) {
+            toast.error('Host not found')
+            return
+          }
+          const result = await ConnectHost(hostId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'terminal',
+            paneId: crypto.randomUUID(),
+            connectionId: result.connectionId,
+            channelId: result.channelId,
+            hostId,
+            hostLabel: host.label,
+            status: 'connected',
+            connectedAt: new Date().toISOString(),
+          }
+        } else if (kind === 'sftp' && hostId) {
+          // SFTP pane on a specific host
+          const host = hostsRef.current.find((h) => h.id === hostId)
+          if (!host) {
+            toast.error('Host not found')
+            return
+          }
+          const result = await ConnectHost(hostId)
+          const channelId = await OpenSFTPChannel(result.connectionId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'sftp',
+            paneId: crypto.randomUUID(),
+            connectionId: result.connectionId,
+            channelId,
+            hostId,
+            hostLabel: host.label,
+            status: 'connected',
+          }
+        } else {
+          // Default: split same connection with a new terminal (keyboard shortcut path)
+          const channelId = await OpenTerminal(leaf.connectionId)
+          newLeaf = {
+            type: 'leaf',
+            kind: 'terminal',
+            paneId: crypto.randomUUID(),
+            connectionId: leaf.connectionId,
+            channelId,
+            hostId: leaf.hostId,
+            hostLabel: leaf.hostLabel,
+            status: 'connected',
+            connectedAt: new Date().toISOString(),
+          }
         }
+
         setWorkspaces((prev) =>
           prev.map((w) => {
             if (w.id !== workspaceId) return w
+            const newLayout = position
+              ? insertLeaf(w.layout, paneId, direction, newLeaf, position)
+              : splitLeaf(w.layout, paneId, direction, newLeaf)
             return {
               ...w,
-              layout: splitLeaf(w.layout, paneId, direction, newLeaf),
-              focusedPaneId: newPaneId,
+              layout: newLayout,
+              focusedPaneId: newLeaf.paneId,
             }
           })
         )
@@ -68,145 +166,7 @@ export function WorkspaceView() {
         toast.error('Split failed', { description: String(err) })
       }
     },
-    [workspaces, setWorkspaces]
-  )
-
-  const handleOpenFiles = useCallback(
-    async (workspaceId: string, paneId: string) => {
-      const ws = workspaces.find((w) => w.id === workspaceId)
-      if (!ws) return
-      const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
-      if (!leaf) return
-      try {
-        const channelId = await OpenSFTPChannel(leaf.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'sftp',
-          paneId: newPaneId,
-          connectionId: leaf.connectionId,
-          channelId,
-          hostId: leaf.hostId,
-          hostLabel: leaf.hostLabel,
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Open files failed', { description: String(err) })
-      }
-    },
-    [workspaces, setWorkspaces]
-  )
-
-  const handleAddLocal = useCallback(
-    async (workspaceId: string, paneId: string) => {
-      try {
-        const channelId = await OpenLocalFSChannel()
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'local',
-          paneId: newPaneId,
-          connectionId: 'local',
-          channelId,
-          hostId: 'local',
-          hostLabel: 'Local',
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to open local files', { description: String(err) })
-      }
-    },
     [setWorkspaces]
-  )
-
-  const handleAddTerminal = useCallback(
-    async (workspaceId: string, paneId: string, hostId: string) => {
-      const host = hosts.find((h) => h.id === hostId)
-      if (!host) return
-      try {
-        const result = await ConnectHost(hostId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'terminal',
-          paneId: newPaneId,
-          connectionId: result.connectionId,
-          channelId: result.channelId,
-          hostId,
-          hostLabel: host.label,
-          status: 'connected',
-          connectedAt: new Date().toISOString(),
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to add terminal', { description: String(err) })
-      }
-    },
-    [hosts, setWorkspaces]
-  )
-
-  const handleAddSFTP = useCallback(
-    async (workspaceId: string, paneId: string, hostId: string) => {
-      const host = hosts.find((h) => h.id === hostId)
-      if (!host) return
-      try {
-        const result = await ConnectHost(hostId)
-        const channelId = await OpenSFTPChannel(result.connectionId)
-        const newPaneId = crypto.randomUUID()
-        const newLeaf: PaneLeaf = {
-          type: 'leaf',
-          kind: 'sftp',
-          paneId: newPaneId,
-          connectionId: result.connectionId,
-          channelId,
-          hostId,
-          hostLabel: host.label,
-          status: 'connected',
-        }
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            return {
-              ...w,
-              layout: splitLeaf(w.layout, paneId, 'horizontal', newLeaf),
-              focusedPaneId: newPaneId,
-            }
-          })
-        )
-      } catch (err) {
-        toast.error('Failed to add SFTP pane', { description: String(err) })
-      }
-    },
-    [hosts, setWorkspaces]
   )
 
   async function buildLiveTree(node: TemplateNode): Promise<PaneNode> {
@@ -332,6 +292,90 @@ export function WorkspaceView() {
     [setWorkspaces]
   )
 
+  const handleMovePane = useCallback(
+    (
+      sourceWorkspaceId: string,
+      sourcePaneId: string,
+      targetWorkspaceId: string,
+      targetPaneId: string,
+      direction: 'horizontal' | 'vertical',
+      position: 'before' | 'after'
+    ) => {
+      setWorkspaces((prev) => {
+        // Same workspace move
+        if (sourceWorkspaceId === targetWorkspaceId) {
+          return prev.map((w) => {
+            if (w.id !== sourceWorkspaceId) return w
+            const newLayout = moveLeaf(w.layout, sourcePaneId, targetPaneId, direction, position)
+            if (!newLayout) return w
+            return { ...w, layout: newLayout, focusedPaneId: sourcePaneId }
+          })
+        }
+        // Cross-workspace move
+        return movePaneAcrossWorkspaces(
+          prev,
+          sourcePaneId,
+          sourceWorkspaceId,
+          targetWorkspaceId,
+          targetPaneId,
+          direction,
+          position
+        )
+      })
+    },
+    [setWorkspaces]
+  )
+
+  const handleDrop = useCallback(
+    (
+      workspaceId: string,
+      paneId: string,
+      edge: DropEdge,
+      mime: DropMime,
+      data: string,
+      shiftKey: boolean,
+      clientX: number,
+      clientY: number
+    ) => {
+      const edgeToSplit: Record<
+        DropEdge,
+        { direction: 'horizontal' | 'vertical'; position: 'before' | 'after' }
+      > = {
+        top: { direction: 'vertical', position: 'before' },
+        bottom: { direction: 'vertical', position: 'after' },
+        left: { direction: 'horizontal', position: 'before' },
+        right: { direction: 'horizontal', position: 'after' },
+      }
+      const { direction, position } = edgeToSplit[edge]
+
+      if (mime === 'application/x-shsh-host') {
+        const { hostId } = JSON.parse(data) as { hostId: string }
+        if (shiftKey) {
+          // Shift+drag fast path: directly open SFTP
+          handleSplit(workspaceId, paneId, direction, 'sftp', hostId, position)
+        } else {
+          // Show type chooser popover
+          setPendingHostDrop({
+            workspaceId,
+            paneId,
+            hostId,
+            direction,
+            position,
+            x: clientX,
+            y: clientY,
+          })
+        }
+      } else if (mime === 'application/x-shsh-pane') {
+        const { paneId: sourcePaneId, workspaceId: sourceWorkspaceId } = JSON.parse(data) as {
+          paneId: string
+          workspaceId: string
+        }
+        handleMovePane(sourceWorkspaceId, sourcePaneId, workspaceId, paneId, direction, position)
+      }
+    },
+    [handleSplit, handleMovePane]
+  )
+
   // Cmd+F / Ctrl+F to open search
   // Cmd+D / Ctrl+D to split vertically, Cmd+Shift+D / Ctrl+Shift+D to split horizontally
   const handleKeyDown = useCallback(
@@ -342,7 +386,7 @@ export function WorkspaceView() {
         return
       }
       if (!activeWorkspaceId) return
-      const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+      const ws = workspacesRef.current.find((w) => w.id === activeWorkspaceId)
       if (!ws || !ws.focusedPaneId) return
 
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'd') {
@@ -354,7 +398,7 @@ export function WorkspaceView() {
         handleSplit(activeWorkspaceId, ws.focusedPaneId, 'horizontal')
       }
     },
-    [activeWorkspaceId, workspaces, handleSplit]
+    [activeWorkspaceId, handleSplit]
   )
 
   useEffect(() => {
@@ -409,12 +453,13 @@ export function WorkspaceView() {
                 node={workspace.layout}
                 workspace={workspace}
                 isWorkspaceActive={isWorkspaceActive}
-                onSplit={(paneId, direction) => handleSplit(workspace.id, paneId, direction)}
+                onSplit={(paneId, direction, kind, hostId) =>
+                  handleSplit(workspace.id, paneId, direction, kind, hostId)
+                }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
-                onOpenFiles={(paneId) => handleOpenFiles(workspace.id, paneId)}
-                onAddLocal={(paneId) => handleAddLocal(workspace.id, paneId)}
-                onAddTerminal={(paneId, hostId) => handleAddTerminal(workspace.id, paneId, hostId)}
-                onAddSFTP={(paneId, hostId) => handleAddSFTP(workspace.id, paneId, hostId)}
+                onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
+                  handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
+                }
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
@@ -432,6 +477,76 @@ export function WorkspaceView() {
           </div>
         )
       })}
+      {pendingHostDrop && (
+        <div className="pointer-events-none fixed inset-0 z-50">
+          <div
+            className="pointer-events-auto absolute"
+            style={{ left: pendingHostDrop.x, top: pendingHostDrop.y }}
+          >
+            <DropdownMenu
+              open={true}
+              onOpenChange={(open) => {
+                if (!open) setPendingHostDrop(null)
+              }}
+            >
+              <DropdownMenuTrigger asChild>
+                <button className="sr-only">Choose pane type</button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'terminal',
+                      pendingHostDrop.hostId,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <Terminal className="mr-2 size-4" />
+                  Terminal
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'sftp',
+                      pendingHostDrop.hostId,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <FolderOpen className="mr-2 size-4" />
+                  SFTP
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => {
+                    handleSplit(
+                      pendingHostDrop.workspaceId,
+                      pendingHostDrop.paneId,
+                      pendingHostDrop.direction,
+                      'local',
+                      undefined,
+                      pendingHostDrop.position
+                    )
+                    setPendingHostDrop(null)
+                  }}
+                >
+                  <HardDrive className="mr-2 size-4" />
+                  Local Files
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
