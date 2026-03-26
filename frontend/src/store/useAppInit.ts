@@ -3,7 +3,14 @@ import { useSetAtom } from 'jotai'
 import { toast } from 'sonner'
 import type { Host, Group, TerminalProfile } from '../types'
 import { ListHosts, ListGroups, ListTerminalProfiles } from '../../wailsjs/go/main/HostFacade'
-import { hostsAtom, groupsAtom, terminalProfilesAtom } from './atoms'
+import {
+  hostsAtom,
+  groupsAtom,
+  terminalProfilesAtom,
+  isQuickConnectOpenAtom,
+  isAddHostOpenAtom,
+  isImportSSHConfigOpenAtom,
+} from './atoms'
 import { debugPanelOpenAtom } from './debugStore'
 import { useDebugEvents } from '../hooks/useDebugEvents'
 import { useChannelEvents } from '../hooks/useChannelEvents'
@@ -16,6 +23,9 @@ export function useAppInit() {
   const setGroups = useSetAtom(groupsAtom)
   const setTerminalProfiles = useSetAtom(terminalProfilesAtom)
   const setDebugPanelOpen = useSetAtom(debugPanelOpenAtom)
+  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
+  const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
+  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
 
   useEffect(() => {
     ListHosts()
@@ -39,12 +49,27 @@ export function useAppInit() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
-        e.preventDefault()
-        setDebugPanelOpen((prev) => !prev)
+      if (!(e.metaKey || e.ctrlKey)) return
+      switch (e.key) {
+        case 'j':
+          e.preventDefault()
+          setDebugPanelOpen((prev) => !prev)
+          break
+        case 'k':
+          e.preventDefault()
+          setIsQuickConnectOpen((prev) => !prev)
+          break
+        case 'n':
+          e.preventDefault()
+          setIsAddHostOpen((prev) => !prev)
+          break
+        case 'i':
+          e.preventDefault()
+          setIsImportSSHConfigOpen((prev) => !prev)
+          break
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setDebugPanelOpen])
+  }, [setDebugPanelOpen, setIsQuickConnectOpen, setIsAddHostOpen, setIsImportSSHConfigOpen])
 }

@@ -1,3 +1,4 @@
+import type React from 'react'
 import { useEffect, useRef } from 'react'
 import {
   GripVertical,
@@ -10,6 +11,7 @@ import {
 import { Button } from '../ui/button'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
+import type { SessionStatus } from '../../types'
 
 const typeColors = {
   terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
@@ -24,6 +26,8 @@ interface Props {
   kind: 'terminal' | 'sftp' | 'local'
   paneId: string
   workspaceId: string
+  status: SessionStatus
+  isFocused: boolean
   onSplit: (
     direction: 'horizontal' | 'vertical',
     kind: 'terminal' | 'sftp' | 'local',
@@ -42,6 +46,8 @@ export function PaneHeader({
   kind,
   paneId,
   workspaceId,
+  status,
+  isFocused,
   onSplit,
   onClose,
   canClose,
@@ -57,10 +63,43 @@ export function PaneHeader({
 
   const typeStyle = typeColors[kind]
 
+  const headerStyle = (() => {
+    const accentColor =
+      status === 'connecting' || status === 'reconnecting'
+        ? '#fbbf24'
+        : status === 'disconnected' || status === 'failed' || status === 'error'
+          ? 'var(--destructive)'
+          : hostColor ?? 'var(--primary)'
+
+    const tintPercent = isFocused ? '15%' : '6%'
+    const isConnecting = status === 'connecting' || status === 'reconnecting'
+
+    const style: Record<string, string> = {
+      borderLeft: `2px solid ${accentColor}`,
+      transition: 'background-color 300ms ease-out, border-color 300ms ease-out',
+    }
+
+    if (!isConnecting) {
+      style.backgroundColor = `color-mix(in oklch, ${accentColor} ${tintPercent}, var(--muted))`
+    }
+
+    if (isFocused && (status === 'connected' || isConnecting)) {
+      style.boxShadow = `0 0 8px color-mix(in oklch, ${accentColor} 25%, transparent)`
+    }
+
+    if (isConnecting) {
+      // Set the CSS variable consumed by the pane-glow-pulse keyframes
+      style['--pane-glow-color'] = accentColor
+      style.animation = 'pane-glow-pulse 2s ease-in-out infinite'
+    }
+
+    return style
+  })()
+
   return (
     <div
-      className="bg-muted border-border flex h-5 items-center gap-1 border-b px-1.5"
-      style={hostColor ? { borderBottomColor: hostColor } : undefined}
+      className="flex h-5 items-center gap-1 px-1.5"
+      style={headerStyle as React.CSSProperties}
     >
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
@@ -130,7 +169,7 @@ export function PaneHeader({
       >
         <div
           className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
-          style={{ borderBottom: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
+          style={{ borderLeft: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
         >
           <span
             className="rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
