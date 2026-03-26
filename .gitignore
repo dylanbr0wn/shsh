@@ -5,5 +5,3 @@ frontend/dist/.keep
 frontend/wailsjs/
 .superpowers/
 .pnpm-store/
-website/node_modules
-website/dist
