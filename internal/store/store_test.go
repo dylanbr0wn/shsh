@@ -1,23 +1,71 @@
 package store
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
-func newTestStore(t *testing.T) *Store {
+// fakeResolver is a test double for CredentialResolver that records calls
+// and returns canned values.
+type fakeResolver struct {
+	// InlineSecretFn, if set, overrides InlineSecret behavior.
+	InlineSecretFn func(key, fallback string) (string, error)
+	// ResolveFn, if set, overrides Resolve behavior.
+	ResolveFn func(ctx context.Context, source, ref string) (string, error)
+
+	storedSecrets  map[string]string
+	deletedSecrets []string
+}
+
+func newFakeResolver() *fakeResolver {
+	return &fakeResolver{storedSecrets: make(map[string]string)}
+}
+
+func (f *fakeResolver) Resolve(ctx context.Context, source, ref string) (string, error) {
+	if f.ResolveFn != nil {
+		return f.ResolveFn(ctx, source, ref)
+	}
+	return "", fmt.Errorf("unexpected Resolve call: source=%s ref=%s", source, ref)
+}
+
+func (f *fakeResolver) InlineSecret(key, fallback string) (string, error) {
+	if f.InlineSecretFn != nil {
+		return f.InlineSecretFn(key, fallback)
+	}
+	// Default: return whatever was stored, else fallback.
+	if pw, ok := f.storedSecrets[key]; ok {
+		return pw, nil
+	}
+	return fallback, nil
+}
+
+func (f *fakeResolver) StoreSecret(key, value string) error {
+	f.storedSecrets[key] = value
+	return nil
+}
+
+func (f *fakeResolver) DeleteSecret(key string) error {
+	delete(f.storedSecrets, key)
+	f.deletedSecrets = append(f.deletedSecrets, key)
+	return nil
+}
+
+func newTestStore(t *testing.T) (*Store, *fakeResolver) {
 	t.Helper()
-	s, err := New(":memory:")
+	fr := newFakeResolver()
+	s, err := New(":memory:", fr)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	t.Cleanup(s.Close)
-	return s
+	return s, fr
 }
 
 func TestNew_MigrationIdempotent(t *testing.T) {
 	// Opening the same in-memory DB twice would be a separate DB, so just
 	// verify that New succeeds and the schema is ready to use.
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 	hosts, err := s.ListHosts()
 	if err != nil {
 		t.Fatalf("ListHosts after New: %v", err)
@@ -28,7 +76,7 @@ func TestNew_MigrationIdempotent(t *testing.T) {
 }
 
 func TestListHosts_EmptyReturnsSliceNotNil(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 	hosts, err := s.ListHosts()
 	if err != nil {
 		t.Fatalf("ListHosts: %v", err)
@@ -39,7 +87,7 @@ func TestListHosts_EmptyReturnsSliceNotNil(t *testing.T) {
 }
 
 func TestAddHost(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	input := CreateHostInput{
 		Label:      "prod",
@@ -81,7 +129,7 @@ func TestAddHost(t *testing.T) {
 }
 
 func TestListHosts_OrderedByCreatedAt(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	for _, label := range []string{"alpha", "beta", "gamma"} {
 		_, err := s.AddHost(CreateHostInput{Label: label, Hostname: label + ".example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
@@ -107,7 +155,7 @@ func TestListHosts_OrderedByCreatedAt(t *testing.T) {
 }
 
 func TestUpdateHost(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	host, err := s.AddHost(CreateHostInput{Label: "old", Hostname: "old.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword})
 	if err != nil {
@@ -141,7 +189,7 @@ func TestUpdateHost(t *testing.T) {
 }
 
 func TestDeleteHost(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	host, err := s.AddHost(CreateHostInput{Label: "tmp", Hostname: "tmp.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword})
 	if err != nil {
@@ -164,7 +212,7 @@ func TestDeleteHost(t *testing.T) {
 }
 
 func TestGetHostForConnect(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{Label: "l", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword, Password: "pw"})
 	if err != nil {
@@ -184,7 +232,7 @@ func TestGetHostForConnect(t *testing.T) {
 }
 
 func TestGetHostForConnect_EmptyPasswordCoalesces(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	// Add a host with no password (agent auth).
 	added, err := s.AddHost(CreateHostInput{Label: "l", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
@@ -202,7 +250,7 @@ func TestGetHostForConnect_EmptyPasswordCoalesces(t *testing.T) {
 }
 
 func TestAddHost_CredentialSourceStored(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label:            "pm",
@@ -237,7 +285,7 @@ func TestAddHost_CredentialSourceStored(t *testing.T) {
 }
 
 func TestUpdateHost_CredentialSourceRoundTrip(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label:      "h",
@@ -276,7 +324,7 @@ func TestUpdateHost_CredentialSourceRoundTrip(t *testing.T) {
 }
 
 func TestGetHostForConnect_NotFound(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	_, _, err := s.GetHostForConnect("nonexistent-id")
 	if err == nil {
@@ -285,7 +333,7 @@ func TestGetHostForConnect_NotFound(t *testing.T) {
 }
 
 func TestTouchLastConnected(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	host, err := s.AddHost(CreateHostInput{Label: "l", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword})
 	if err != nil {
@@ -308,13 +356,13 @@ func TestTouchLastConnected(t *testing.T) {
 }
 
 func TestTouchLastConnected_UnknownIDSilent(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 	// Must not panic or cause errors.
 	s.TouchLastConnected("ghost-id")
 }
 
 func TestHostExists(t *testing.T) {
-	s := newTestStore(t)
+	s, _ := newTestStore(t)
 
 	_, err := s.AddHost(CreateHostInput{Label: "l", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword})
 	if err != nil {
@@ -343,5 +391,137 @@ func TestHostExists(t *testing.T) {
 	}
 	if exists {
 		t.Error("expected HostExists to return false for different hostname")
+	}
+}
+
+// --- Credential-path tests ---
+
+func TestGetHostForConnect_InlineKeychain(t *testing.T) {
+	s, fr := newTestStore(t)
+	fr.InlineSecretFn = func(key, fallback string) (string, error) {
+		return "keychain-pw", nil
+	}
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "l", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "db-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "keychain-pw" {
+		t.Errorf("password = %q, want %q", pw, "keychain-pw")
+	}
+}
+
+func TestGetHostForConnect_ExternalPM(t *testing.T) {
+	s, fr := newTestStore(t)
+	fr.ResolveFn = func(ctx context.Context, source, ref string) (string, error) {
+		if source != "1password" {
+			t.Errorf("source = %q, want 1password", source)
+		}
+		if ref != "op://Vault/Item/password" {
+			t.Errorf("ref = %q, want op://Vault/Item/password", ref)
+		}
+		return "pm-secret", nil
+	}
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "pm", Hostname: "pm.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword,
+		CredentialSource: "1password",
+		CredentialRef:    "op://Vault/Item/password",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "pm-secret" {
+		t.Errorf("password = %q, want %q", pw, "pm-secret")
+	}
+}
+
+func TestGetHostForConnect_ExternalPMTimeout(t *testing.T) {
+	s, fr := newTestStore(t)
+	fr.ResolveFn = func(ctx context.Context, source, ref string) (string, error) {
+		return "", context.DeadlineExceeded
+	}
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "pm", Hostname: "pm.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword,
+		CredentialSource: "bitwarden",
+		CredentialRef:    "MyServer",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	_, _, err = s.GetHostForConnect(added.ID)
+	if err == nil {
+		t.Fatal("expected error for timed-out PM fetch, got nil")
+	}
+}
+
+func TestAddHost_StoresSecret(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	_, err := s.AddHost(CreateHostInput{
+		Label: "l", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "s3cret",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	if len(fr.storedSecrets) == 0 {
+		t.Fatal("expected StoreSecret to be called")
+	}
+	for _, v := range fr.storedSecrets {
+		if v == "s3cret" {
+			return
+		}
+	}
+	t.Errorf("expected stored secret to contain %q, got %v", "s3cret", fr.storedSecrets)
+}
+
+func TestDeleteHost_DeletesSecrets(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "l", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	fr.deletedSecrets = nil // reset
+
+	if err := s.DeleteHost(added.ID); err != nil {
+		t.Fatalf("DeleteHost: %v", err)
+	}
+
+	if len(fr.deletedSecrets) < 2 {
+		t.Fatalf("expected at least 2 DeleteSecret calls, got %d", len(fr.deletedSecrets))
+	}
+	found := map[string]bool{}
+	for _, k := range fr.deletedSecrets {
+		found[k] = true
+	}
+	if !found[added.ID] {
+		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID, fr.deletedSecrets)
+	}
+	if !found[added.ID+":passphrase"] {
+		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID+":passphrase", fr.deletedSecrets)
 	}
 }
