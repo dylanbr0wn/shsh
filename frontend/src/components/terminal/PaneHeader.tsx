@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import React, { useEffect, useRef } from 'react'
 import {
   GripVertical,
   SplitSquareVertical,
@@ -10,6 +10,7 @@ import {
 import { Button } from '../ui/button'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
+import type { SessionStatus } from '../../types'
 
 const typeColors = {
   terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
@@ -24,6 +25,7 @@ interface Props {
   kind: 'terminal' | 'sftp' | 'local'
   paneId: string
   workspaceId: string
+  status: SessionStatus
   onSplit: (
     direction: 'horizontal' | 'vertical',
     kind: 'terminal' | 'sftp' | 'local',
@@ -42,6 +44,7 @@ export function PaneHeader({
   kind,
   paneId,
   workspaceId,
+  status,
   onSplit,
   onClose,
   canClose,
@@ -57,10 +60,40 @@ export function PaneHeader({
 
   const typeStyle = typeColors[kind]
 
+  const glowStyle = (() => {
+    const base: React.CSSProperties = {
+      transition: 'box-shadow 300ms ease-out, border-color 300ms ease-out',
+      borderBottomWidth: '2px',
+      borderBottomStyle: 'solid',
+    }
+    if (status === 'connecting' || status === 'reconnecting') {
+      return {
+        ...base,
+        borderBottomColor: '#fbbf24',
+        boxShadow: '0 2px 8px #fbbf2426',
+        animation: 'pane-glow-pulse 2s ease-in-out infinite',
+      }
+    }
+    if (status === 'connected') {
+      const color = hostColor ?? 'var(--primary)'
+      return {
+        ...base,
+        borderBottomColor: color,
+        boxShadow: `0 2px 8px ${hostColor ? hostColor + '26' : 'oklch(0.72 0.2 270 / 0.15)'}`,
+      }
+    }
+    // disconnected, failed, error — no glow
+    return {
+      ...base,
+      borderBottomColor: 'transparent',
+      boxShadow: 'none',
+    }
+  })()
+
   return (
     <div
       className="bg-muted border-border flex h-5 items-center gap-1 border-b px-1.5"
-      style={hostColor ? { borderBottomColor: hostColor } : undefined}
+      style={glowStyle}
     >
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />

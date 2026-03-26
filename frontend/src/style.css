@@ -224,3 +224,9 @@ html {
 .xterm-scrollable-element .slider:hover {
   background: color-mix(in oklab, var(--foreground) 25%, transparent) !important;
 }
+
+/* Pane header glow pulse for connecting/reconnecting state */
+@keyframes pane-glow-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
