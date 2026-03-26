@@ -21,14 +21,8 @@ import {
   type SFTPLeaf,
 } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
-import {
-  DeleteHost,
-  ConnectHost,
-  ConnectForSFTP,
-  UpdateHost,
-  AddGroup,
-  ListHosts,
-} from '../../../wailsjs/go/main/App'
+import { DeleteHost, UpdateHost, AddGroup, ListHosts } from '../../../wailsjs/go/main/HostFacade'
+import { ConnectHost, ConnectForSFTP } from '../../../wailsjs/go/main/SessionFacade'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'

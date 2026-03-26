@@ -6,13 +6,10 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"strconv"
-	"sync"
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/store"
-	"github.com/melbahja/goph"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
@@ -86,6 +83,10 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 		return cancel
 	}
 
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
+
 	go func() {
 		missed := 0
 		ticker := time.NewTicker(cfg.KeepAliveInterval)
@@ -99,8 +100,15 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 				_, _, err := conn.SSHClient().SendRequest("keepalive@openssh.com", true, nil)
 				if err != nil {
 					missed++
+					m.emitDebug("network", "warn", "", conn.hostLabel,
+						"keep-alive missed", map[string]any{
+							"connectionId": conn.id,
+							"missed":       missed,
+							"maxMissed":    cfg.KeepAliveMaxMissed,
+							"error":        err.Error(),
+						})
 					if missed >= cfg.KeepAliveMaxMissed {
-						m.markDead(conn)
+						m.markDead(conn, gen)
 						return
 					}
 				} else {
@@ -114,51 +122,71 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 }
 
 // markDead marks a connection as dead and starts the reconnect loop.
-// Safe to call from multiple goroutines — only the first call takes effect.
-func (m *Manager) markDead(conn *Connection) {
-	conn.deadOnce.Do(func() {
-		conn.mu.Lock()
-		conn.state = stateReconnecting
+// The gen parameter is the connection generation the caller was started in;
+// stale calls from goroutines that outlived a reconnect cycle are ignored.
+// Safe to call from multiple goroutines — the state+generation check under
+// conn.mu ensures only the first valid call takes effect.
+func (m *Manager) markDead(conn *Connection, gen uint64) {
+	conn.mu.Lock()
+	if conn.generation != gen || conn.state != stateConnected {
+		curGen := conn.generation
+		curState := conn.state
 		conn.mu.Unlock()
+		m.emitDebug("ssh", "debug", "", conn.hostLabel,
+			"markDead ignored (stale or already reconnecting)", map[string]any{
+				"connectionId": conn.id,
+				"callerGen":    gen,
+				"currentGen":   curGen,
+				"state":        curState,
+			})
+		return
+	}
+	conn.state = stateReconnecting
+	conn.mu.Unlock()
 
-		conn.cancel() // cancel old connection context
-
-		m.emitter.Emit("connection:status", ConnectionStatusEvent{
-			ConnectionID: conn.id,
-			Status:       StatusReconnecting,
-			Attempt:      0,
-			MaxRetries:   conn.reconnCfg.MaxRetries,
+	m.emitDebug("ssh", "warn", "", conn.hostLabel,
+		"connection marked dead, starting reconnect", map[string]any{
+			"connectionId": conn.id,
+			"generation":   gen,
 		})
 
-		// Emit reconnecting for all channels on this connection
-		m.mu.Lock()
-		for _, ch := range m.channels {
-			if ch.ConnectionID() == conn.id {
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    ch.ID(),
-					ConnectionID: conn.id,
-					Kind:         ch.Kind(),
-					Status:       StatusReconnecting,
-				})
-			}
-		}
-		m.mu.Unlock()
+	conn.cancel() // cancel old connection context
 
-		if !conn.reconnCfg.Enabled {
-			conn.mu.Lock()
-			conn.state = stateFailed
-			conn.mu.Unlock()
-			close(conn.reconnectDone)
-			m.emitter.Emit("connection:status", ConnectionStatusEvent{
-				ConnectionID: conn.id,
-				Status:       StatusFailed,
-				Error:        "auto-reconnect disabled",
-			})
-			return
-		}
-
-		go m.reconnectLoop(conn)
+	m.emitter.Emit("connection:status", ConnectionStatusEvent{
+		ConnectionID: conn.id,
+		Status:       StatusReconnecting,
+		Attempt:      0,
+		MaxRetries:   conn.reconnCfg.MaxRetries,
 	})
+
+	// Emit reconnecting for all channels on this connection
+	m.mu.Lock()
+	for _, ch := range m.channels {
+		if ch.ConnectionID() == conn.id {
+			m.emitter.Emit("channel:status", ChannelStatusEvent{
+				ChannelID:    ch.ID(),
+				ConnectionID: conn.id,
+				Kind:         ch.Kind(),
+				Status:       StatusReconnecting,
+			})
+		}
+	}
+	m.mu.Unlock()
+
+	if !conn.reconnCfg.Enabled {
+		conn.mu.Lock()
+		conn.state = stateFailed
+		conn.mu.Unlock()
+		close(conn.reconnectDone)
+		m.emitter.Emit("connection:status", ConnectionStatusEvent{
+			ConnectionID: conn.id,
+			Status:       StatusFailed,
+			Error:        "auto-reconnect disabled",
+		})
+		return
+	}
+
+	go m.reconnectLoop(conn)
 }
 
 // reconnectLoop attempts to re-establish the SSH connection.
@@ -246,75 +274,16 @@ func (m *Manager) reconnectLoop(conn *Connection) {
 
 // attemptReconnect tries to re-dial the SSH connection.
 func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) error {
-	var client *goph.Client
-	var jumpSSHClient *ssh.Client
-
-	hostKeyCallback := m.reconnectHostKeyCallback()
-
-	if conn.jumpHost != nil {
-		jumpAuth, err := resolveAuth(*conn.jumpHost, conn.jumpPass)
-		if err != nil {
-			return fmt.Errorf("jump host auth: %w", err)
-		}
-		jumpCfg := &ssh.ClientConfig{
-			User:            conn.jumpHost.Username,
-			Auth:            jumpAuth,
-			HostKeyCallback: hostKeyCallback,
-			Timeout:         timeout,
-		}
-		jumpTCPConn, err := net.DialTimeout("tcp",
-			net.JoinHostPort(conn.jumpHost.Hostname, strconv.Itoa(conn.jumpHost.Port)),
-			timeout)
-		if err != nil {
-			return fmt.Errorf("dial jump host: %w", err)
-		}
-		jumpNCC, chans, reqs, err := ssh.NewClientConn(jumpTCPConn, conn.jumpHost.Hostname, jumpCfg)
-		if err != nil {
-			jumpTCPConn.Close()
-			return fmt.Errorf("ssh to jump host: %w", err)
-		}
-		jumpSSHClient = ssh.NewClient(jumpNCC, chans, reqs)
-
-		targetAuth, err := resolveAuth(conn.host, conn.password)
-		if err != nil {
-			jumpSSHClient.Close()
-			return fmt.Errorf("target auth: %w", err)
-		}
-		targetCfg := &ssh.ClientConfig{
-			User:            conn.host.Username,
-			Auth:            targetAuth,
-			HostKeyCallback: hostKeyCallback,
-			Timeout:         timeout,
-		}
-		tunnelConn, err := jumpSSHClient.Dial("tcp",
-			net.JoinHostPort(conn.host.Hostname, strconv.Itoa(conn.host.Port)))
-		if err != nil {
-			jumpSSHClient.Close()
-			return fmt.Errorf("dial target through jump: %w", err)
-		}
-		targetNCC, targetChans, targetReqs, err := ssh.NewClientConn(tunnelConn, conn.host.Hostname, targetCfg)
-		if err != nil {
-			tunnelConn.Close()
-			jumpSSHClient.Close()
-			return fmt.Errorf("ssh to target: %w", err)
-		}
-		client = &goph.Client{Client: ssh.NewClient(targetNCC, targetChans, targetReqs)}
-	} else {
-		auth, err := resolveAuth(conn.host, conn.password)
-		if err != nil {
-			return fmt.Errorf("auth: %w", err)
-		}
-		client, err = goph.NewConn(&goph.Config{
-			User:     conn.host.Username,
-			Addr:     conn.host.Hostname,
-			Port:     uint(conn.host.Port),
-			Auth:     auth,
-			Timeout:  timeout,
-			Callback: hostKeyCallback,
-		})
-		if err != nil {
-			return fmt.Errorf("connect: %w", err)
-		}
+	result, err := Dial(DialRequest{
+		Host:            conn.host,
+		Password:        conn.password,
+		JumpHost:        conn.jumpHost,
+		JumpPassword:    conn.jumpPass,
+		Timeout:         timeout,
+		HostKeyCallback: m.reconnectHostKeyCallback(),
+	})
+	if err != nil {
+		return err
 	}
 
 	// Close old port forward listeners before swapping client
@@ -328,8 +297,8 @@ func (m *Manager) attemptReconnect(conn *Connection, timeout time.Duration) erro
 	conn.mu.Lock()
 	oldClient := conn.client
 	oldJumpClient := conn.jumpClient
-	conn.client = client
-	conn.jumpClient = jumpSSHClient
+	conn.client = result.Client
+	conn.jumpClient = result.JumpClient
 	newCtx, cancel := context.WithCancel(context.Background())
 	conn.ctx = newCtx
 	conn.cancel = cancel
@@ -350,16 +319,16 @@ func (m *Manager) onReconnected(conn *Connection) {
 
 	conn.mu.Lock()
 	conn.state = stateConnected
-	conn.deadOnce = sync.Once{}
+	conn.generation++
 	conn.reconnectDone = make(chan struct{})
 	conn.mu.Unlock()
 
 	close(oldDone) // unblock any ConnectOrReuse waiters
 
-	// Restart keep-alive
-	m.startKeepAlive(conn)
-
-	// Restore terminal and SFTP channels
+	// Restore terminal and SFTP channels.
+	// reopen() calls wg.Wait() which ensures old reader goroutines finish
+	// before new ones start — this must happen before startKeepAlive so
+	// stale goroutines cannot race with the new generation.
 	m.mu.Lock()
 	channels := make([]Channel, 0)
 	for _, ch := range m.channels {
@@ -369,49 +338,45 @@ func (m *Manager) onReconnected(conn *Connection) {
 	}
 	m.mu.Unlock()
 
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
+
 	sshClient := conn.SSHClient()
 	for _, ch := range channels {
-		switch c := ch.(type) {
-		case *TerminalChannel:
-			stdout, err := c.reopen(sshClient, m.cfg.SSH.TerminalType)
-			if err != nil {
-				log.Error().Err(err).Str("channelId", c.id).Msg("failed to reopen terminal channel")
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    c.id,
-					ConnectionID: conn.id,
-					Kind:         ChannelTerminal,
-					Status:       StatusFailed,
-					Error:        err.Error(),
-				})
-				continue
-			}
-			c.startReader(stdout, m.emitter)
-			m.emitter.Emit("channel:status", ChannelStatusEvent{
-				ChannelID:    c.id,
-				ConnectionID: conn.id,
-				Kind:         ChannelTerminal,
-				Status:       StatusConnected,
-			})
-		case *SFTPChannel:
-			if err := c.reopen(sshClient); err != nil {
-				log.Error().Err(err).Str("channelId", c.id).Msg("failed to reopen SFTP channel")
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    c.id,
-					ConnectionID: conn.id,
-					Kind:         ChannelSFTP,
-					Status:       StatusFailed,
-					Error:        err.Error(),
-				})
-				continue
-			}
-			m.emitter.Emit("channel:status", ChannelStatusEvent{
-				ChannelID:    c.id,
-				ConnectionID: conn.id,
-				Kind:         ChannelSFTP,
-				Status:       StatusConnected,
-			})
+		r, ok := ch.(Reopenable)
+		if !ok {
+			continue
 		}
+		hook, err := r.Reopen(sshClient, ReopenConfig{
+			TerminalType: m.cfg.SSH.TerminalType,
+			MarkDead:     func() { m.markDead(conn, gen) },
+			Emitter:      m.emitter,
+		})
+		if err != nil {
+			log.Error().Err(err).Str("channelId", ch.ID()).Msg("failed to reopen channel")
+			m.emitter.Emit("channel:status", ChannelStatusEvent{
+				ChannelID:    ch.ID(),
+				ConnectionID: conn.id,
+				Kind:         ch.Kind(),
+				Status:       StatusFailed,
+				Error:        err.Error(),
+			})
+			continue
+		}
+		if hook != nil {
+			hook()
+		}
+		m.emitter.Emit("channel:status", ChannelStatusEvent{
+			ChannelID:    ch.ID(),
+			ConnectionID: conn.id,
+			Kind:         ch.Kind(),
+			Status:       StatusConnected,
+		})
 	}
+
+	// Start keep-alive after channels are restored so the generation is stable.
+	m.startKeepAlive(conn)
 
 	// Restore port forwards — snapshot and clear old (dead) entries to avoid duplicates
 	conn.pfMu.Lock()
@@ -434,6 +399,12 @@ func (m *Manager) onReconnected(conn *Connection) {
 		Status:       StatusConnected,
 	})
 
+	m.emitDebug("ssh", "info", "", conn.hostLabel,
+		"connection reconnected successfully", map[string]any{
+			"connectionId": conn.id,
+			"generation":   gen,
+		})
+
 	log.Info().Str("connectionId", conn.id).Msg("connection reconnected successfully")
 }
 
@@ -455,7 +426,6 @@ func (m *Manager) RetryConnection(connectionID string) error {
 	// Reset state for new reconnect attempt
 	conn.mu.Lock()
 	conn.state = stateReconnecting
-	conn.deadOnce = sync.Once{}
 	conn.reconnectDone = make(chan struct{})
 	conn.mu.Unlock()
 

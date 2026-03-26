@@ -1,7 +1,27 @@
+# Build artifacts
 build/bin
+
+# Frontend
 frontend/node_modules
 frontend/dist
 frontend/dist/.keep
 frontend/wailsjs/
-.superpowers/
 .pnpm-store/
+
+# Environment / secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Tooling
+.superpowers/

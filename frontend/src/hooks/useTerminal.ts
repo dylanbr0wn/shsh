@@ -9,7 +9,7 @@ import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
 import { EventsOn, EventsEmit } from '../../wailsjs/runtime/runtime'
-import { WriteToChannel, ResizeChannel } from '../../wailsjs/go/main/App'
+import { WriteToChannel, ResizeChannel } from '../../wailsjs/go/main/SessionFacade'
 import { terminalSettingsAtom } from '../atoms/terminalSettings'
 import {
   searchAddonsAtom,

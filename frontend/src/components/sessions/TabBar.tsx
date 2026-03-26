@@ -10,7 +10,8 @@ import {
   pendingTemplateAtom,
 } from '../../store/atoms'
 import { collectLeaves, firstLeaf, movePaneAcrossWorkspaces } from '../../lib/paneTree'
-import { CloseChannel, ListWorkspaceTemplates } from '../../../wailsjs/go/main/App'
+import { CloseChannel } from '../../../wailsjs/go/main/SessionFacade'
+import { ListWorkspaceTemplates } from '../../../wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,

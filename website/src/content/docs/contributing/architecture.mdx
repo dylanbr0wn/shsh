@@ -1,0 +1,50 @@
+---
+title: Architecture
+description: How shsh is structured
+---
+
+## Overview
+
+shsh is a [Wails v2](https://wails.io/) application — a Go backend process with a React/TypeScript frontend rendered in a native webview.
+
+## Communication
+
+Go methods on the `App` struct (`app.go`) are exposed to the frontend via Wails RPC bindings. The build step auto-generates TypeScript wrappers in `frontend/wailsjs/go/main/App.ts`.
+
+```
+┌──────────────────┐        Wails RPC         ┌──────────────────┐
+│   Go Backend     │ ◄─────────────────────►  │  React Frontend  │
+│   (app.go)       │     EventsEmit /         │  (src/)          │
+│                  │     Method calls          │                  │
+└──────────────────┘                          └──────────────────┘
+```
+
+## Backend
+
+| Package | Responsibility |
+|---------|---------------|
+| `internal/session` | SSH session manager, channels, port forwards, SFTP |
+| `internal/store` | SQLite database — hosts, groups, terminal profiles, credentials |
+| `internal/config` | App configuration (SSH, SFTP, window, logging) |
+| `internal/credstore` | OS keychain integration (macOS Keychain, Windows Credential Manager) |
+| `internal/sshconfig` | SSH config file parsing |
+| `internal/debuglog` | Structured debug logging with event emission |
+| `internal/export` | Host export functionality |
+
+## Frontend
+
+| Directory | Purpose |
+|-----------|---------|
+| `src/components/` | Feature components organized by domain (terminal, sftp, sidebar, modals, etc.) |
+| `src/store/` | Jotai atoms for cross-component state |
+| `src/hooks/` | Custom React hooks (useTerminal, useWailsEvent, etc.) |
+| `src/types/` | TypeScript type definitions |
+| `src/lib/` | Utility functions |
+
+## Key Libraries
+
+- **SSH:** [goph](https://github.com/melbahja/goph) + `golang.org/x/crypto/ssh`
+- **Database:** SQLite via [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite)
+- **Terminal:** [xterm.js](https://xtermjs.org/)
+- **UI:** [shadcn/ui](https://ui.shadcn.com/) on Radix primitives + Tailwind CSS
+- **State:** [Jotai](https://jotai.org/)

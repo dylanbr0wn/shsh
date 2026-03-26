@@ -30,6 +30,19 @@ type Channel interface {
 	Close() error
 }
 
+// Reopenable is implemented by channels that can restore themselves on a new SSH connection.
+type Reopenable interface {
+	Channel
+	Reopen(client *ssh.Client, cfg ReopenConfig) (postHook func(), err error)
+}
+
+// ReopenConfig provides dependencies needed by channels during reconnect.
+type ReopenConfig struct {
+	TerminalType string
+	MarkDead     func()
+	Emitter      EventEmitter
+}
+
 // ChannelStatusEvent is emitted when a channel's status changes.
 type ChannelStatusEvent struct {
 	ChannelID    string      `json:"channelId"`
@@ -61,6 +74,7 @@ type TerminalChannel struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
+	closing      bool   // set by Close() to distinguish intentional teardown from connection loss
 	markDeadFn   func() // called on read error to trigger reconnect
 }
 
@@ -68,15 +82,17 @@ func (t *TerminalChannel) ID() string           { return t.id }
 func (t *TerminalChannel) Kind() ChannelKind    { return ChannelTerminal }
 func (t *TerminalChannel) ConnectionID() string { return t.connectionID }
 func (t *TerminalChannel) Close() error {
+	t.mu.Lock()
+	t.closing = true
+	t.mu.Unlock()
 	t.cancel()
 	t.sshSess.Close()
 	t.wg.Wait() // Wait for output reader goroutine to finish
 	return nil
 }
 
-// reopen replaces the SSH session and pipes on a reconnected client.
-// Returns the stdout reader for the caller to pass to startReader().
-func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reader, error) {
+// Reopen replaces the SSH session and pipes on a reconnected client.
+func (tc *TerminalChannel) Reopen(client *ssh.Client, cfg ReopenConfig) (func(), error) {
 	tc.wg.Wait() // ensure old reader goroutine is done
 
 	sshSess, err := client.NewSession()
@@ -84,7 +100,7 @@ func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reade
 		return nil, fmt.Errorf("failed to create SSH session: %w", err)
 	}
 
-	if err := sshSess.RequestPty(termType, 24, 80, ssh.TerminalModes{}); err != nil {
+	if err := sshSess.RequestPty(cfg.TerminalType, 24, 80, ssh.TerminalModes{}); err != nil {
 		sshSess.Close()
 		return nil, fmt.Errorf("failed to request PTY: %w", err)
 	}
@@ -113,9 +129,10 @@ func (tc *TerminalChannel) reopen(client *ssh.Client, termType string) (io.Reade
 	tc.stdin = stdin
 	tc.ctx = ctx
 	tc.cancel = cancel
+	tc.markDeadFn = cfg.MarkDead
 	tc.mu.Unlock()
 
-	return stdout, nil
+	return func() { tc.startReader(stdout, cfg.Emitter) }, nil
 }
 
 // startReader spawns the stdout reader goroutine. Called after reopen() or initial open.
@@ -137,8 +154,14 @@ func (tc *TerminalChannel) startReader(stdout io.Reader, emitter EventEmitter) {
 				break
 			}
 		}
+		// Only signal connection death if this wasn't an intentional
+		// Close() — Close() sets the closing flag before closing the
+		// SSH session, so we can distinguish user teardown from real loss.
+		tc.mu.Lock()
+		intentional := tc.closing
+		tc.mu.Unlock()
 		tc.cancel()
-		if tc.markDeadFn != nil {
+		if !intentional && tc.markDeadFn != nil {
 			tc.markDeadFn()
 		}
 	})
@@ -166,16 +189,16 @@ func (s *SFTPChannel) Close() error {
 	return nil
 }
 
-// reopen replaces the SFTP client on a reconnected SSH connection.
-func (sc *SFTPChannel) reopen(client *ssh.Client) error {
+// Reopen replaces the SFTP client on a reconnected SSH connection.
+func (sc *SFTPChannel) Reopen(client *ssh.Client, cfg ReopenConfig) (func(), error) {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
 	newClient, err := sftp.NewClient(client)
 	if err != nil {
-		return fmt.Errorf("sftp negotiation failed: %w", err)
+		return nil, fmt.Errorf("sftp negotiation failed: %w", err)
 	}
 	sc.client = newClient
-	return nil
+	return nil, nil
 }
 
 // OpenTerminal opens a new PTY shell channel on the given connection.
@@ -224,13 +247,11 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 		ctx:          chCtx,
 		cancel:       cancel,
 	}
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
 	tc.markDeadFn = func() {
-		m.mu.Lock()
-		conn, ok := m.connections[connectionID]
-		m.mu.Unlock()
-		if ok {
-			m.markDead(conn)
-		}
+		m.markDead(conn, gen)
 	}
 
 	conn.incrRefs()
@@ -238,6 +259,16 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 	m.mu.Lock()
 	m.channels[channelID] = tc
 	m.mu.Unlock()
+
+	conn.mu.RLock()
+	refs := conn.channelRefs
+	conn.mu.RUnlock()
+
+	m.emitDebug("ssh", "info", channelID, conn.hostLabel,
+		"terminal channel opened", map[string]any{
+			"connectionId": connectionID,
+			"channelRefs":  refs,
+		})
 
 	m.emitter.Emit("channel:status", ChannelStatusEvent{
 		ChannelID:    channelID,
@@ -314,6 +345,12 @@ func (m *Manager) CloseChannel(channelID string) error {
 		log.Warn().Str("channelId", channelID).Str("connectionId", ch.ConnectionID()).Msg("channel has no matching connection (already torn down?)")
 	}
 
+	m.emitDebug("ssh", "info", channelID, m.connLabel(ch.ConnectionID()),
+		"closing channel", map[string]any{
+			"connectionId": ch.ConnectionID(),
+			"kind":         string(ch.Kind()),
+		})
+
 	// Close the channel itself
 	if err := ch.Close(); err != nil {
 		log.Warn().Err(err).Str("channelId", channelID).Msg("error closing channel")
@@ -328,7 +365,24 @@ func (m *Manager) CloseChannel(channelID string) error {
 
 	// Decrement connection refs; tear down if zero
 	if connOk && conn.decrRefs() {
+		conn.mu.RLock()
+		refs := conn.channelRefs
+		conn.mu.RUnlock()
+		m.emitDebug("ssh", "info", channelID, conn.hostLabel,
+			"last channel closed, tearing down connection", map[string]any{
+				"connectionId": conn.id,
+				"channelRefs":  refs,
+			})
 		m.teardownConnection(conn)
+	} else if connOk {
+		conn.mu.RLock()
+		refs := conn.channelRefs
+		conn.mu.RUnlock()
+		m.emitDebug("ssh", "debug", channelID, conn.hostLabel,
+			"channel closed, connection still active", map[string]any{
+				"connectionId": conn.id,
+				"channelRefs":  refs,
+			})
 	}
 
 	return nil

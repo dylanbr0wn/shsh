@@ -14,7 +14,6 @@ import (
 
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/store"
-	"github.com/melbahja/goph"
 )
 
 // EventEmitter abstracts event delivery so session logic is not coupled to any UI framework.
@@ -123,26 +122,6 @@ func (m *Manager) connLabel(connectionID string) string {
 	return "unknown"
 }
 
-// resolveAuth builds a goph.Auth for the given host and secret (password or key passphrase).
-func resolveAuth(host store.Host, secret string) (goph.Auth, error) {
-	switch host.AuthMethod {
-	case store.AuthPassword:
-		return goph.Password(secret), nil
-	case store.AuthKey:
-		if host.KeyPath == nil || *host.KeyPath == "" {
-			return nil, fmt.Errorf("no key file configured for this host")
-		}
-		return goph.Key(*host.KeyPath, secret)
-	case store.AuthAgent:
-		return goph.UseAgent()
-	default:
-		agent, err := goph.UseAgent()
-		if err != nil {
-			return goph.Password(secret), nil
-		}
-		return agent, nil
-	}
-}
 
 // Connect dials SSH for the given host (or reuses an existing connection)
 // and returns a ConnectResult. The onConnected callback fires only for new connections.
@@ -167,7 +146,10 @@ func (m *Manager) Write(channelId, data string) error {
 	tc.mu.Unlock()
 	if err != nil {
 		if conn, connErr := m.getConnection(tc.connectionID); connErr == nil {
-			m.markDead(conn)
+			conn.mu.RLock()
+			gen := conn.generation
+			conn.mu.RUnlock()
+			m.markDead(conn, gen)
 		}
 	}
 	return err

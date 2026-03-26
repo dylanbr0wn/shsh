@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { useAtom, useAtomValue } from 'jotai'
 import { isExportHostsOpenAtom, hostsAtom, groupsAtom } from '../../store/atoms'
 import type { Host } from '../../types'
-import { ExportHosts } from '../../../wailsjs/go/main/App'
+import { ExportHosts } from '../../../wailsjs/go/main/ToolsFacade'
 import {
   Dialog,
   DialogBody,

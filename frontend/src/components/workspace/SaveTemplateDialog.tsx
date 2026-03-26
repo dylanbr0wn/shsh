@@ -10,7 +10,7 @@ import {
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
-import { SaveWorkspaceTemplate } from '../../../wailsjs/go/main/App'
+import { SaveWorkspaceTemplate } from '../../../wailsjs/go/main/HostFacade'
 import { store } from '../../../wailsjs/go/models'
 import type { Workspace, PaneNode, PaneLeaf } from '../../store/workspaces'
 import type { TemplateNode } from '../../types'

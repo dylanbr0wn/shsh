@@ -10,12 +10,9 @@ import {
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
 import type { Host } from '../../types'
-import {
-  AddHost,
-  BrowseKeyFile,
-  CheckPasswordManagers,
-  TestCredentialRef,
-} from '../../../wailsjs/go/main/App'
+import { AddHost } from '../../../wailsjs/go/main/HostFacade'
+import { BrowseKeyFile } from '../../../wailsjs/go/main/KeysFacade'
+import { CheckPasswordManagers, TestCredentialRef } from '../../../wailsjs/go/main/ToolsFacade'
 import {
   Dialog,
   DialogBody,

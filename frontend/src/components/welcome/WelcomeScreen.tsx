@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ArrowRight } from 'lucide-react'
+import { Loader2, ArrowRight, BookOpen } from 'lucide-react'
+import { DOCS_BASE_URL } from '../../lib/constants'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
@@ -11,7 +12,7 @@ import {
   hostHealthAtom,
 } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
-import { ConnectHost } from '../../../wailsjs/go/main/App'
+import { ConnectHost } from '../../../wailsjs/go/main/SessionFacade'
 import type { Host } from '../../types'
 
 export function WelcomeScreen() {
@@ -178,6 +179,14 @@ export function WelcomeScreen() {
           >
             <kbd className="bg-muted rounded px-1 font-mono text-[10px]">⌘I</kbd>
             Import
+          </button>
+          <button
+            type="button"
+            onClick={() => window.open(DOCS_BASE_URL, '_blank')}
+            className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs transition-colors"
+          >
+            <BookOpen className="size-3" />
+            Docs
           </button>
         </div>
       </div>
