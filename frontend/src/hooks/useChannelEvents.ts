@@ -20,7 +20,7 @@ export function useChannelEvents() {
 
     if (status === 'connecting') return
 
-    if (status === 'connected') {
+    if (status === 'connected' || status === 'error') {
       const allLeaves = getWorkspaces().flatMap((w) => collectLeaves(w.layout))
       const leaf = allLeaves.find((l) => l.channelId === channelId)
       if (leaf) {
@@ -30,25 +30,15 @@ export function useChannelEvents() {
           return next
         })
       }
-      patchLeaf({
-        channelId,
-        patch: { status: 'connected', connectedAt: new Date().toISOString() },
-      })
-      return
-    }
-
-    if (status === 'error') {
-      const allLeaves = getWorkspaces().flatMap((w) => collectLeaves(w.layout))
-      const leaf = allLeaves.find((l) => l.channelId === channelId)
-      if (leaf) {
-        setConnectingIds((prev) => {
-          const next = new Set(prev)
-          next.delete(leaf.hostId)
-          return next
+      if (status === 'connected') {
+        patchLeaf({
+          channelId,
+          patch: { status: 'connected', connectedAt: new Date().toISOString() },
         })
+      } else {
+        patchLeaf({ channelId, patch: { status: 'error' } })
+        toast.error('SSH channel error', { description: event.error })
       }
-      patchLeaf({ channelId, patch: { status: 'error' } })
-      toast.error('SSH channel error', { description: event.error })
       return
     }
 

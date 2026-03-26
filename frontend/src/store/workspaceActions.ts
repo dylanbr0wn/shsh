@@ -29,27 +29,28 @@ export const patchLeafByChannelIdAtom = atom(
 )
 
 /** Patch every leaf on a given connection (for connection-level status changes). */
-export const patchLeavesByConnectionIdAtom = atom(
+export const patchLeavesByConnectionIdAtom = atom<
   null,
-  (get, set, { connectionId, patch }: { connectionId: string; patch: Partial<PaneLeaf> }) => {
-    const workspaces = get(workspacesAtom)
-    const allLeaves = workspaces.flatMap((w) => collectLeaves(w.layout))
-    const affected = allLeaves.filter((l) => l.connectionId === connectionId)
-    if (affected.length === 0) return affected
+  [{ connectionId: string; patch: Partial<PaneLeaf> }],
+  PaneLeaf[]
+>(null, (get, set, { connectionId, patch }) => {
+  const workspaces = get(workspacesAtom)
+  const allLeaves = workspaces.flatMap((w) => collectLeaves(w.layout))
+  const affected = allLeaves.filter((l) => l.connectionId === connectionId)
+  if (affected.length === 0) return affected
 
-    set(
-      workspacesAtom,
-      workspaces.map((w) => {
-        let layout = w.layout
-        for (const leaf of affected) {
-          layout = updateLeafByChannelId(layout, leaf.channelId, patch)
-        }
-        return { ...w, layout }
-      })
-    )
-    return affected
-  }
-)
+  set(
+    workspacesAtom,
+    workspaces.map((w) => {
+      let layout = w.layout
+      for (const leaf of affected) {
+        layout = updateLeafByChannelId(layout, leaf.channelId, patch)
+      }
+      return { ...w, layout }
+    })
+  )
+  return affected
+})
 
 /** Split a pane and insert a new leaf. */
 export const splitPaneAtom = atom(
@@ -194,12 +195,16 @@ export const requireActiveLeafAtom = atom(
  * Disconnect all connected leaves across all workspaces.
  * Toasts "No active sessions" if none are connected.
  */
-export const disconnectAllAtom = atom(null, (get) => {
+export const disconnectAllAtom = atom(null, async (get) => {
   const allLeaves = get(workspacesAtom).flatMap((w) => collectLeaves(w.layout))
   const connected = allLeaves.filter((l) => l.status === 'connected')
   if (connected.length === 0) {
     toast.error('No active sessions')
     return
   }
-  Promise.allSettled(connected.map((l) => CloseChannel(l.channelId)))
+  const results = await Promise.allSettled(connected.map((l) => CloseChannel(l.channelId)))
+  const failures = results.filter((r) => r.status === 'rejected')
+  if (failures.length > 0) {
+    toast.error(`Failed to disconnect ${failures.length} session(s)`)
+  }
 })

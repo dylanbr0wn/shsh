@@ -29,7 +29,7 @@ export function useConnectionEvents() {
 
     if (event.status === 'disconnected') {
       const affected = patchLeaves({ connectionId, patch: { status: 'disconnected' } })
-      if (affected) {
+      if (affected.length > 0) {
         setPortForwards((prev) => {
           const next = { ...prev }
           for (const leaf of affected) {
