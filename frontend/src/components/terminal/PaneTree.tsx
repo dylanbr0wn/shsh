@@ -174,6 +174,7 @@ function PaneLeafView({
         paneId={leaf.paneId}
         workspaceId={workspace.id}
         status={leaf.status}
+        isFocused={isFocused}
         onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}

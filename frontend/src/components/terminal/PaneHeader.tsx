@@ -27,6 +27,7 @@ interface Props {
   paneId: string
   workspaceId: string
   status: SessionStatus
+  isFocused: boolean
   onSplit: (
     direction: 'horizontal' | 'vertical',
     kind: 'terminal' | 'sftp' | 'local',
@@ -46,6 +47,7 @@ export function PaneHeader({
   paneId,
   workspaceId,
   status,
+  isFocused,
   onSplit,
   onClose,
   canClose,
@@ -61,39 +63,40 @@ export function PaneHeader({
 
   const typeStyle = typeColors[kind]
 
-  const glowStyle = (() => {
-    const base: React.CSSProperties = {
-      transition: 'box-shadow 300ms ease-out, border-color 300ms ease-out',
-      borderBottomWidth: '2px',
-      borderBottomStyle: 'solid',
+  const headerStyle = (() => {
+    const accentColor =
+      status === 'connecting' || status === 'reconnecting'
+        ? '#fbbf24'
+        : status === 'disconnected' || status === 'failed' || status === 'error'
+          ? 'var(--destructive)'
+          : hostColor ?? 'var(--primary)'
+
+    const tintPercent = isFocused ? '15%' : '6%'
+    const isConnecting = status === 'connecting' || status === 'reconnecting'
+
+    const style: Record<string, string> = {
+      borderLeft: `2px solid ${accentColor}`,
+      backgroundColor: `color-mix(in oklch, ${accentColor} ${tintPercent}, var(--muted))`,
+      transition: 'background-color 300ms ease-out, border-color 300ms ease-out',
     }
-    if (status === 'connecting' || status === 'reconnecting') {
-      return {
-        ...base,
-        borderBottomColor: '#fbbf24',
-        animation: 'pane-glow-pulse 2s ease-in-out infinite',
-      }
+
+    if (isFocused && (status === 'connected' || isConnecting)) {
+      style.boxShadow = `2px 0 8px color-mix(in oklch, ${accentColor} 25%, transparent)`
     }
-    if (status === 'connected') {
-      const color = hostColor ?? 'var(--primary)'
-      return {
-        ...base,
-        borderBottomColor: color,
-        boxShadow: `0 2px 8px ${hostColor ? hostColor + '26' : 'oklch(0.72 0.2 270 / 0.15)'}`,
-      }
+
+    if (isConnecting) {
+      // Set the CSS variable consumed by the pane-glow-pulse keyframes
+      style['--pane-glow-color'] = accentColor
+      style.animation = 'pane-glow-pulse 2s ease-in-out infinite'
     }
-    // disconnected, failed, error — no glow
-    return {
-      ...base,
-      borderBottomColor: 'transparent',
-      boxShadow: 'none',
-    }
+
+    return style
   })()
 
   return (
     <div
-      className="bg-muted border-border flex h-5 items-center gap-1 border-b px-1.5"
-      style={glowStyle}
+      className="flex h-5 items-center gap-1 px-1.5"
+      style={headerStyle as React.CSSProperties}
     >
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
