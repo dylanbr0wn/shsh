@@ -1,4 +1,4 @@
-package store
+package credstore
 
 import (
 	"errors"
@@ -7,15 +7,15 @@ import (
 	"github.com/zalando/go-keyring"
 )
 
-const keychainService = "shsh"
-
 // ErrKeychainUnavailable is returned when the OS credential store cannot be
 // reached (e.g., headless Linux without a Secret Service daemon).
 var ErrKeychainUnavailable = errors.New("keychain unavailable")
 
-// keychainSet stores a password for the given hostID in the OS keychain.
-func keychainSet(hostID, password string) error {
-	err := keyring.Set(keychainService, hostID, password)
+const keychainService = "shsh"
+
+// KeychainSet stores a password for the given key in the OS keychain.
+func KeychainSet(key, password string) error {
+	err := keyring.Set(keychainService, key, password)
 	if err != nil {
 		if isKeychainUnavailable(err) {
 			return ErrKeychainUnavailable
@@ -25,10 +25,10 @@ func keychainSet(hostID, password string) error {
 	return nil
 }
 
-// keychainGet retrieves the password for the given hostID.
-// Returns ("", nil) when no entry exists — this is normal for agent-auth hosts.
-func keychainGet(hostID string) (string, error) {
-	pw, err := keyring.Get(keychainService, hostID)
+// KeychainGet retrieves the password for the given key.
+// Returns ("", nil) when no entry exists.
+func KeychainGet(key string) (string, error) {
+	pw, err := keyring.Get(keychainService, key)
 	if err != nil {
 		if errors.Is(err, keyring.ErrNotFound) {
 			return "", nil
@@ -41,10 +41,10 @@ func keychainGet(hostID string) (string, error) {
 	return pw, nil
 }
 
-// keychainDelete removes the password for the given hostID.
+// KeychainDelete removes the password for the given key.
 // Silently succeeds if no entry exists.
-func keychainDelete(hostID string) error {
-	err := keyring.Delete(keychainService, hostID)
+func KeychainDelete(key string) error {
+	err := keyring.Delete(keychainService, key)
 	if err != nil && !errors.Is(err, keyring.ErrNotFound) {
 		if isKeychainUnavailable(err) {
 			return ErrKeychainUnavailable
