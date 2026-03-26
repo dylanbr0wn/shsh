@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { toast } from 'sonner'
-import { Terminal, Zap, Plus, Download, Loader2, ArrowRight } from 'lucide-react'
+import { Terminal, Zap, Plus, Download, Loader2, ArrowRight, BookOpen } from 'lucide-react'
+import { DOCS_BASE_URL } from '../../lib/constants'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
@@ -211,6 +212,15 @@ export function WelcomeScreen() {
           >
             <Download data-icon="inline-start" />
             Import SSH Config
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1"
+            onClick={() => window.open(DOCS_BASE_URL, '_blank')}
+          >
+            <BookOpen data-icon="inline-start" />
+            Docs
           </Button>
         </div>
       </div>

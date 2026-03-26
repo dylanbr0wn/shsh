@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react'
 import { useSetAtom } from 'jotai'
-import { Trash2, Plus } from 'lucide-react'
+import { Trash2, Plus, HelpCircle } from 'lucide-react'
+import { DOCS_BASE_URL } from '../../lib/constants'
 import { portForwardsAtom, addPortForwardConnectionIdAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
 import { RemovePortForward, ListPortForwards } from '../../../wailsjs/go/main/SessionFacade'
@@ -59,6 +60,19 @@ export function PortForwardsPanel({ connectionId }: Props) {
             </Button>
           </TooltipTrigger>
           <TooltipContent>Add forward</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <a
+              href={`${DOCS_BASE_URL}/features/port-forwarding/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-muted-foreground hover:text-foreground inline-flex size-7 items-center justify-center rounded-md transition-colors"
+            >
+              <HelpCircle className="size-3.5" />
+            </a>
+          </TooltipTrigger>
+          <TooltipContent>Port forwarding documentation</TooltipContent>
         </Tooltip>
       </PanelHeader>
 
