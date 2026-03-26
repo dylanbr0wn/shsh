@@ -95,24 +95,19 @@ export function HostListItem({
             'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
             isConnected
               ? 'bg-sidebar-accent hover:bg-sidebar-accent/80'
-              : 'hover:bg-sidebar-accent/30'
+              : 'hover:bg-sidebar-accent/30',
+            isConnecting && 'animate-pulse'
           )}
-          style={host.color ? { borderLeft: `3px solid ${host.color}`, paddingLeft: 9 } : undefined}
+          style={{
+            borderLeft: `2.5px solid ${
+              isConnected ? '#22c55e' :
+              isConnecting ? '#fbbf24' :
+              host.color ?? 'transparent'
+            }`,
+            paddingLeft: 9,
+          }}
           tabIndex={0}
         >
-          {/* Left: status dot + latency */}
-          <div className="flex w-10 shrink-0 flex-col items-center gap-1">
-            <span
-              className={cn(
-                'size-2 rounded-full',
-                isConnecting && 'animate-pulse bg-amber-400',
-                isConnected && !isConnecting && 'bg-green-500',
-                !isConnected && !isConnecting && 'bg-muted-foreground/30'
-              )}
-            />
-            {!isConnected && <span className={cn('text-[10px] leading-none', color)}>{text}</span>}
-          </div>
-
           {/* Center: host identity */}
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center gap-3">
@@ -121,6 +116,9 @@ export function HostListItem({
 
             <div className="text-muted-foreground truncate text-xs">
               {host.username}@{host.hostname}:{host.port}
+              {!isConnected && text && (
+                <span className={cn('ml-1', color)}> · {text}</span>
+              )}
             </div>
             {host.tags && host.tags.length > 0 && (
               <HoverCard openDelay={300} closeDelay={100}>

@@ -319,27 +319,38 @@ export function HostGroupSection({
 
         {/* Hosts */}
         {isExpanded && (
-          <div className="flex flex-col gap-0.5 pl-2">
-            {hosts.map((host) => (
-              <ErrorBoundary
+          <div
+            className="flex flex-col gap-0.5 rounded-md bg-muted/20 pl-2"
+            style={{ boxShadow: 'inset 0 1px 2px oklch(0 0 0 / 0.05)' }}
+          >
+            {hosts.map((host, index) => (
+              <div
                 key={host.id}
-                fallback="inline"
-                zone={`host-${host.id}`}
-                onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
-                resetKeys={[host.id]}
+                className="host-item-animate"
+                style={{
+                  animation: 'host-item-in 200ms ease-out both',
+                  animationDelay: `${Math.min(index, 8) * 40}ms`,
+                }}
               >
-                <HostListItem
-                  host={host}
-                  isConnected={connectedHostIds.has(host.id)}
-                  isConnecting={connectingHostIds.has(host.id)}
-                  onConnect={() => onConnect(host.id, host.label)}
-                  onDelete={() => onDelete(host.id)}
-                  onEdit={() => onEdit(host)}
-                  onDeployKey={() => onDeployKey(host)}
-                  onMoveToGroup={onMoveToGroup}
-                  onOpenFiles={onOpenFiles ? () => onOpenFiles(host.id, host.label) : undefined}
-                />
-              </ErrorBoundary>
+                <ErrorBoundary
+                  fallback="inline"
+                  zone={`host-${host.id}`}
+                  onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                  resetKeys={[host.id]}
+                >
+                  <HostListItem
+                    host={host}
+                    isConnected={connectedHostIds.has(host.id)}
+                    isConnecting={connectingHostIds.has(host.id)}
+                    onConnect={() => onConnect(host.id, host.label)}
+                    onDelete={() => onDelete(host.id)}
+                    onEdit={() => onEdit(host)}
+                    onDeployKey={() => onDeployKey(host)}
+                    onMoveToGroup={onMoveToGroup}
+                    onOpenFiles={onOpenFiles ? () => onOpenFiles(host.id, host.label) : undefined}
+                  />
+                </ErrorBoundary>
+              </div>
             ))}
           </div>
         )}

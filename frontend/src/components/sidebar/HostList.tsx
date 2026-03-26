@@ -470,10 +470,17 @@ export function HostList() {
             filteredHosts.length === 0 ? (
               <p className="text-muted-foreground py-4 text-center text-xs">No matching hosts</p>
             ) : (
-              filteredHosts.map((host) => {
+              filteredHosts.map((host, index) => {
                 const group = host.groupId ? groups.find((g) => g.id === host.groupId) : undefined
                 return (
-                  <div key={host.id} className="flex flex-col">
+                  <div
+                    key={host.id}
+                    className="host-item-animate flex flex-col"
+                    style={{
+                      animation: 'host-item-in 200ms ease-out both',
+                      animationDelay: `${Math.min(index, 8) * 40}ms`,
+                    }}
+                  >
                     {group && (
                       <span className="text-muted-foreground/50 px-3 pt-0.5 text-[10px]">
                         · {group.name}
@@ -529,26 +536,34 @@ export function HostList() {
                       Ungrouped
                     </span>
                   )}
-                  {ungrouped.map((host) => (
-                    <ErrorBoundary
+                  {ungrouped.map((host, index) => (
+                    <div
                       key={host.id}
-                      fallback="inline"
-                      zone={`host-${host.id}`}
-                      onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
-                      resetKeys={[host.id]}
+                      className="host-item-animate"
+                      style={{
+                        animation: 'host-item-in 200ms ease-out both',
+                        animationDelay: `${Math.min(index, 8) * 40}ms`,
+                      }}
                     >
-                      <HostListItem
-                        host={host}
-                        isConnected={connectedHostIds.has(host.id)}
-                        isConnecting={connectingHostIds.has(host.id)}
-                        onConnect={() => handleConnect(host.id, host.label)}
-                        onDelete={() => handleDelete(host.id)}
-                        onEdit={() => handleEdit(host)}
-                        onDeployKey={() => handleDeployKey(host)}
-                        onMoveToGroup={handleMoveToGroup}
-                        onOpenFiles={() => handleOpenFiles(host.id, host.label)}
-                      />
-                    </ErrorBoundary>
+                      <ErrorBoundary
+                        fallback="inline"
+                        zone={`host-${host.id}`}
+                        onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                        resetKeys={[host.id]}
+                      >
+                        <HostListItem
+                          host={host}
+                          isConnected={connectedHostIds.has(host.id)}
+                          isConnecting={connectingHostIds.has(host.id)}
+                          onConnect={() => handleConnect(host.id, host.label)}
+                          onDelete={() => handleDelete(host.id)}
+                          onEdit={() => handleEdit(host)}
+                          onDeployKey={() => handleDeployKey(host)}
+                          onMoveToGroup={handleMoveToGroup}
+                          onOpenFiles={() => handleOpenFiles(host.id, host.label)}
+                        />
+                      </ErrorBoundary>
+                    </div>
                   ))}
                 </div>
               )}
