@@ -1,0 +1,46 @@
+---
+title: Development Setup
+description: Set up a development environment for contributing to shsh
+---
+
+## Prerequisites
+
+- [Go](https://go.dev/) 1.24+
+- [Node.js](https://nodejs.org/) 22+
+- [pnpm](https://pnpm.io/)
+- [Wails CLI](https://wails.io/) v2
+
+Install the Wails CLI:
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+```
+
+## Running Locally
+
+```bash
+# Clone the repo
+git clone https://github.com/dylanbr0wn/shsh.git
+cd shsh
+
+# Install frontend dependencies
+cd frontend && pnpm install && cd ..
+
+# Start development mode (hot reload for Go + React)
+wails dev
+```
+
+## Useful Commands
+
+| Command | Description |
+|---------|-------------|
+| `wails dev` | Development with hot reload |
+| `wails build` | Production build |
+| `cd frontend && pnpm build` | Frontend-only build |
+| `cd frontend && pnpm lint` | Run ESLint |
+| `cd frontend && pnpm format:check` | Check Prettier formatting |
+| `go test ./...` | Run Go tests |
+
+## After Changing Go Methods
+
+When you add or modify methods on the `App` struct in `app.go`, run `wails build` (or restart `wails dev`) to regenerate the TypeScript bindings in `frontend/wailsjs/go/`. Never edit those files manually.
