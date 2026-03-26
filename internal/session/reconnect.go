@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
@@ -86,6 +85,10 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 		return cancel
 	}
 
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
+
 	go func() {
 		missed := 0
 		ticker := time.NewTicker(cfg.KeepAliveInterval)
@@ -99,8 +102,15 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 				_, _, err := conn.SSHClient().SendRequest("keepalive@openssh.com", true, nil)
 				if err != nil {
 					missed++
+					m.emitDebug("network", "warn", "", conn.hostLabel,
+						"keep-alive missed", map[string]any{
+							"connectionId": conn.id,
+							"missed":       missed,
+							"maxMissed":    cfg.KeepAliveMaxMissed,
+							"error":        err.Error(),
+						})
 					if missed >= cfg.KeepAliveMaxMissed {
-						m.markDead(conn)
+						m.markDead(conn, gen)
 						return
 					}
 				} else {
@@ -114,51 +124,71 @@ func (m *Manager) startKeepAlive(conn *Connection) context.CancelFunc {
 }
 
 // markDead marks a connection as dead and starts the reconnect loop.
-// Safe to call from multiple goroutines — only the first call takes effect.
-func (m *Manager) markDead(conn *Connection) {
-	conn.deadOnce.Do(func() {
-		conn.mu.Lock()
-		conn.state = stateReconnecting
+// The gen parameter is the connection generation the caller was started in;
+// stale calls from goroutines that outlived a reconnect cycle are ignored.
+// Safe to call from multiple goroutines — the state+generation check under
+// conn.mu ensures only the first valid call takes effect.
+func (m *Manager) markDead(conn *Connection, gen uint64) {
+	conn.mu.Lock()
+	if conn.generation != gen || conn.state != stateConnected {
+		curGen := conn.generation
+		curState := conn.state
 		conn.mu.Unlock()
+		m.emitDebug("ssh", "debug", "", conn.hostLabel,
+			"markDead ignored (stale or already reconnecting)", map[string]any{
+				"connectionId": conn.id,
+				"callerGen":    gen,
+				"currentGen":   curGen,
+				"state":        curState,
+			})
+		return
+	}
+	conn.state = stateReconnecting
+	conn.mu.Unlock()
 
-		conn.cancel() // cancel old connection context
-
-		m.emitter.Emit("connection:status", ConnectionStatusEvent{
-			ConnectionID: conn.id,
-			Status:       StatusReconnecting,
-			Attempt:      0,
-			MaxRetries:   conn.reconnCfg.MaxRetries,
+	m.emitDebug("ssh", "warn", "", conn.hostLabel,
+		"connection marked dead, starting reconnect", map[string]any{
+			"connectionId": conn.id,
+			"generation":   gen,
 		})
 
-		// Emit reconnecting for all channels on this connection
-		m.mu.Lock()
-		for _, ch := range m.channels {
-			if ch.ConnectionID() == conn.id {
-				m.emitter.Emit("channel:status", ChannelStatusEvent{
-					ChannelID:    ch.ID(),
-					ConnectionID: conn.id,
-					Kind:         ch.Kind(),
-					Status:       StatusReconnecting,
-				})
-			}
-		}
-		m.mu.Unlock()
+	conn.cancel() // cancel old connection context
 
-		if !conn.reconnCfg.Enabled {
-			conn.mu.Lock()
-			conn.state = stateFailed
-			conn.mu.Unlock()
-			close(conn.reconnectDone)
-			m.emitter.Emit("connection:status", ConnectionStatusEvent{
-				ConnectionID: conn.id,
-				Status:       StatusFailed,
-				Error:        "auto-reconnect disabled",
-			})
-			return
-		}
-
-		go m.reconnectLoop(conn)
+	m.emitter.Emit("connection:status", ConnectionStatusEvent{
+		ConnectionID: conn.id,
+		Status:       StatusReconnecting,
+		Attempt:      0,
+		MaxRetries:   conn.reconnCfg.MaxRetries,
 	})
+
+	// Emit reconnecting for all channels on this connection
+	m.mu.Lock()
+	for _, ch := range m.channels {
+		if ch.ConnectionID() == conn.id {
+			m.emitter.Emit("channel:status", ChannelStatusEvent{
+				ChannelID:    ch.ID(),
+				ConnectionID: conn.id,
+				Kind:         ch.Kind(),
+				Status:       StatusReconnecting,
+			})
+		}
+	}
+	m.mu.Unlock()
+
+	if !conn.reconnCfg.Enabled {
+		conn.mu.Lock()
+		conn.state = stateFailed
+		conn.mu.Unlock()
+		close(conn.reconnectDone)
+		m.emitter.Emit("connection:status", ConnectionStatusEvent{
+			ConnectionID: conn.id,
+			Status:       StatusFailed,
+			Error:        "auto-reconnect disabled",
+		})
+		return
+	}
+
+	go m.reconnectLoop(conn)
 }
 
 // reconnectLoop attempts to re-establish the SSH connection.
@@ -350,16 +380,16 @@ func (m *Manager) onReconnected(conn *Connection) {
 
 	conn.mu.Lock()
 	conn.state = stateConnected
-	conn.deadOnce = sync.Once{}
+	conn.generation++
 	conn.reconnectDone = make(chan struct{})
 	conn.mu.Unlock()
 
 	close(oldDone) // unblock any ConnectOrReuse waiters
 
-	// Restart keep-alive
-	m.startKeepAlive(conn)
-
-	// Restore terminal and SFTP channels
+	// Restore terminal and SFTP channels.
+	// reopen() calls wg.Wait() which ensures old reader goroutines finish
+	// before new ones start — this must happen before startKeepAlive so
+	// stale goroutines cannot race with the new generation.
 	m.mu.Lock()
 	channels := make([]Channel, 0)
 	for _, ch := range m.channels {
@@ -368,6 +398,10 @@ func (m *Manager) onReconnected(conn *Connection) {
 		}
 	}
 	m.mu.Unlock()
+
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
 
 	sshClient := conn.SSHClient()
 	for _, ch := range channels {
@@ -385,6 +419,7 @@ func (m *Manager) onReconnected(conn *Connection) {
 				})
 				continue
 			}
+			c.markDeadFn = func() { m.markDead(conn, gen) }
 			c.startReader(stdout, m.emitter)
 			m.emitter.Emit("channel:status", ChannelStatusEvent{
 				ChannelID:    c.id,
@@ -413,6 +448,9 @@ func (m *Manager) onReconnected(conn *Connection) {
 		}
 	}
 
+	// Start keep-alive after channels are restored so the generation is stable.
+	m.startKeepAlive(conn)
+
 	// Restore port forwards — snapshot and clear old (dead) entries to avoid duplicates
 	conn.pfMu.Lock()
 	forwards := make([]*portForward, 0, len(conn.portForwards))
@@ -433,6 +471,12 @@ func (m *Manager) onReconnected(conn *Connection) {
 		ConnectionID: conn.id,
 		Status:       StatusConnected,
 	})
+
+	m.emitDebug("ssh", "info", "", conn.hostLabel,
+		"connection reconnected successfully", map[string]any{
+			"connectionId": conn.id,
+			"generation":   gen,
+		})
 
 	log.Info().Str("connectionId", conn.id).Msg("connection reconnected successfully")
 }
@@ -455,7 +499,6 @@ func (m *Manager) RetryConnection(connectionID string) error {
 	// Reset state for new reconnect attempt
 	conn.mu.Lock()
 	conn.state = stateReconnecting
-	conn.deadOnce = sync.Once{}
 	conn.reconnectDone = make(chan struct{})
 	conn.mu.Unlock()
 

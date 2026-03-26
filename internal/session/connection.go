@@ -44,8 +44,8 @@ type Connection struct {
 
 	// Reconnect state
 	state         connState
+	generation    uint64 // incremented on each successful (re)connect; stale goroutines are ignored
 	reconnectDone chan struct{}
-	deadOnce      sync.Once
 }
 
 type connState int
@@ -296,6 +296,12 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 	if onConnected != nil {
 		onConnected()
 	}
+
+	m.emitDebug("ssh", "info", "", host.Label,
+		"new SSH connection established", map[string]any{
+			"connectionId": connectionID,
+			"hostId":       host.ID,
+		})
 
 	log.Info().Str("connectionId", connectionID).Str("hostId", host.ID).Str("hostLabel", host.Label).Msg("new SSH connection established")
 

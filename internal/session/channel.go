@@ -61,6 +61,7 @@ type TerminalChannel struct {
 	logFile      *os.File
 	logMu        sync.Mutex
 	logPath      string
+	closing      bool   // set by Close() to distinguish intentional teardown from connection loss
 	markDeadFn   func() // called on read error to trigger reconnect
 }
 
@@ -68,6 +69,9 @@ func (t *TerminalChannel) ID() string           { return t.id }
 func (t *TerminalChannel) Kind() ChannelKind    { return ChannelTerminal }
 func (t *TerminalChannel) ConnectionID() string { return t.connectionID }
 func (t *TerminalChannel) Close() error {
+	t.mu.Lock()
+	t.closing = true
+	t.mu.Unlock()
 	t.cancel()
 	t.sshSess.Close()
 	t.wg.Wait() // Wait for output reader goroutine to finish
@@ -137,8 +141,14 @@ func (tc *TerminalChannel) startReader(stdout io.Reader, emitter EventEmitter) {
 				break
 			}
 		}
+		// Only signal connection death if this wasn't an intentional
+		// Close() — Close() sets the closing flag before closing the
+		// SSH session, so we can distinguish user teardown from real loss.
+		tc.mu.Lock()
+		intentional := tc.closing
+		tc.mu.Unlock()
 		tc.cancel()
-		if tc.markDeadFn != nil {
+		if !intentional && tc.markDeadFn != nil {
 			tc.markDeadFn()
 		}
 	})
@@ -224,13 +234,11 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 		ctx:          chCtx,
 		cancel:       cancel,
 	}
+	conn.mu.RLock()
+	gen := conn.generation
+	conn.mu.RUnlock()
 	tc.markDeadFn = func() {
-		m.mu.Lock()
-		conn, ok := m.connections[connectionID]
-		m.mu.Unlock()
-		if ok {
-			m.markDead(conn)
-		}
+		m.markDead(conn, gen)
 	}
 
 	conn.incrRefs()
@@ -238,6 +246,16 @@ func (m *Manager) OpenTerminal(connectionID string) (string, error) {
 	m.mu.Lock()
 	m.channels[channelID] = tc
 	m.mu.Unlock()
+
+	conn.mu.RLock()
+	refs := conn.channelRefs
+	conn.mu.RUnlock()
+
+	m.emitDebug("ssh", "info", channelID, conn.hostLabel,
+		"terminal channel opened", map[string]any{
+			"connectionId": connectionID,
+			"channelRefs":  refs,
+		})
 
 	m.emitter.Emit("channel:status", ChannelStatusEvent{
 		ChannelID:    channelID,
@@ -314,6 +332,12 @@ func (m *Manager) CloseChannel(channelID string) error {
 		log.Warn().Str("channelId", channelID).Str("connectionId", ch.ConnectionID()).Msg("channel has no matching connection (already torn down?)")
 	}
 
+	m.emitDebug("ssh", "info", channelID, m.connLabel(ch.ConnectionID()),
+		"closing channel", map[string]any{
+			"connectionId": ch.ConnectionID(),
+			"kind":         string(ch.Kind()),
+		})
+
 	// Close the channel itself
 	if err := ch.Close(); err != nil {
 		log.Warn().Err(err).Str("channelId", channelID).Msg("error closing channel")
@@ -328,7 +352,24 @@ func (m *Manager) CloseChannel(channelID string) error {
 
 	// Decrement connection refs; tear down if zero
 	if connOk && conn.decrRefs() {
+		conn.mu.RLock()
+		refs := conn.channelRefs
+		conn.mu.RUnlock()
+		m.emitDebug("ssh", "info", channelID, conn.hostLabel,
+			"last channel closed, tearing down connection", map[string]any{
+				"connectionId": conn.id,
+				"channelRefs":  refs,
+			})
 		m.teardownConnection(conn)
+	} else if connOk {
+		conn.mu.RLock()
+		refs := conn.channelRefs
+		conn.mu.RUnlock()
+		m.emitDebug("ssh", "debug", channelID, conn.hostLabel,
+			"channel closed, connection still active", map[string]any{
+				"connectionId": conn.id,
+				"channelRefs":  refs,
+			})
 	}
 
 	return nil

@@ -146,7 +146,10 @@ func (m *Manager) Write(channelId, data string) error {
 	tc.mu.Unlock()
 	if err != nil {
 		if conn, connErr := m.getConnection(tc.connectionID); connErr == nil {
-			m.markDead(conn)
+			conn.mu.RLock()
+			gen := conn.generation
+			conn.mu.RUnlock()
+			m.markDead(conn, gen)
 		}
 	}
 	return err
