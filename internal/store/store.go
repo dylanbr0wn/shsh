@@ -1,13 +1,12 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
-
-	"github.com/dylanbr0wn/shsh/internal/credstore"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -93,7 +92,7 @@ type Host struct {
 	Tags              []string         `json:"tags,omitempty"`
 	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
 	KeyPath           *string          `json:"keyPath,omitempty"`
-	CredentialSource  credstore.Source `json:"credentialSource,omitempty"`
+	CredentialSource  string `json:"credentialSource,omitempty"`
 	CredentialRef     string           `json:"credentialRef,omitempty"`
 	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
 	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
@@ -119,7 +118,7 @@ type CreateHostInput struct {
 	Tags              []string         `json:"tags,omitempty"`
 	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
 	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
-	CredentialSource             credstore.Source `json:"credentialSource,omitempty"`
+	CredentialSource             string `json:"credentialSource,omitempty"`
 	CredentialRef                string           `json:"credentialRef,omitempty"`
 	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
 	ReconnectMaxRetries          *int             `json:"reconnectMaxRetries,omitempty"`
@@ -144,7 +143,7 @@ type UpdateHostInput struct {
 	Color             string           `json:"color,omitempty"`
 	Tags              []string         `json:"tags,omitempty"`
 	TerminalProfileID *string          `json:"terminalProfileId,omitempty"`
-	CredentialSource             credstore.Source `json:"credentialSource,omitempty"`
+	CredentialSource             string `json:"credentialSource,omitempty"`
 	CredentialRef                string           `json:"credentialRef,omitempty"`
 	JumpHostID                   *string          `json:"jumpHostId,omitempty"`
 	ReconnectEnabled             *bool            `json:"reconnectEnabled,omitempty"`
@@ -173,11 +172,12 @@ type CreateTemplateInput struct {
 
 // Store manages persistent host data in SQLite.
 type Store struct {
-	db *sql.DB
+	db          *sql.DB
+	credentials CredentialResolver
 }
 
 // New opens the SQLite database at dbPath, runs migrations, and enables WAL mode.
-func New(dbPath string) (*Store, error) {
+func New(dbPath string, creds CredentialResolver) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -259,7 +259,7 @@ func New(dbPath string) (*Store, error) {
 		return nil, fmt.Errorf("create workspace_templates table: %w", err)
 	}
 
-	return &Store{db: db}, nil
+	return &Store{db: db, credentials: creds}, nil
 }
 
 // Close closes the underlying database connection.
@@ -463,7 +463,7 @@ func (s *Store) ListHosts() ([]Host, error) {
 			h.KeyPath = &keyPath.String
 		}
 		if credSrc.Valid {
-			h.CredentialSource = credstore.Source(credSrc.String)
+			h.CredentialSource = credSrc.String
 		}
 		if credRef.Valid {
 			h.CredentialRef = credRef.String
@@ -485,7 +485,7 @@ func (s *Store) ListHosts() ([]Host, error) {
 func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	credSrc := input.CredentialSource
 	if credSrc == "" {
-		credSrc = credstore.SourceInline
+		credSrc = "inline"
 	}
 
 	host := Host{
@@ -530,8 +530,8 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	}
 
 	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
-	if input.AuthMethod == AuthPassword && credSrc == credstore.SourceInline && input.Password != "" {
-		if err := keychainSet(host.ID, input.Password); err != nil {
+	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
+		if err := s.credentials.StoreSecret(host.ID, input.Password); err != nil {
 			if errors.Is(err, ErrKeychainUnavailable) {
 				log.Warn().Str("hostID", host.ID).Msg("keychain unavailable, storing password in DB as fallback")
 				s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, host.ID) //nolint:errcheck
@@ -545,7 +545,7 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		keychainSet(host.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		s.credentials.StoreSecret(host.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
 	}
 
 	return host, nil
@@ -555,7 +555,7 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	credSrc := input.CredentialSource
 	if credSrc == "" {
-		credSrc = credstore.SourceInline
+		credSrc = "inline"
 	}
 
 	groupID := sql.NullString{}
@@ -578,8 +578,8 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	}
 
 	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
-	if input.AuthMethod == AuthPassword && credSrc == credstore.SourceInline && input.Password != "" {
-		if err := keychainSet(input.ID, input.Password); err != nil {
+	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
+		if err := s.credentials.StoreSecret(input.ID, input.Password); err != nil {
 			if errors.Is(err, ErrKeychainUnavailable) {
 				log.Warn().Str("hostID", input.ID).Msg("keychain unavailable, storing password in DB as fallback")
 				s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, input.ID) //nolint:errcheck
@@ -589,19 +589,19 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		} else {
 			s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 		}
-	} else if input.AuthMethod == AuthPassword && credSrc != credstore.SourceInline {
+	} else if input.AuthMethod == AuthPassword && credSrc != "inline" {
 		// Switching to external PM — clear any inline keychain entry.
-		keychainDelete(input.ID)                                         //nolint:errcheck
+		s.credentials.DeleteSecret(input.ID)                                         //nolint:errcheck
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 	} else if input.AuthMethod != AuthPassword {
-		keychainDelete(input.ID)                                         //nolint:errcheck
+		s.credentials.DeleteSecret(input.ID)                                         //nolint:errcheck
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		keychainSet(input.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		s.credentials.StoreSecret(input.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
 	} else if input.AuthMethod != AuthKey {
-		keychainDelete(input.ID + ":passphrase") //nolint:errcheck
+		s.credentials.DeleteSecret(input.ID + ":passphrase") //nolint:errcheck
 	}
 
 	var h Host
@@ -626,7 +626,7 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		h.KeyPath = &keyPath.String
 	}
 	if credSrcCol.Valid {
-		h.CredentialSource = credstore.Source(credSrcCol.String)
+		h.CredentialSource = credSrcCol.String
 	}
 	if credRefCol.Valid {
 		h.CredentialRef = credRefCol.String
@@ -641,8 +641,8 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 
 // DeleteHost removes a saved host by ID and cleans up its keychain entries.
 func (s *Store) DeleteHost(id string) error {
-	keychainDelete(id)                 //nolint:errcheck
-	keychainDelete(id + ":passphrase") //nolint:errcheck
+	s.credentials.DeleteSecret(id)                 //nolint:errcheck
+	s.credentials.DeleteSecret(id + ":passphrase") //nolint:errcheck
 	_, err := s.db.Exec(`DELETE FROM hosts WHERE id = ?`, id)
 	return err
 }
@@ -666,7 +666,7 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 		h.KeyPath = &keyPath.String
 	}
 	if credSrc.Valid {
-		h.CredentialSource = credstore.Source(credSrc.String)
+		h.CredentialSource = credSrc.String
 	}
 	if credRef.Valid {
 		h.CredentialRef = credRef.String
@@ -678,31 +678,23 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 
 	switch h.AuthMethod {
 	case AuthPassword:
-		switch h.CredentialSource {
-		case credstore.Source1Password:
-			pw, err := credstore.FetchFrom1Password(h.CredentialRef)
+		if h.CredentialSource == "inline" || h.CredentialSource == "" {
+			pw, err := s.credentials.InlineSecret(id, dbPassword.String)
 			if err != nil {
-				log.Warn().Err(err).Str("hostID", id).Msg("1Password fetch failed")
-				return h, "", fmt.Errorf("1Password: %w", err)
+				return h, dbPassword.String, nil
 			}
 			return h, pw, nil
-		case credstore.SourceBitwarden:
-			pw, err := credstore.FetchFromBitwarden(h.CredentialRef)
-			if err != nil {
-				log.Warn().Err(err).Str("hostID", id).Msg("Bitwarden fetch failed")
-				return h, "", fmt.Errorf("Bitwarden: %w", err)
-			}
-			return h, pw, nil
-		default: // SourceInline or empty
-			pw, err := keychainGet(id)
-			if err == nil && pw != "" {
-				return h, pw, nil
-			}
-			// Keychain unavailable or no entry — fall back to DB column.
-			return h, dbPassword.String, nil
 		}
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		pw, err := s.credentials.Resolve(ctx, h.CredentialSource, h.CredentialRef)
+		if err != nil {
+			log.Warn().Err(err).Str("hostID", id).Msg("external credential fetch failed")
+			return h, "", fmt.Errorf("credential fetch (%s): %w", h.CredentialSource, err)
+		}
+		return h, pw, nil
 	case AuthKey:
-		passphrase, _ := keychainGet(id + ":passphrase")
+		passphrase, _ := s.credentials.InlineSecret(id+":passphrase", "")
 		return h, passphrase, nil
 	default:
 		return h, "", nil
@@ -733,7 +725,7 @@ func (s *Store) MigratePasswordsToKeychain() error {
 	rows.Close()
 
 	for _, p := range work {
-		if err := keychainSet(p.id, p.password); err != nil {
+		if err := s.credentials.StoreSecret(p.id, p.password); err != nil {
 			if errors.Is(err, ErrKeychainUnavailable) {
 				log.Warn().Str("hostID", p.id).Msg("keychain unavailable during migration, password stays in DB")
 				continue

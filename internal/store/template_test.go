@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"encoding/json"
 	"path/filepath"
 	"testing"
@@ -9,10 +10,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// noopResolver is a no-op CredentialResolver for template tests that don't
+// exercise credential paths.
+type noopResolver struct{}
+
+func (noopResolver) Resolve(_ context.Context, _, _ string) (string, error) { return "", nil }
+func (noopResolver) InlineSecret(_, fallback string) (string, error)        { return fallback, nil }
+func (noopResolver) StoreSecret(_, _ string) error                          { return nil }
+func (noopResolver) DeleteSecret(_ string) error                            { return nil }
+
 func setupTestStore(t *testing.T) *Store {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
-	s, err := New(dbPath)
+	s, err := New(dbPath, noopResolver{})
 	require.NoError(t, err)
 	return s
 }
