@@ -358,12 +358,27 @@ export function useAppInit() {
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 'j') {
-        e.preventDefault()
-        setDebugPanelOpen((prev) => !prev)
+      if (!(e.metaKey || e.ctrlKey)) return
+      switch (e.key) {
+        case 'j':
+          e.preventDefault()
+          setDebugPanelOpen((prev) => !prev)
+          break
+        case 'k':
+          e.preventDefault()
+          setIsQuickConnectOpen((prev) => !prev)
+          break
+        case 'n':
+          e.preventDefault()
+          setIsAddHostOpen((prev) => !prev)
+          break
+        case 'i':
+          e.preventDefault()
+          setIsImportSSHConfigOpen((prev) => !prev)
+          break
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setDebugPanelOpen])
+  }, [setDebugPanelOpen, setIsQuickConnectOpen, setIsAddHostOpen, setIsImportSSHConfigOpen])
 }
