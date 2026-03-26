@@ -1,5 +1,5 @@
-import { useAtomValue, useAtom } from 'jotai'
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useAtomValue, useAtom, useSetAtom } from 'jotai'
+import { useState, useEffect, useCallback } from 'react'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -8,15 +8,8 @@ import {
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
-import {
-  collectLeaves,
-  splitLeaf,
-  removeLeaf,
-  firstLeaf,
-  moveLeaf,
-  insertLeaf,
-  movePaneAcrossWorkspaces,
-} from '../../lib/paneTree'
+import { collectLeaves, firstLeaf } from '../../lib/paneTree'
+import { splitPaneAtom, closePaneAtom, movePaneAtom } from '../../store/workspaceActions'
 import type { PaneLeaf, PaneNode } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
 import type { DropEdge, DropMime } from '../../hooks/useDropZone'
@@ -38,7 +31,6 @@ import {
   OpenSFTPChannel,
   OpenLocalFSChannel,
   ConnectHost,
-  CloseChannel,
 } from '../../../wailsjs/go/main/SessionFacade'
 import { toast } from 'sonner'
 
@@ -50,10 +42,9 @@ export function WorkspaceView() {
   const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
-  const workspacesRef = useRef(workspaces)
-  workspacesRef.current = workspaces
-  const hostsRef = useRef(hosts)
-  hostsRef.current = hosts
+  const splitPane = useSetAtom(splitPaneAtom)
+  const closePane = useSetAtom(closePaneAtom)
+  const movePane = useSetAtom(movePaneAtom)
 
   const [pendingHostDrop, setPendingHostDrop] = useState<{
     workspaceId: string
@@ -74,7 +65,7 @@ export function WorkspaceView() {
       hostId?: string,
       position?: 'before' | 'after'
     ) => {
-      const ws = workspacesRef.current.find((w) => w.id === workspaceId)
+      const ws = workspaces.find((w) => w.id === workspaceId)
       if (!ws) return
       const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
       if (!leaf) return
@@ -97,7 +88,7 @@ export function WorkspaceView() {
           }
         } else if (kind === 'terminal' && hostId) {
           // Terminal pane on a specific host
-          const host = hostsRef.current.find((h) => h.id === hostId)
+          const host = hosts.find((h) => h.id === hostId)
           if (!host) {
             toast.error('Host not found')
             return
@@ -116,7 +107,7 @@ export function WorkspaceView() {
           }
         } else if (kind === 'sftp' && hostId) {
           // SFTP pane on a specific host
-          const host = hostsRef.current.find((h) => h.id === hostId)
+          const host = hosts.find((h) => h.id === hostId)
           if (!host) {
             toast.error('Host not found')
             return
@@ -149,24 +140,12 @@ export function WorkspaceView() {
           }
         }
 
-        setWorkspaces((prev) =>
-          prev.map((w) => {
-            if (w.id !== workspaceId) return w
-            const newLayout = position
-              ? insertLeaf(w.layout, paneId, direction, newLeaf, position)
-              : splitLeaf(w.layout, paneId, direction, newLeaf)
-            return {
-              ...w,
-              layout: newLayout,
-              focusedPaneId: newLeaf.paneId,
-            }
-          })
-        )
+        splitPane({ workspaceId, paneId, direction, newLeaf, position })
       } catch (err) {
         toast.error('Split failed', { description: String(err) })
       }
     },
-    [setWorkspaces]
+    [workspaces, hosts, splitPane]
   )
 
   async function buildLiveTree(node: TemplateNode): Promise<PaneNode> {
@@ -273,23 +252,9 @@ export function WorkspaceView() {
 
   const handleClose = useCallback(
     (workspaceId: string, paneId: string) => {
-      setWorkspaces((prev) => {
-        const ws = prev.find((w) => w.id === workspaceId)
-        if (!ws) return prev
-        const leaf = collectLeaves(ws.layout).find((l) => l.paneId === paneId)
-        if (leaf) CloseChannel(leaf.channelId).catch(() => {})
-        const newLayout = removeLeaf(ws.layout, paneId)
-        if (newLayout === null) {
-          return prev.filter((w) => w.id !== workspaceId)
-        }
-        const newFocused =
-          ws.focusedPaneId === paneId ? firstLeaf(newLayout).paneId : ws.focusedPaneId
-        return prev.map((w) =>
-          w.id === workspaceId ? { ...w, layout: newLayout, focusedPaneId: newFocused } : w
-        )
-      })
+      closePane({ workspaceId, paneId })
     },
-    [setWorkspaces]
+    [closePane]
   )
 
   const handleMovePane = useCallback(
@@ -301,29 +266,16 @@ export function WorkspaceView() {
       direction: 'horizontal' | 'vertical',
       position: 'before' | 'after'
     ) => {
-      setWorkspaces((prev) => {
-        // Same workspace move
-        if (sourceWorkspaceId === targetWorkspaceId) {
-          return prev.map((w) => {
-            if (w.id !== sourceWorkspaceId) return w
-            const newLayout = moveLeaf(w.layout, sourcePaneId, targetPaneId, direction, position)
-            if (!newLayout) return w
-            return { ...w, layout: newLayout, focusedPaneId: sourcePaneId }
-          })
-        }
-        // Cross-workspace move
-        return movePaneAcrossWorkspaces(
-          prev,
-          sourcePaneId,
-          sourceWorkspaceId,
-          targetWorkspaceId,
-          targetPaneId,
-          direction,
-          position
-        )
+      movePane({
+        sourcePaneId,
+        sourceWorkspaceId,
+        targetWorkspaceId,
+        targetPaneId,
+        direction,
+        position,
       })
     },
-    [setWorkspaces]
+    [movePane]
   )
 
   const handleDrop = useCallback(
@@ -386,7 +338,7 @@ export function WorkspaceView() {
         return
       }
       if (!activeWorkspaceId) return
-      const ws = workspacesRef.current.find((w) => w.id === activeWorkspaceId)
+      const ws = workspaces.find((w) => w.id === activeWorkspaceId)
       if (!ws || !ws.focusedPaneId) return
 
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'd') {
@@ -398,7 +350,7 @@ export function WorkspaceView() {
         handleSplit(activeWorkspaceId, ws.focusedPaneId, 'horizontal')
       }
     },
-    [activeWorkspaceId, handleSplit]
+    [activeWorkspaceId, workspaces, handleSplit]
   )
 
   useEffect(() => {
