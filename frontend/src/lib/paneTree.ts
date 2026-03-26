@@ -1,4 +1,4 @@
-import type { PaneLeaf, PaneNode } from '../store/workspaces'
+import type { PaneLeaf, PaneNode, Workspace } from '../store/workspaces'
 
 /** Flatten all leaf nodes from a pane tree. */
 export function collectLeaves(node: PaneNode): PaneLeaf[] {
@@ -23,6 +23,30 @@ export function updateLeafByChannelId(
 }
 
 /**
+ * Insert newLeaf next to the leaf with targetPaneId.
+ * position 'before' puts newLeaf on the left/top, 'after' on the right/bottom.
+ */
+export function insertLeaf(
+  node: PaneNode,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  newLeaf: PaneLeaf,
+  position: 'before' | 'after'
+): PaneNode {
+  if (node.type === 'leaf') {
+    if (node.paneId !== targetPaneId) return node
+    return position === 'before'
+      ? { type: 'split', direction, ratio: 0.5, left: newLeaf, right: node }
+      : { type: 'split', direction, ratio: 0.5, left: node, right: newLeaf }
+  }
+  return {
+    ...node,
+    left: insertLeaf(node.left, targetPaneId, direction, newLeaf, position),
+    right: insertLeaf(node.right, targetPaneId, direction, newLeaf, position),
+  }
+}
+
+/**
  * Replace the leaf with paneId with a SplitNode containing the old leaf
  * (left/top) and newLeaf (right/bottom).
  */
@@ -32,15 +56,27 @@ export function splitLeaf(
   direction: 'horizontal' | 'vertical',
   newLeaf: PaneLeaf
 ): PaneNode {
-  if (node.type === 'leaf') {
-    if (node.paneId !== paneId) return node
-    return { type: 'split', direction, ratio: 0.5, left: node, right: newLeaf }
-  }
-  return {
-    ...node,
-    left: splitLeaf(node.left, paneId, direction, newLeaf),
-    right: splitLeaf(node.right, paneId, direction, newLeaf),
-  }
+  return insertLeaf(node, paneId, direction, newLeaf, 'after')
+}
+
+/**
+ * Move a leaf from its current position to a new position next to targetPaneId.
+ * Returns the tree unchanged if source or target is not found, or if source === target.
+ * Returns null if the tree collapses to nothing after removal.
+ */
+export function moveLeaf(
+  node: PaneNode,
+  sourcePaneId: string,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  position: 'before' | 'after'
+): PaneNode | null {
+  const sourceLeaf = collectLeaves(node).find((l) => l.paneId === sourcePaneId)
+  if (!sourceLeaf) return node
+  if (sourcePaneId === targetPaneId) return node
+  const afterRemoval = removeLeaf(node, sourcePaneId)
+  if (afterRemoval === null) return null
+  return insertLeaf(afterRemoval, targetPaneId, direction, sourceLeaf, position)
 }
 
 /**
@@ -66,4 +102,44 @@ export function removeLeaf(node: PaneNode, paneId: string): PaneNode | null {
 export function firstLeaf(node: PaneNode): PaneLeaf {
   if (node.type === 'leaf') return node
   return firstLeaf(node.left)
+}
+
+/**
+ * Move a pane from one workspace to another.
+ * Returns a new workspaces array with the source workspace updated (or removed if empty)
+ * and the target workspace updated with the moved pane.
+ */
+export function movePaneAcrossWorkspaces(
+  workspaces: Workspace[],
+  sourcePaneId: string,
+  sourceWorkspaceId: string,
+  targetWorkspaceId: string,
+  targetPaneId: string,
+  direction: 'horizontal' | 'vertical',
+  position: 'before' | 'after'
+): Workspace[] {
+  const sourceWs = workspaces.find((w) => w.id === sourceWorkspaceId)
+  const targetWs = workspaces.find((w) => w.id === targetWorkspaceId)
+  if (!sourceWs || !targetWs) return workspaces
+
+  const sourceLeaf = collectLeaves(sourceWs.layout).find((l) => l.paneId === sourcePaneId)
+  if (!sourceLeaf) return workspaces
+
+  const newSourceLayout = removeLeaf(sourceWs.layout, sourcePaneId)
+  const newTargetLayout = insertLeaf(targetWs.layout, targetPaneId, direction, sourceLeaf, position)
+
+  return workspaces
+    .map((w) => {
+      if (w.id === sourceWorkspaceId) {
+        if (newSourceLayout === null) return null
+        const newFocused =
+          w.focusedPaneId === sourcePaneId ? firstLeaf(newSourceLayout).paneId : w.focusedPaneId
+        return { ...w, layout: newSourceLayout, focusedPaneId: newFocused }
+      }
+      if (w.id === targetWorkspaceId) {
+        return { ...w, layout: newTargetLayout, focusedPaneId: sourcePaneId }
+      }
+      return w
+    })
+    .filter((w): w is Workspace => w !== null)
 }
