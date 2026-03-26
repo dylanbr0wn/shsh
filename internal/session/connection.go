@@ -183,9 +183,6 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 
 	timeout := time.Duration(m.cfg.SSH.ConnectionTimeoutSeconds) * time.Second
 
-	var client *goph.Client
-	var jumpSSHClient *ssh.Client
-
 	result, err := Dial(DialRequest{
 		Host:            host,
 		Password:        password,
@@ -198,8 +195,6 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 		cleanup()
 		return ConnectResult{}, err
 	}
-	client = result.Client
-	jumpSSHClient = result.JumpClient
 
 	connCtx, cancel := context.WithCancel(context.Background())
 	conn := &Connection{
@@ -207,8 +202,8 @@ func (m *Manager) ConnectOrReuse(host store.Host, password string, jumpHost *sto
 		hostID:        host.ID,
 		jumpHostID:    jumpHostID,
 		hostLabel:     host.Label,
-		client:        client,
-		jumpClient:    jumpSSHClient,
+		client:        result.Client,
+		jumpClient:    result.JumpClient,
 		ctx:           connCtx,
 		cancel:        cancel,
 		portForwards:  make(map[string]*portForward),
