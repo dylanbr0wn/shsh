@@ -10,7 +10,13 @@ import (
 )
 
 // Deps holds all shared runtime state for the facade structs.
-// App.startup() fills these fields once; all facades see them immediately via pointer.
+//
+// Safety: Wails guarantees that startup() completes before any bound method
+// is invoked, so the fields populated during startup (Store, Manager, Ctx,
+// CfgPath, DebugSink) are safely visible to all facade goroutines.
+// Cfg is set at construction and mutated only by UpdateConfig, which runs
+// on the Wails main-thread dispatch — concurrent facade reads of Cfg fields
+// are safe as long as Wails serialises bound method calls (which it does).
 type Deps struct {
 	Ctx       context.Context
 	Store     *store.Store
