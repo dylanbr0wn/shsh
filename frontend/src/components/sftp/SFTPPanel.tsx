@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Folder, File, RefreshCw, Upload, FolderPlus, Loader2, HelpCircle } from 'lucide-react'
+import { Folder, File, RefreshCw, Upload, FolderPlus, HelpCircle } from 'lucide-react'
 import { DOCS_BASE_URL } from '../../lib/constants'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
@@ -31,6 +31,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { ScrollArea } from '../ui/scroll-area'
+import { Spinner } from '../ui/spinner'
 import { cn } from '../../lib/utils'
 import {
   ContextMenu,
@@ -349,7 +350,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       </div>
 
       {/* Breadcrumb */}
-      <div className="border-border flex shrink-0 items-center overflow-x-auto border-b px-1.5 py-1 h-7">
+      <div className="border-border flex h-7 shrink-0 items-center overflow-x-auto border-b px-1.5 py-1">
         <PathBreadcrumb path={currentPath} onNavigate={listDir} />
       </div>
 
@@ -357,7 +358,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       <ScrollArea className="@container min-h-0 w-full flex-1">
         {isLoading && (
           <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            <Spinner className="size-4" aria-hidden="true" />
             <span>Loading…</span>
           </div>
         )}

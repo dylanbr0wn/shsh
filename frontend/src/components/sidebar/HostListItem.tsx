@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { cn } from '../../lib/utils'
-import { Loader2, MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
+import { MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
 import { useAtomValue } from 'jotai'
 import { groupsAtom, hostHealthAtom } from '../../store/atoms'
@@ -30,6 +30,7 @@ import {
   ContextMenuTrigger,
 } from '../ui/context-menu'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../ui/item'
+import { Spinner } from '../ui/spinner'
 
 interface Props {
   host: Host
@@ -141,7 +142,6 @@ export function HostListItem({
 
             {/* Right: action buttons */}
             <ItemActions>
-
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -155,7 +155,7 @@ export function HostListItem({
                     disabled={isConnecting}
                   >
                     {isConnecting ? (
-                      <Loader2 className="animate-spin" />
+                      <Spinner />
                     ) : isConnected ? (
                       <SquareTerminal />
                     ) : (

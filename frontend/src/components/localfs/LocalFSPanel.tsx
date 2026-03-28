@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Folder, File, RefreshCw, FolderPlus, Loader2, MoveRight } from 'lucide-react'
+import { Folder, File, RefreshCw, FolderPlus, MoveRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { ScrollArea } from '../ui/scroll-area'
+import { Spinner } from '../ui/spinner'
 import { cn } from '../../lib/utils'
 import {
   ContextMenu,
@@ -276,7 +277,7 @@ export function LocalFSPanel({ channelId }: Props) {
       <ScrollArea className="@container min-h-0 w-full flex-1">
         {isLoading && (
           <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            <Spinner className="size-4" aria-hidden="true" />
             <span>Loading…</span>
           </div>
         )}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isEditHostOpenAtom,
@@ -192,7 +192,7 @@ export function EditHostModal() {
             Cancel
           </Button>
           <Button type="submit" form="eh-form" disabled={submitting}>
-            {submitting && <Loader2 data-icon="inline-start" className="animate-spin" />}
+            {submitting && <Spinner data-icon="inline-start" />}
             {submitting ? 'Saving…' : 'Save Changes'}
           </Button>
         </DialogFooter>

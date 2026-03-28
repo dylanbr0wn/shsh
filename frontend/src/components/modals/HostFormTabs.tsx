@@ -1,4 +1,4 @@
-import { FolderOpen, Info, KeyRound, Loader2, Upload } from 'lucide-react'
+import { FolderOpen, Info, KeyRound, Upload } from 'lucide-react'
 import type {
   CredentialSource,
   Group,
@@ -15,6 +15,7 @@ import { Button } from '../ui/button'
 import { TagInput } from '../ui/tag-input'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { PMStatusBadge } from '../ui/pm-status-badge'
+import { Spinner } from '../ui/spinner'
 import { HOST_COLOR_PALETTE } from '../../lib/hostColors'
 import { cn } from '../../lib/utils'
 
@@ -256,7 +257,7 @@ export function HostFormTabs({
                       disabled={testing || !form.credentialRef}
                       onClick={onTestCredential}
                     >
-                      {testing && <Loader2 data-icon="inline-start" className="animate-spin" />}
+                      {testing && <Spinner data-icon="inline-start" />}
                       Test
                     </Button>
                   </div>

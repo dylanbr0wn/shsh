@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { toast } from 'sonner'
-import { Loader2, ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import { DOCS_BASE_URL } from '../../lib/constants'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
@@ -25,6 +25,7 @@ import {
 } from '../ui/item'
 import { Kbd } from '../ui/kbd'
 import { Button } from '../ui/button'
+import { Spinner } from '../ui/spinner'
 
 export function WelcomeScreen() {
   const hosts = useAtomValue(hostsAtom)
@@ -163,7 +164,7 @@ export function WelcomeScreen() {
                       </ItemContent>
                       <ItemContent>
                         {isConnecting ? (
-                          <Loader2 className="text-muted-foreground size-3 shrink-0 animate-spin" />
+                          <Spinner className="text-muted-foreground size-3 shrink-0" />
                         ) : (
                           <span
                             className={`size-1.5 shrink-0 rounded-full ${
@@ -193,12 +194,7 @@ export function WelcomeScreen() {
             <Kbd>⌘K</Kbd>
             Quick Connect
           </Button>
-          <Button
-            type="button"
-            onClick={() => setIsAddHostOpen(true)}
-            variant="ghost"
-            size="xs"
-          >
+          <Button type="button" onClick={() => setIsAddHostOpen(true)} variant="ghost" size="xs">
             <Kbd>⌘N</Kbd>
             New Host
           </Button>

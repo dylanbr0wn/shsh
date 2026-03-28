@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
-import { ChevronRight, Loader2, MoreHorizontal, Plug2 } from 'lucide-react'
+import { ChevronRight, MoreHorizontal, Plug2 } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
 import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
@@ -46,6 +46,7 @@ import { EditGroupModal } from '../modals/EditGroupModal'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '../ui/item'
+import { Spinner } from '../ui/spinner'
 
 interface Props {
   group: Group
@@ -240,7 +241,7 @@ export function HostGroupSection({
                       title="Connect all"
                     >
                       {anyConnecting ? (
-                        <Loader2 className="size-3.5 animate-spin" />
+                        <Spinner className="size-3.5" />
                       ) : (
                         <Plug2 className="size-3.5" />
                       )}
