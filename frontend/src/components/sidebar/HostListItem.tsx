@@ -141,6 +141,7 @@ export function HostListItem({
 
             {/* Right: action buttons */}
             <ItemActions>
+
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button

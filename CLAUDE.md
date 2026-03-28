@@ -95,3 +95,21 @@ gh pr checks <N> --repo dylanbr0wn/shsh
 ```
 
 Read the changed files in full context (not just diff lines) before commenting.
+
+## Wails Bindings
+
+After modifying Go backend API signatures or adding new methods, remind the user that `wailsjs` bindings need regeneration. The generated bindings in `frontend/wailsjs/` are gitignored — CI must run generation before building. Never assume stale wailsjs bindings are correct.
+
+## Code Changes Workflow
+
+- Always run `pnpm format:check` and `pnpm lint` before committing frontend changes.
+- Always run `go build ./...` after modifying Go files.
+- When removing a variable/ref/prop, grep the entire codebase for remaining references before considering the change done.
+
+## Fix Strategy
+
+When fixing bugs, prefer the simplest fix that doesn't change API signatures or return types. Changing Go backend return types can break frontend rendering. If a deeper fix is needed, explicitly flag the blast radius before proceeding.
+
+## LSP Diagnostics
+
+Stale LSP diagnostics may show false errors. If diagnostics report errors but the code compiles and tests pass, trust the build output over LSP. Do not 'fix' code based solely on stale diagnostics.
