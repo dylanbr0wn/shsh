@@ -26,6 +26,7 @@ import {
 import { Kbd } from '../ui/kbd'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
+import { ButtonGroup } from '../ui/button-group'
 
 export function WelcomeScreen() {
   const hosts = useAtomValue(hostsAtom)
@@ -184,39 +185,20 @@ export function WelcomeScreen() {
         )}
 
         {/* Keyboard shortcuts */}
-        <div className="flex items-center justify-between">
-          <Button
-            type="button"
-            onClick={() => setIsQuickConnectOpen(true)}
-            variant="ghost"
-            size="xs"
-          >
-            <Kbd>⌘K</Kbd>
-            Quick Connect
-          </Button>
-          <Button type="button" onClick={() => setIsAddHostOpen(true)} variant="ghost" size="xs">
+        <ButtonGroup>
+          <Button type="button" variant="ghost" onClick={() => setIsAddHostOpen(true)} size="xs">
             <Kbd>⌘N</Kbd>
             New Host
           </Button>
-          <Button
-            type="button"
-            onClick={() => setIsImportSSHConfigOpen(true)}
-            variant="ghost"
-            size="xs"
-          >
+          <Button type="button" variant="ghost" onClick={() => setIsImportSSHConfigOpen(true)} size="xs">
             <Kbd>⌘I</Kbd>
             Import
           </Button>
-          <Button
-            type="button"
-            onClick={() => window.open(DOCS_BASE_URL, '_blank')}
-            variant="ghost"
-            size="xs"
-          >
+          <Button type="button" variant="ghost" onClick={() => window.open(DOCS_BASE_URL, '_blank')} size="xs">
             <BookOpen className="size-3" />
             Docs
           </Button>
-        </div>
+        </ButtonGroup>
       </div>
     </div>
   )
