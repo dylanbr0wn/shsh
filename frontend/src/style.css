@@ -10,16 +10,16 @@
 :root {
   --background: oklch(0.9838 0.0035 247.8583);
   --foreground: oklch(0.1284 0.0267 261.5937);
-  --card: oklch(1.0000 0 0);
+  --card: oklch(1 0 0);
   --card-foreground: oklch(0.1284 0.0267 261.5937);
-  --popover: oklch(1.0000 0 0);
+  --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.1284 0.0267 261.5937);
   --primary: oklch(0.4865 0.2423 291.8661);
   --primary-foreground: oklch(0.9838 0.0035 247.8583);
   --secondary: oklch(0.9486 0.0085 303.5068);
-  --secondary-foreground: oklch(0.3410 0.1625 292.9477);
+  --secondary-foreground: oklch(0.341 0.1625 292.9477);
   --muted: oklch(0.9679 0.0027 264.5424);
-  --muted-foreground: oklch(0.5503 0.0235 264.3620);
+  --muted-foreground: oklch(0.5503 0.0235 264.362);
   --accent: oklch(0.9546 0.0227 303.2883);
   --accent-foreground: oklch(0.4865 0.2423 291.8661);
   --destructive: oklch(0.6356 0.2082 25.3782);
@@ -32,7 +32,7 @@
   --chart-3: oklch(0.6356 0.1398 156.1492);
   --chart-4: oklch(0.6192 0.2037 312.7283);
   --chart-5: oklch(0.6532 0.2114 353.9392);
-  --sidebar: oklch(1.0000 0 0);
+  --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0.1284 0.0267 261.5937);
   --sidebar-primary: oklch(0.4865 0.2423 291.8661);
   --sidebar-primary-foreground: oklch(0.9838 0.0035 247.8583);
@@ -57,7 +57,7 @@
   --shadow-md: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 2px 4px -1px hsl(263 70% 50% / 0.08);
   --shadow-lg: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 4px 6px -1px hsl(263 70% 50% / 0.08);
   --shadow-xl: 0px 8px 30px 0px hsl(263 70% 50% / 0.08), 0px 8px 10px -1px hsl(263 70% 50% / 0.08);
-  --shadow-2xl: 0px 8px 30px 0px hsl(263 70% 50% / 0.20);
+  --shadow-2xl: 0px 8px 30px 0px hsl(263 70% 50% / 0.2);
   --tracking-normal: -0.02em;
   --spacing: 0.22rem;
 }
@@ -67,7 +67,7 @@
   --foreground: oklch(0.9838 0.0035 247.8583);
   --card: oklch(0.1376 0.0118 301.0607);
   --card-foreground: oklch(0.9838 0.0035 247.8583);
-  --popover: oklch(0.1486 0.0140 299.9811);
+  --popover: oklch(0.1486 0.014 299.9811);
   --popover-foreground: oklch(0.9838 0.0035 247.8583);
   --primary: oklch(0.6083 0.2172 297.1153);
   --primary-foreground: oklch(0.1091 0.0091 301.6956);
@@ -105,14 +105,14 @@
   --shadow-spread: -10px;
   --shadow-opacity: 0.6;
   --shadow-color: hsl(0, 0%, 0%);
-  --shadow-2xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.30);
-  --shadow-xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.30);
-  --shadow-sm: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 1px 2px -11px hsl(0 0% 0% / 0.60);
-  --shadow: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 1px 2px -11px hsl(0 0% 0% / 0.60);
-  --shadow-md: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 2px 4px -11px hsl(0 0% 0% / 0.60);
-  --shadow-lg: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 4px 6px -11px hsl(0 0% 0% / 0.60);
-  --shadow-xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.60), 0px 8px 10px -11px hsl(0 0% 0% / 0.60);
-  --shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 1.50);
+  --shadow-2xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.3);
+  --shadow-xs: 0px 20px 40px -10px hsl(0 0% 0% / 0.3);
+  --shadow-sm: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 1px 2px -11px hsl(0 0% 0% / 0.6);
+  --shadow: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 1px 2px -11px hsl(0 0% 0% / 0.6);
+  --shadow-md: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 2px 4px -11px hsl(0 0% 0% / 0.6);
+  --shadow-lg: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 4px 6px -11px hsl(0 0% 0% / 0.6);
+  --shadow-xl: 0px 20px 40px -10px hsl(0 0% 0% / 0.6), 0px 8px 10px -11px hsl(0 0% 0% / 0.6);
+  --shadow-2xl: 0px 20px 40px -10px hsl(0 0% 0% / 1.5);
 }
 
 @theme inline {
@@ -227,8 +227,13 @@ html {
 
 /* Pane header background pulse for connecting/reconnecting state */
 @keyframes pane-glow-pulse {
-  0%, 100% { background-color: color-mix(in oklch, var(--pane-glow-color, #fbbf24) 6%, var(--muted)); }
-  50% { background-color: color-mix(in oklch, var(--pane-glow-color, #fbbf24) 18%, var(--muted)); }
+  0%,
+  100% {
+    background-color: color-mix(in oklch, var(--pane-glow-color, #fbbf24) 6%, var(--muted));
+  }
+  50% {
+    background-color: color-mix(in oklch, var(--pane-glow-color, #fbbf24) 18%, var(--muted));
+  }
 }
 
 /* Staggered entrance animation for host list items */

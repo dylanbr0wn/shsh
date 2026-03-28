@@ -154,13 +154,7 @@ export function HostListItem({
                     onClick={onConnect}
                     disabled={isConnecting}
                   >
-                    {isConnecting ? (
-                      <Spinner />
-                    ) : isConnected ? (
-                      <SquareTerminal />
-                    ) : (
-                      <Plug />
-                    )}
+                    {isConnecting ? <Spinner /> : isConnected ? <SquareTerminal /> : <Plug />}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="right">

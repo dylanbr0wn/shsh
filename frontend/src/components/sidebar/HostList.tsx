@@ -458,8 +458,8 @@ export function HostList() {
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 select-none p-1">
-        <ItemGroup >
+      <ScrollArea className="min-h-0 flex-1 p-1 select-none">
+        <ItemGroup>
           {isSearching ? (
             // Flat filtered list with optional group badge
             filteredHosts.length === 0 ? (
