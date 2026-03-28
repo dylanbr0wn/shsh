@@ -30,6 +30,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '../ui/context-menu'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,10 +88,6 @@ export function HostGroupSection({
   const [editGroupOpen, setEditGroupOpen] = useState(false)
   const [bulkConnecting, setBulkConnecting] = useState(false)
   const renameInputRef = useRef<HTMLInputElement>(null)
-
-  function toggleExpand() {
-    setExpanded((prev) => ({ ...prev, [group.id]: !isExpanded }))
-  }
 
   function startRename() {
     setRenameValue(group.name)
@@ -181,29 +178,22 @@ export function HostGroupSection({
     }
   }
 
-  function handleKeyDownHeader(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      toggleExpand()
-    }
-  }
-
   const anyConnecting = hosts.some((h) => connectingHostIds.has(h.id)) || bulkConnecting
 
   return (
     <>
-      <div className="flex flex-col gap-1 bg-accent/40 rounded-lg">
+      <Collapsible
+        open={isExpanded}
+        onOpenChange={() => setExpanded((prev) => ({ ...prev, [group.id]: !isExpanded }))}
+        className="flex flex-col gap-1 rounded-lg bg-accent/40"
+      >
         {/* Group header */}
 
         <ContextMenu>
           <ContextMenuTrigger asChild>
-            <Item asChild variant="outline" size="xs">
-              <a
-                role="button"
-                // className="group/header hover:bg-accent/40 flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 transition-colors"
-                onClick={toggleExpand}
-                onKeyDown={handleKeyDownHeader}
-                tabIndex={0}
-              >
+            <CollapsibleTrigger asChild>
+              <Item asChild variant="outline" size="xs">
+              <a>
                 <ItemMedia>
                   <ChevronRight
                     className={cn(
@@ -306,6 +296,7 @@ export function HostGroupSection({
                 </ItemActions>
               </a>
             </Item>
+            </CollapsibleTrigger>
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem
@@ -328,7 +319,7 @@ export function HostGroupSection({
         </ContextMenu>
 
         {/* Hosts */}
-        {isExpanded && (
+        <CollapsibleContent>
           <ItemGroup>
             {hosts.map((host, index) => (
               <div
@@ -360,8 +351,8 @@ export function HostGroupSection({
               </div>
             ))}
           </ItemGroup>
-        )}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <EditGroupModal group={group} open={editGroupOpen} onClose={() => setEditGroupOpen(false)} />
 
