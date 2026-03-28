@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Folder, File, RefreshCw, FolderPlus, Loader2, MoveRight } from 'lucide-react'
+import { Folder, File, RefreshCw, FolderPlus, MoveRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -27,6 +27,7 @@ import {
   DialogTitle,
 } from '../ui/dialog'
 import { ScrollArea } from '../ui/scroll-area'
+import { Skeleton } from '../ui/skeleton'
 import { cn } from '../../lib/utils'
 import {
   ContextMenu,
@@ -275,9 +276,14 @@ export function LocalFSPanel({ channelId }: Props) {
       {/* File list */}
       <ScrollArea className="@container min-h-0 w-full flex-1">
         {isLoading && (
-          <div className="text-muted-foreground flex items-center justify-center gap-2 py-8 text-xs">
-            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
-            <span>Loading…</span>
+          <div className="flex flex-col gap-1 p-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                <Skeleton className="size-4 rounded" />
+                <Skeleton className="h-3.5 flex-1 rounded" />
+                <Skeleton className="h-3 w-16 rounded" />
+              </div>
+            ))}
           </div>
         )}
         {error && !isLoading && (

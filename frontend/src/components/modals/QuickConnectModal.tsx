@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { useAtom, useSetAtom } from 'jotai'
 import { isQuickConnectOpenAtom } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
@@ -258,7 +258,7 @@ export function QuickConnectModal() {
             Cancel
           </Button>
           <Button type="submit" form="qc-form" disabled={connecting}>
-            {connecting && <Loader2 className="size-3.5 animate-spin" />}
+            {connecting && <Spinner className="size-3.5" />}
             {connecting ? 'Connecting…' : 'Connect'}
           </Button>
         </DialogFooter>

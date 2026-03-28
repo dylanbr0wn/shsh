@@ -3,6 +3,7 @@ import { useAtomValue } from 'jotai'
 import { X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { ButtonGroup } from '@/components/ui/button-group'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { searchAddonsAtom } from '../../store/atoms'
 
@@ -68,42 +69,44 @@ export function TerminalSearch({ channelId, onClose }: Props) {
         placeholder="Find in terminal…"
         className="h-7 w-48 text-sm"
       />
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            onClick={findPrev}
-            disabled={!query}
-          >
-            <ChevronUp />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Previous (Shift+Enter)</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-7"
-            onClick={findNext}
-            disabled={!query}
-          >
-            <ChevronDown />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Next (Enter)</TooltipContent>
-      </Tooltip>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
-            <X />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Close (Esc)</TooltipContent>
-      </Tooltip>
+      <ButtonGroup>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={findPrev}
+              disabled={!query}
+            >
+              <ChevronUp />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Previous (Shift+Enter)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={findNext}
+              disabled={!query}
+            >
+              <ChevronDown />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Next (Enter)</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-7" onClick={onClose}>
+              <X />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Close (Esc)</TooltipContent>
+        </Tooltip>
+      </ButtonGroup>
     </div>
   )
 }

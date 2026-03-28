@@ -9,6 +9,7 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { Button } from '../ui/button'
+import { ButtonGroup } from '../ui/button-group'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
 import type { SessionStatus } from '../../types'
@@ -69,7 +70,7 @@ export function PaneHeader({
         ? '#fbbf24'
         : status === 'disconnected' || status === 'failed' || status === 'error'
           ? 'var(--destructive)'
-          : hostColor ?? 'var(--primary)'
+          : (hostColor ?? 'var(--primary)')
 
     const tintPercent = isFocused ? '15%' : '6%'
     const isConnecting = status === 'connecting' || status === 'reconnecting'
@@ -97,10 +98,7 @@ export function PaneHeader({
   })()
 
   return (
-    <div
-      className="flex h-5 items-center gap-1 px-1.5"
-      style={headerStyle as React.CSSProperties}
-    >
+    <div className="flex h-5 items-center gap-1 px-1.5" style={headerStyle as React.CSSProperties}>
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
       </span>
@@ -120,7 +118,7 @@ export function PaneHeader({
         {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
       </span>
       <div className="flex-1" />
-      <div className="flex items-center gap-0.5 opacity-40 transition-opacity group-hover/pane:opacity-100">
+      <ButtonGroup className="opacity-40 transition-opacity group-hover/pane:opacity-100">
         {onToggle && (
           <Button
             variant="ghost"
@@ -160,7 +158,7 @@ export function PaneHeader({
             <X className="size-3" />
           </Button>
         )}
-      </div>
+      </ButtonGroup>
       {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
       <div
         ref={previewRef}

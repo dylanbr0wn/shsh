@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
-import { FolderOpen, KeyRound, Loader2 } from 'lucide-react'
+import { FolderOpen, KeyRound } from 'lucide-react'
 import {
   BrowseKeyFile,
   DeployPublicKey,
@@ -19,6 +19,7 @@ import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Field, FieldGroup, FieldLabel } from '../ui/field'
 import { GenerateKeyModal } from './GenerateKeyModal'
+import { Spinner } from '../ui/spinner'
 
 interface Props {
   open: boolean
@@ -147,7 +148,7 @@ export function DeployKeyModal({ open, onClose, hostId, hostLabel }: Props) {
             Cancel
           </Button>
           <Button type="button" onClick={handleDeploy} disabled={!keyPath || deploying}>
-            {deploying && <Loader2 data-icon="inline-start" className="animate-spin" />}
+            {deploying && <Spinner data-icon="inline-start" />}
             Deploy
           </Button>
         </DialogFooter>

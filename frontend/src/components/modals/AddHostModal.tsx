@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
-import { Loader2 } from 'lucide-react'
+import { Spinner } from '../ui/spinner'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   isAddHostOpenAtom,
@@ -169,7 +169,7 @@ export function AddHostModal() {
             Cancel
           </Button>
           <Button type="submit" form="ah-form" disabled={submitting}>
-            {submitting && <Loader2 data-icon="inline-start" className="animate-spin" />}
+            {submitting && <Spinner data-icon="inline-start" />}
             {submitting ? 'Adding…' : 'Add Host'}
           </Button>
         </DialogFooter>

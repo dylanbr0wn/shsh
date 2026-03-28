@@ -1,21 +1,13 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
-import { ChevronRight, Loader2, MoreHorizontal, Plug2 } from 'lucide-react'
+import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
 import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
-import {
-  workspacesAtom,
-  activeWorkspaceIdAtom,
-  type Workspace,
-  type TerminalLeaf,
-} from '../../store/workspaces'
-import { DeleteGroup, UpdateGroup } from '../../../wailsjs/go/main/HostFacade'
-import { BulkConnectGroup } from '../../../wailsjs/go/main/SessionFacade'
+import { DeleteGroup } from '../../../wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
-import { Input } from '../ui/input'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,6 +22,7 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '../ui/context-menu'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +38,7 @@ import { EditGroupModal } from '../modals/EditGroupModal'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { Item, ItemActions, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '../ui/item'
+import { ButtonGroup } from '../ui/button-group'
 
 interface Props {
   group: Group
@@ -76,48 +70,11 @@ export function HostGroupSection({
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setHosts = useSetAtom(hostsAtom)
-  const setWorkspaces = useSetAtom(workspacesAtom)
-  const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
 
   const isExpanded = expanded[group.id] !== false // default open
 
-  const [renaming, setRenaming] = useState(false)
-  const [renameValue, setRenameValue] = useState(group.name)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editGroupOpen, setEditGroupOpen] = useState(false)
-  const [bulkConnecting, setBulkConnecting] = useState(false)
-  const renameInputRef = useRef<HTMLInputElement>(null)
-
-  function toggleExpand() {
-    setExpanded((prev) => ({ ...prev, [group.id]: !isExpanded }))
-  }
-
-  function startRename() {
-    setRenameValue(group.name)
-    setRenaming(true)
-    setTimeout(() => renameInputRef.current?.select(), 0)
-  }
-
-  async function commitRename() {
-    const name = renameValue.trim()
-    if (!name || name === group.name) {
-      setRenaming(false)
-      return
-    }
-    try {
-      const updated = await UpdateGroup({ id: group.id, name, sortOrder: group.sortOrder })
-      setGroups((prev) =>
-        prev.map((g) => (g.id === updated.id ? (updated as unknown as Group) : g))
-      )
-    } catch (err) {
-      toast.error('Failed to rename group', { description: String(err) })
-    }
-    setRenaming(false)
-  }
-
-  function cancelRename() {
-    setRenaming(false)
-  }
 
   async function handleDelete() {
     try {
@@ -133,192 +90,74 @@ export function HostGroupSection({
     }
   }
 
-  async function handleBulkConnect() {
-    if (hosts.length === 0) return
-    setBulkConnecting(true)
-    try {
-      const results = await BulkConnectGroup(group.id)
-      const newWorkspaces: Workspace[] = results
-        .map(
-          ({
-            connectionId,
-            channelId,
-            hostId,
-          }: {
-            connectionId: string
-            channelId: string
-            hostId: string
-          }) => {
-            const host = hosts.find((h) => h.id === hostId)
-            if (!host) return null
-            const paneId = crypto.randomUUID()
-            const leaf: TerminalLeaf = {
-              type: 'leaf',
-              kind: 'terminal',
-              paneId,
-              connectionId,
-              channelId,
-              hostId,
-              hostLabel: host.label,
-              status: 'connecting',
-            }
-            return {
-              id: crypto.randomUUID(),
-              label: host.label,
-              layout: leaf,
-              focusedPaneId: paneId,
-            }
-          }
-        )
-        .filter(Boolean) as Workspace[]
-      if (newWorkspaces.length === 0) return
-      setWorkspaces((prev) => [...prev, ...newWorkspaces])
-      setActiveWorkspaceId(newWorkspaces[0].id)
-    } catch (err) {
-      toast.error('Bulk connect failed', { description: String(err) })
-    } finally {
-      setBulkConnecting(false)
-    }
-  }
-
-  function handleKeyDownHeader(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') {
-      toggleExpand()
-    }
-  }
-
-  const anyConnecting = hosts.some((h) => connectingHostIds.has(h.id)) || bulkConnecting
-
   return (
     <>
-      <div className="flex flex-col gap-1 bg-accent/40 rounded-lg">
+      <Collapsible
+        open={isExpanded}
+        onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [group.id]: open }))}
+        className="bg-accent/40 flex flex-col gap-1 rounded-lg"
+      >
         {/* Group header */}
 
         <ContextMenu>
           <ContextMenuTrigger asChild>
-            <Item asChild variant="outline" size="xs">
-              <a
-                role="button"
-                // className="group/header hover:bg-accent/40 flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-1 transition-colors"
-                onClick={toggleExpand}
-                onKeyDown={handleKeyDownHeader}
-                tabIndex={0}
-              >
-                <ItemMedia>
-                  <ChevronRight
-                    className={cn(
-                      'text-muted-foreground/60 size-3.5 shrink-0 transition-transform duration-150',
-                      isExpanded && 'rotate-90'
-                    )}
-                  />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>
-                    {renaming ? (
-                      <Input
-                        ref={renameInputRef}
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={commitRename}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitRename()
-                          if (e.key === 'Escape') cancelRename()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-5 flex-1 px-1 text-xs font-semibold"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground/80 flex-1 truncate text-[10px] font-semibold tracking-wider uppercase">
-                        {group.name}
-                      </span>
-                    )}
-                  </ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant="ghost">
-                    {hosts.length} hosts
-                  </Badge>
-
-                  {/* Connect All button */}
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    // className={cn(
-                    //   'shrink-0 opacity-50 transition-opacity group-hover/header:opacity-100',
-                    //   anyConnecting && 'opacity-100'
-                    // )}
-                    disabled={anyConnecting || hosts.length === 0}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleBulkConnect()
-                    }}
-                    title="Connect all"
-                  >
-                    {anyConnecting ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Plug2 className="size-3.5" />
-                    )}
-                  </Button>
-
-                  {/* Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon-xs"
-                        // className="shrink-0 opacity-50 group-hover/header:opacity-100 data-[state=open]:opacity-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startRename()
-                        }}
-                      >
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditGroupOpen(true)
-                        }}
-                      >
-                        Edit group…
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setConfirmDelete(true)
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </ItemActions>
-              </a>
-            </Item>
+            <CollapsibleTrigger asChild>
+              <Item asChild variant="outline" size="xs">
+                <a>
+                  <ItemMedia>
+                    <ChevronRight
+                      className={cn(
+                        'text-muted-foreground/60 size-3.5 shrink-0 transition-transform duration-150',
+                        isExpanded && 'rotate-90'
+                      )}
+                    />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>{group.name}</ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <Badge variant="ghost">{hosts.length} hosts</Badge>
+                    <ButtonGroup>
+                      {/* Dropdown */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <MoreHorizontal className="size-3.5" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent side="bottom" align="end">
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setEditGroupOpen(true)
+                            }}
+                          >
+                            Edit group…
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setConfirmDelete(true)
+                            }}
+                          >
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </ButtonGroup>
+                    {/* Connect All button */}
+                  </ItemActions>
+                </a>
+              </Item>
+            </CollapsibleTrigger>
           </ContextMenuTrigger>
           <ContextMenuContent>
-            <ContextMenuItem
-              disabled={anyConnecting || hosts.length === 0}
-              onClick={(e) => {
-                e.stopPropagation()
-                handleBulkConnect()
-              }}
-              title="Connect all"
-            >
-              Connect All
-            </ContextMenuItem>
-            <ContextMenuItem onClick={startRename}>Rename</ContextMenuItem>
             <ContextMenuItem onClick={() => setEditGroupOpen(true)}>Edit group…</ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
@@ -328,7 +167,7 @@ export function HostGroupSection({
         </ContextMenu>
 
         {/* Hosts */}
-        {isExpanded && (
+        <CollapsibleContent>
           <ItemGroup>
             {hosts.map((host, index) => (
               <div
@@ -360,8 +199,8 @@ export function HostGroupSection({
               </div>
             ))}
           </ItemGroup>
-        )}
-      </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <EditGroupModal group={group} open={editGroupOpen} onClose={() => setEditGroupOpen(false)} />
 
