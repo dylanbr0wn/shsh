@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   groupsAtom,
@@ -8,8 +8,6 @@ import {
   isEditHostOpenAtom,
   editingHostAtom,
   isAddHostOpenAtom,
-  isQuickConnectOpenAtom,
-  isNewGroupOpenAtom,
   isDeployKeyOpenAtom,
   deployKeyHostAtom,
 } from '../../store/atoms'
@@ -21,21 +19,29 @@ import {
   type SFTPLeaf,
 } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
-import { DeleteHost, UpdateHost, AddGroup, ListHosts } from '../../../wailsjs/go/main/HostFacade'
+import { DeleteHost, UpdateHost, ListHosts } from '../../../wailsjs/go/main/HostFacade'
 import { ConnectHost, ConnectForSFTP } from '../../../wailsjs/go/main/SessionFacade'
-import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
-import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, FolderPlus, Zap } from 'lucide-react'
+import {
+  X,
+  Server,
+  Plus,
+  ArrowUpAZ,
+  ArrowDownAZ,
+  Clock,
+  Search,
+} from 'lucide-react'
 import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import type { Group, Host } from '../../types'
+import type { Host } from '../../types'
 import { collectLeaves } from '../../lib/paneTree'
 import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group'
+import { ButtonGroup } from '../ui/button-group'
 
 type SortMode = 'az' | 'za' | 'recent'
 
@@ -87,23 +93,17 @@ export function HostList() {
   const workspaces = useAtomValue(workspacesAtom)
   const connectingHostIds = useAtomValue(connectingHostIdsAtom)
   const setHosts = useSetAtom(hostsAtom)
-  const setGroups = useSetAtom(groupsAtom)
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
   const setWorkspaces = useSetAtom(workspacesAtom)
   const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
   const setIsEditOpen = useSetAtom(isEditHostOpenAtom)
   const setEditingHost = useSetAtom(editingHostAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
-  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsDeployKeyOpen = useSetAtom(isDeployKeyOpenAtom)
   const setDeployKeyHost = useSetAtom(deployKeyHostAtom)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('az')
-  const [newGroupOpen, setNewGroupOpen] = useAtom(isNewGroupOpenAtom)
-  const [newGroupName, setNewGroupName] = useState('')
-  const [creatingGroup, setCreatingGroup] = useState(false)
-  const newGroupInputRef = useRef<HTMLInputElement>(null)
 
   const connectedHostIds = useMemo(() => {
     const ids = new Set<string>()
@@ -309,21 +309,7 @@ export function HostList() {
     }
   }
 
-  async function handleCreateGroup() {
-    const name = newGroupName.trim()
-    if (!name) return
-    setCreatingGroup(true)
-    try {
-      const group = await AddGroup({ name })
-      setGroups((prev) => [...prev, group as unknown as Group])
-      setNewGroupName('')
-      setNewGroupOpen(false)
-    } catch (err) {
-      toast.error('Failed to create group', { description: String(err) })
-    } finally {
-      setCreatingGroup(false)
-    }
-  }
+
 
   // Re-sync hosts from DB after group deletion to reflect nulled group_ids
   async function handleGroupDeleted() {
@@ -350,115 +336,59 @@ export function HostList() {
   const isSearching = searchQuery.trim().length > 0
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
       {/* Header */}
-      <div className="border-border/50 flex shrink-0 items-center justify-between border-b px-3 pt-2 pb-1.5">
+      {/* <div className="border-border/50 flex shrink-0 items-center justify-between border-b px-3 pt-2 pb-1.5">
         <span className="text-muted-foreground/70 text-[10px] font-semibold tracking-widest uppercase select-none">
           Hosts
         </span>
-        <div className="flex items-center gap-0.5">
+        <ButtonGroup>
+
+        </ButtonGroup>
+      </div> */}
+
+      {/* Search */}
+      <ButtonGroup className='w-full'>
+        <ButtonGroup className='grow'>
+          <InputGroup>
+          <InputGroupInput
+            placeholder="Search..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+          />
+          <InputGroupAddon>
+            <Search />
+          </InputGroupAddon>
+          {searchQuery && (
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton
+                size="icon-xs"
+                title="Clear"
+                aria-label="Clear"
+                onClick={() => setSearchQuery('')}
+              >
+                <X />
+              </InputGroupButton>
+            </InputGroupAddon>
+          )}
+        </InputGroup>
+        </ButtonGroup>
+        <ButtonGroup>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={cycleSortMode}
-              >
+              <Button variant="outline" size="icon" onClick={cycleSortMode}>
                 {sortIcon}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
           </Tooltip>
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-foreground"
-                onClick={() => setIsQuickConnectOpen(true)}
-              >
-                <Zap />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Quick Connect</TooltipContent>
-          </Tooltip>
-
-          <Popover
-            open={newGroupOpen}
-            onOpenChange={(open) => {
-              setNewGroupOpen(open)
-              if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
-            }}
-          >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-foreground"
-                  >
-                    <FolderPlus />
-                  </Button>
-                </PopoverTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">New Group</TooltipContent>
-            </Tooltip>
-            <PopoverContent className="w-56 p-3" side="bottom" align="end">
-              <p className="mb-2 text-xs font-medium">New Group</p>
-              <div className="flex gap-2">
-                <Input
-                  ref={newGroupInputRef}
-                  placeholder="Group name"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateGroup()
-                    if (e.key === 'Escape') setNewGroupOpen(false)
-                  }}
-                  className="h-7 flex-1 text-xs"
-                />
-                <Button
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={handleCreateGroup}
-                  disabled={creatingGroup || !newGroupName.trim()}
-                >
-                  Create
-                </Button>
-              </div>
-            </PopoverContent>
-          </Popover>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="relative shrink-0 px-2 pt-1.5 pb-1 select-none">
-        <Input
-          placeholder="Search hosts…"
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-          className="h-7 pr-6 text-xs"
-        />
-        {searchQuery && (
-          <Button
-            variant="ghost"
-            size="icon-xs"
-            className="text-muted-foreground absolute inset-y-0 right-3 my-auto"
-            onClick={() => setSearchQuery('')}
-          >
-            <X />
-          </Button>
-        )}
-      </div>
-
-      <ScrollArea className="min-h-0 flex-1 p-1 select-none">
+        </ButtonGroup>
+      </ButtonGroup>
+      <ScrollArea className="min-h-0 flex-1 select-none">
         <ItemGroup>
           {isSearching ? (
             // Flat filtered list with optional group badge

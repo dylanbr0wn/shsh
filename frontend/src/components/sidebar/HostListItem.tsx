@@ -31,6 +31,7 @@ import {
 } from '../ui/context-menu'
 import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../ui/item'
 import { Spinner } from '../ui/spinner'
+import { ButtonGroup } from '../ui/button-group'
 
 interface Props {
   host: Host
@@ -44,16 +45,16 @@ interface Props {
   onOpenFiles?: () => void
 }
 
-function latencyValue(latencyMs: number | undefined): { text: string; color: string } {
-  if (latencyMs === undefined) return { text: '', color: '' }
-  const text = `${latencyMs}ms`
-  if (latencyMs === -1) return { text: 'off', color: 'text-red-400' }
-  if (latencyMs < 50) return { text, color: 'text-green-500' }
-  if (latencyMs < 200) return { text, color: 'text-amber-400' }
+function latencyValue(latencyMs: number | undefined): { latency: string; color: string } {
+  if (latencyMs === undefined) return { latency: '', color: '' }
+  const latency = `${latencyMs}ms`
+  if (latencyMs === -1) return { latency: 'off', color: 'text-red-400' }
+  if (latencyMs < 50) return { latency, color: 'text-green-500' }
+  if (latencyMs < 200) return { latency, color: 'text-amber-400' }
   if (latencyMs > 999) {
-    return { text: '1s+', color: 'text-red-400' }
+    return { latency: '1s+', color: 'text-red-400' }
   }
-  return { text, color: 'text-red-400' }
+  return { latency, color: 'text-red-400' }
 }
 
 export function HostListItem({
@@ -69,12 +70,12 @@ export function HostListItem({
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
-  const { text, color } = latencyValue(health[host.id])
+  const { latency, color } = latencyValue(health[host.id])
   const previewRef = useRef<HTMLDivElement>(null)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item asChild size="sm">
+        <Item asChild size="xs">
           <a
             role="button"
             draggable
@@ -95,30 +96,20 @@ export function HostListItem({
             }}
             onDoubleClick={onConnect}
             className={cn(
-              // 'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
-              isConnected
-                ? 'bg-sidebar-accent hover:bg-sidebar-accent/80'
-                : 'hover:bg-sidebar-accent/30',
               isConnecting && 'animate-pulse'
             )}
-            // style={{
-            //   borderLeft: `2.5px solid ${
-            //     isConnected ? '#22c55e' :
-            //     isConnecting ? '#fbbf24' :
-            //     host.color ?? 'transparent'
-            //   }`,
-            //   paddingLeft: 9,
-            // }}
             tabIndex={0}
           >
             {/* Center: host identity */}
             <ItemContent>
-              <ItemTitle>{host.label}</ItemTitle>
-
-              <ItemDescription>
-                {host.username}@{host.hostname}:{host.port}
-                {!isConnected && text && <span className={cn('ml-1', color)}> · {text}</span>}
-                {host.tags && host.tags.length > 0 && (
+              <ItemTitle style={{color: host.color}}>{host.label}</ItemTitle>
+              <ItemDescription className='h-5'>
+                <div className='flex items-center gap-1 shrink-0 w-full'>
+                   <span>{host.username}@{host.hostname}:{host.port}</span>
+                   <span className='text-xs shrink-0'> · {latency ? <span className={cn(color)}>{latency}</span> : "..."}</span>
+                </div>
+              </ItemDescription>
+              {host.tags && host.tags.length > 0 && (
                   <HoverCard openDelay={300} closeDelay={100}>
                     <HoverCardTrigger asChild>
                       <Badge variant="link" className="flex items-center gap-1">
@@ -137,28 +128,39 @@ export function HostListItem({
                     </HoverCardContent>
                   </HoverCard>
                 )}
-              </ItemDescription>
             </ItemContent>
 
             {/* Right: action buttons */}
             <ItemActions>
-              <Tooltip>
+              <ButtonGroup>
+                <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
-                    variant={isConnected ? 'secondary' : 'default'}
-                    size="icon-sm"
-                    className={cn(
-                      'transition-opacity'
-                      // !isConnected && !isConnecting && 'opacity-0 group-hover:opacity-100'
-                    )}
+                    variant="default"
+                    size="icon"
                     onClick={onConnect}
                     disabled={isConnecting}
                   >
-                    {isConnecting ? <Spinner /> : isConnected ? <SquareTerminal /> : <Plug />}
+                    {isConnecting ? <Spinner /> : <SquareTerminal />}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="right">
-                  {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
+                <TooltipContent side="bottom">
+                  {isConnecting ? 'Connecting…' : 'New SSH Session'}
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={onOpenFiles}
+                    disabled={isConnecting}
+                  >
+                    {isConnecting ? <Spinner /> : <FolderOpen />}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  {isConnecting ? 'Connecting…' : 'New SFTP Session'}
                 </TooltipContent>
               </Tooltip>
 
@@ -166,8 +168,7 @@ export function HostListItem({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    size="icon-sm"
-                    // className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                    size="icon"
                   >
                     <MoreHorizontal />
                   </Button>
@@ -215,6 +216,7 @@ export function HostListItem({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
+              </ButtonGroup>
             </ItemActions>
           </a>
         </Item>
