@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { cn } from '../../lib/utils'
-import { MoreHorizontal, Plug, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
+import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
 import { useAtomValue } from 'jotai'
 import { groupsAtom, hostHealthAtom } from '../../store/atoms'
@@ -95,127 +95,127 @@ export function HostListItem({
               }
             }}
             onDoubleClick={onConnect}
-            className={cn(
-              isConnecting && 'animate-pulse'
-            )}
+            className={cn(isConnecting && 'animate-pulse')}
             tabIndex={0}
           >
             {/* Center: host identity */}
             <ItemContent>
-              <ItemTitle style={{color: host.color}}>{host.label}</ItemTitle>
-              <ItemDescription className='h-5'>
-                <div className='flex items-center gap-1 shrink-0 w-full'>
-                   <span>{host.username}@{host.hostname}:{host.port}</span>
-                   <span className='text-xs shrink-0'> · {latency ? <span className={cn(color)}>{latency}</span> : "..."}</span>
+              <ItemTitle style={{ color: host.color }}>{host.label}</ItemTitle>
+              <ItemDescription className="h-5">
+                <div className="flex w-full shrink-0 items-center gap-1">
+                  <span>
+                    {host.username}@{host.hostname}:{host.port}
+                  </span>
+                  <span className="shrink-0 text-xs">
+                    {' '}
+                    · {latency ? <span className={cn(color)}>{latency}</span> : '...'}
+                  </span>
                 </div>
               </ItemDescription>
               {host.tags && host.tags.length > 0 && (
-                  <HoverCard openDelay={300} closeDelay={100}>
-                    <HoverCardTrigger asChild>
-                      <Badge variant="link" className="flex items-center gap-1">
-                        <TagIcon className="size-3" />
-                        <span>
-                          {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
-                        </span>
-                      </Badge>
-                    </HoverCardTrigger>
-                    <HoverCardContent side="bottom" align="start" className="w-auto p-2">
-                      <div className="flex w-42 flex-wrap gap-1">
-                        {host.tags.map((t) => (
-                          <Tag key={t} label={t} />
-                        ))}
-                      </div>
-                    </HoverCardContent>
-                  </HoverCard>
-                )}
+                <HoverCard openDelay={300} closeDelay={100}>
+                  <HoverCardTrigger asChild>
+                    <Badge variant="link" className="flex items-center gap-1">
+                      <TagIcon className="size-3" />
+                      <span>
+                        {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
+                      </span>
+                    </Badge>
+                  </HoverCardTrigger>
+                  <HoverCardContent side="bottom" align="start" className="w-auto p-2">
+                    <div className="flex w-42 flex-wrap gap-1">
+                      {host.tags.map((t) => (
+                        <Tag key={t} label={t} />
+                      ))}
+                    </div>
+                  </HoverCardContent>
+                </HoverCard>
+              )}
             </ItemContent>
 
             {/* Right: action buttons */}
             <ItemActions>
               <ButtonGroup>
                 <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="default"
-                    size="icon"
-                    onClick={onConnect}
-                    disabled={isConnecting}
-                  >
-                    {isConnecting ? <Spinner /> : <SquareTerminal />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isConnecting ? 'Connecting…' : 'New SSH Session'}
-                </TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onOpenFiles}
-                    disabled={isConnecting}
-                  >
-                    {isConnecting ? <Spinner /> : <FolderOpen />}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {isConnecting ? 'Connecting…' : 'New SFTP Session'}
-                </TooltipContent>
-              </Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="default"
+                      size="icon"
+                      onClick={onConnect}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? <Spinner /> : <SquareTerminal />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isConnecting ? 'Connecting…' : 'New SSH Session'}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onOpenFiles}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? <Spinner /> : <FolderOpen />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isConnecting ? 'Connecting…' : 'New SFTP Session'}
+                  </TooltipContent>
+                </Tooltip>
 
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                  >
-                    <MoreHorizontal />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent side="bottom" align="end" className="w-fit">
-                  <DropdownMenuItem onClick={onConnect} disabled={isConnecting}>
-                    {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
-                  </DropdownMenuItem>
-                  {onOpenFiles && (
-                    <DropdownMenuItem onClick={onOpenFiles}>
-                      <FolderOpen className="mr-2 size-4" />
-                      Open Files
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <MoreHorizontal />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent side="bottom" align="end" className="w-fit">
+                    <DropdownMenuItem onClick={onConnect} disabled={isConnecting}>
+                      {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
                     </DropdownMenuItem>
-                  )}
-                  {onMoveToGroup && groups.length > 0 && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger>Move to Group</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent>
-                          {host.groupId && (
-                            <DropdownMenuItem onClick={() => onMoveToGroup(host.id, null)}>
-                              No Group
-                            </DropdownMenuItem>
-                          )}
-                          {groups
-                            .filter((g: Group) => g.id !== host.groupId)
-                            .map((g: Group) => (
-                              <DropdownMenuItem
-                                key={g.id}
-                                onClick={() => onMoveToGroup(host.id, g.id)}
-                              >
-                                {g.name}
+                    {onOpenFiles && (
+                      <DropdownMenuItem onClick={onOpenFiles}>
+                        <FolderOpen className="mr-2 size-4" />
+                        Open Files
+                      </DropdownMenuItem>
+                    )}
+                    {onMoveToGroup && groups.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuSub>
+                          <DropdownMenuSubTrigger>Move to Group</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent>
+                            {host.groupId && (
+                              <DropdownMenuItem onClick={() => onMoveToGroup(host.id, null)}>
+                                No Group
                               </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    </>
-                  )}
-                  <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-                  <DropdownMenuItem onClick={onDeployKey}>Deploy Public Key…</DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                            )}
+                            {groups
+                              .filter((g: Group) => g.id !== host.groupId)
+                              .map((g: Group) => (
+                                <DropdownMenuItem
+                                  key={g.id}
+                                  onClick={() => onMoveToGroup(host.id, g.id)}
+                                >
+                                  {g.name}
+                                </DropdownMenuItem>
+                              ))}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      </>
+                    )}
+                    <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+                    <DropdownMenuItem onClick={onDeployKey}>Deploy Public Key…</DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </ButtonGroup>
             </ItemActions>
           </a>

@@ -1,11 +1,10 @@
-import { Plus, FileInput, Zap, FolderPlus } from 'lucide-react'
+import { Plus, FileInput, FolderPlus } from 'lucide-react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   groupsAtom,
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
   isNewGroupOpenAtom,
-  isQuickConnectOpenAtom,
 } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -20,14 +19,13 @@ import {
   Popover,
 } from '../ui/popover'
 import { useRef, useState } from 'react'
-import { Group } from '@/types'
+import type { Group } from '@/types'
 import { toast } from 'sonner'
 import { AddGroup } from '../../../wailsjs/go/main/HostFacade'
 
 export function SidebarFooter() {
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
-  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
 
   const setGroups = useSetAtom(groupsAtom)
 
@@ -56,7 +54,7 @@ export function SidebarFooter() {
   return (
     <div className="p-1">
       <ButtonGroup className="w-full">
-        <ButtonGroup className='grow'>
+        <ButtonGroup className="grow">
           <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
             <Plus data-icon="inline-start" />
             Add Host

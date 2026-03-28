@@ -113,9 +113,7 @@ export function HostGroupSection({
                     />
                   </ItemMedia>
                   <ItemContent>
-                    <ItemTitle>
-                       {group.name}
-                    </ItemTitle>
+                    <ItemTitle>{group.name}</ItemTitle>
                   </ItemContent>
                   <ItemActions>
                     <Badge variant="ghost">{hosts.length} hosts</Badge>

@@ -23,15 +23,7 @@ import { DeleteHost, UpdateHost, ListHosts } from '../../../wailsjs/go/main/Host
 import { ConnectHost, ConnectForSFTP } from '../../../wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
-import {
-  X,
-  Server,
-  Plus,
-  ArrowUpAZ,
-  ArrowDownAZ,
-  Clock,
-  Search,
-} from 'lucide-react'
+import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, Search } from 'lucide-react'
 import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
 import { ErrorBoundary } from '../ErrorBoundary'
@@ -309,8 +301,6 @@ export function HostList() {
     }
   }
 
-
-
   // Re-sync hosts from DB after group deletion to reflect nulled group_ids
   async function handleGroupDeleted() {
     try {
@@ -337,45 +327,35 @@ export function HostList() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
-      {/* Header */}
-      {/* <div className="border-border/50 flex shrink-0 items-center justify-between border-b px-3 pt-2 pb-1.5">
-        <span className="text-muted-foreground/70 text-[10px] font-semibold tracking-widest uppercase select-none">
-          Hosts
-        </span>
-        <ButtonGroup>
-
-        </ButtonGroup>
-      </div> */}
-
       {/* Search */}
-      <ButtonGroup className='w-full'>
-        <ButtonGroup className='grow'>
+      <ButtonGroup className="w-full">
+        <ButtonGroup className="grow">
           <InputGroup>
-          <InputGroupInput
-            placeholder="Search..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            autoComplete="off"
-            autoCorrect="off"
-            autoCapitalize="off"
-            spellCheck={false}
-          />
-          <InputGroupAddon>
-            <Search />
-          </InputGroupAddon>
-          {searchQuery && (
-            <InputGroupAddon align="inline-end">
-              <InputGroupButton
-                size="icon-xs"
-                title="Clear"
-                aria-label="Clear"
-                onClick={() => setSearchQuery('')}
-              >
-                <X />
-              </InputGroupButton>
+            <InputGroupInput
+              placeholder="Search..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck={false}
+            />
+            <InputGroupAddon>
+              <Search />
             </InputGroupAddon>
-          )}
-        </InputGroup>
+            {searchQuery && (
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton
+                  size="icon-xs"
+                  title="Clear"
+                  aria-label="Clear"
+                  onClick={() => setSearchQuery('')}
+                >
+                  <X />
+                </InputGroupButton>
+              </InputGroupAddon>
+            )}
+          </InputGroup>
         </ButtonGroup>
         <ButtonGroup>
           <Tooltip>
