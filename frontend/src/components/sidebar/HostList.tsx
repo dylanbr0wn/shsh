@@ -35,6 +35,7 @@ import { reportUIError } from '../../lib/reportUIError'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import type { Group, Host } from '../../types'
 import { collectLeaves } from '../../lib/paneTree'
+import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
 
 type SortMode = 'az' | 'za' | 'recent'
 
@@ -457,12 +458,16 @@ export function HostList() {
         )}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1 select-none">
-        <div className="flex flex-col gap-0.5 px-2 py-1">
+      <ScrollArea className="min-h-0 flex-1 select-none p-1">
+        <ItemGroup >
           {isSearching ? (
             // Flat filtered list with optional group badge
             filteredHosts.length === 0 ? (
-              <p className="text-muted-foreground py-4 text-center text-xs">No matching hosts</p>
+              <Item>
+                <ItemContent>
+                  <ItemDescription>No matching hosts</ItemDescription>
+                </ItemContent>
+              </Item>
             ) : (
               filteredHosts.map((host, index) => {
                 const group = host.groupId ? groups.find((g) => g.id === host.groupId) : undefined
@@ -524,7 +529,7 @@ export function HostList() {
 
               {/* Ungrouped hosts */}
               {ungrouped.length > 0 && (
-                <div className="flex flex-col gap-0.5 pl-2">
+                <div className="flex flex-col gap-0.5">
                   {sortedGroups.length > 0 && (
                     <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase">
                       Ungrouped
@@ -563,7 +568,7 @@ export function HostList() {
               )}
             </>
           )}
-        </div>
+        </ItemGroup>
       </ScrollArea>
     </div>
   )

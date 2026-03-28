@@ -1,14 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import {
-  Folder,
-  File,
-  RefreshCw,
-  FolderPlus,
-  ChevronRight,
-  Home,
-  Loader2,
-  MoveRight,
-} from 'lucide-react'
+import { Folder, File, RefreshCw, FolderPlus, Loader2, MoveRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { sftpStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -22,6 +13,7 @@ import {
 } from '../../../wailsjs/go/main/SessionFacade'
 import { GetHomeDir } from '../../../wailsjs/go/main/ToolsFacade'
 import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
+import { PathBreadcrumb } from '../shared/PathBreadcrumb'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { Label } from '../ui/label'
@@ -134,14 +126,6 @@ export function LocalFSPanel({ channelId }: Props) {
   }, [channelId])
 
   if (!currentPath) return null
-
-  // Build breadcrumb segments
-  const segments = currentPath.split('/').filter(Boolean)
-
-  function navigateTo(idx: number) {
-    const path = '/' + segments.slice(0, idx + 1).join('/')
-    listDir(path)
-  }
 
   async function handleRowDoubleClick(entry: SFTPEntry) {
     if (entry.isDir) {
@@ -284,36 +268,8 @@ export function LocalFSPanel({ channelId }: Props) {
       </div>
 
       {/* Breadcrumb */}
-      <div className="border-border flex shrink-0 items-center gap-1 overflow-x-auto border-b px-1.5 py-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="text-muted-foreground shrink-0"
-              aria-label="Go to root"
-              onClick={() => listDir('/')}
-            >
-              <Home aria-hidden="true" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Root</TooltipContent>
-        </Tooltip>
-        {segments.map((seg, idx) => (
-          <span key={idx} className="flex shrink-0 items-center gap-1">
-            <ChevronRight className="text-muted-foreground/50 size-3" aria-hidden="true" />
-            <Button
-              variant="ghost"
-              size="xs"
-              className={cn(
-                idx === segments.length - 1 ? 'text-foreground' : 'text-muted-foreground'
-              )}
-              onClick={() => navigateTo(idx)}
-            >
-              {seg}
-            </Button>
-          </span>
-        ))}
+      <div className="border-border flex shrink-0 items-center overflow-x-auto border-b px-1.5 py-1">
+        <PathBreadcrumb path={currentPath} onNavigate={listDir} />
       </div>
 
       {/* File list */}

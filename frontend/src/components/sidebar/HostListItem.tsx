@@ -29,6 +29,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '../ui/context-menu'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../ui/item'
 
 interface Props {
   host: Host
@@ -72,86 +73,82 @@ export function HostListItem({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <div
-          role="button"
-          draggable
-          onDragStart={(e) => {
-            e.dataTransfer.effectAllowed = 'copy'
-            e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
-            if (previewRef.current) {
-              previewRef.current.style.left = '0px'
-              previewRef.current.style.top = '0px'
-              e.dataTransfer.setDragImage(previewRef.current, 0, 0)
-              requestAnimationFrame(() => {
-                if (previewRef.current) {
-                  previewRef.current.style.left = '-9999px'
-                  previewRef.current.style.top = '-9999px'
-                }
-              })
-            }
-          }}
-          onDoubleClick={onConnect}
-          className={cn(
-            'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
-            isConnected
-              ? 'bg-sidebar-accent hover:bg-sidebar-accent/80'
-              : 'hover:bg-sidebar-accent/30',
-            isConnecting && 'animate-pulse'
-          )}
-          style={{
-            borderLeft: `2.5px solid ${
-              isConnected ? '#22c55e' :
-              isConnecting ? '#fbbf24' :
-              host.color ?? 'transparent'
-            }`,
-            paddingLeft: 9,
-          }}
-          tabIndex={0}
-        >
-          {/* Center: host identity */}
-          <div className="flex min-w-0 flex-1 flex-col gap-1">
-            <div className="flex items-center gap-3">
-              <div className="truncate text-sm font-medium">{host.label}</div>
-            </div>
-
-            <div className="text-muted-foreground truncate text-xs">
-              {host.username}@{host.hostname}:{host.port}
-              {!isConnected && text && (
-                <span className={cn('ml-1', color)}> · {text}</span>
-              )}
-            </div>
-            {host.tags && host.tags.length > 0 && (
-              <HoverCard openDelay={300} closeDelay={100}>
-                <HoverCardTrigger asChild>
-                  <Badge variant="link" className="flex items-center gap-1">
-                    <TagIcon className="size-3" />
-                    <span>
-                      {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
-                    </span>
-                  </Badge>
-                </HoverCardTrigger>
-                <HoverCardContent side="bottom" align="start" className="w-auto p-2">
-                  <div className="flex w-42 flex-wrap gap-1">
-                    {host.tags.map((t) => (
-                      <Tag key={t} label={t} />
-                    ))}
-                  </div>
-                </HoverCardContent>
-              </HoverCard>
+        <Item asChild size="sm">
+          <a
+            role="button"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'copy'
+              e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
+              if (previewRef.current) {
+                previewRef.current.style.left = '0px'
+                previewRef.current.style.top = '0px'
+                e.dataTransfer.setDragImage(previewRef.current, 0, 0)
+                requestAnimationFrame(() => {
+                  if (previewRef.current) {
+                    previewRef.current.style.left = '-9999px'
+                    previewRef.current.style.top = '-9999px'
+                  }
+                })
+              }
+            }}
+            onDoubleClick={onConnect}
+            className={cn(
+              // 'group flex items-center gap-2 rounded-md px-3 py-2 transition-colors',
+              isConnected
+                ? 'bg-sidebar-accent hover:bg-sidebar-accent/80'
+                : 'hover:bg-sidebar-accent/30',
+              isConnecting && 'animate-pulse'
             )}
-          </div>
+            // style={{
+            //   borderLeft: `2.5px solid ${
+            //     isConnected ? '#22c55e' :
+            //     isConnecting ? '#fbbf24' :
+            //     host.color ?? 'transparent'
+            //   }`,
+            //   paddingLeft: 9,
+            // }}
+            tabIndex={0}
+          >
+            {/* Center: host identity */}
+            <ItemContent>
+              <ItemTitle>{host.label}</ItemTitle>
 
-          {/* Right: action buttons */}
-          <div className="flex shrink-0 flex-col items-end gap-0.5">
-            <div className="flex items-center gap-1">
+              <ItemDescription>
+                {host.username}@{host.hostname}:{host.port}
+                {!isConnected && text && <span className={cn('ml-1', color)}> · {text}</span>}
+                {host.tags && host.tags.length > 0 && (
+                  <HoverCard openDelay={300} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <Badge variant="link" className="flex items-center gap-1">
+                        <TagIcon className="size-3" />
+                        <span>
+                          {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
+                        </span>
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start" className="w-auto p-2">
+                      <div className="flex w-42 flex-wrap gap-1">
+                        {host.tags.map((t) => (
+                          <Tag key={t} label={t} />
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+              </ItemDescription>
+            </ItemContent>
+
+            {/* Right: action buttons */}
+            <ItemActions>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
                     variant={isConnected ? 'secondary' : 'default'}
                     size="icon-sm"
                     className={cn(
-                      'transition-opacity',
-                      !isConnected && !isConnecting && 'opacity-0 group-hover:opacity-100'
+                      'transition-opacity'
+                      // !isConnected && !isConnecting && 'opacity-0 group-hover:opacity-100'
                     )}
                     onClick={onConnect}
                     disabled={isConnecting}
@@ -173,9 +170,9 @@ export function HostListItem({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="icon-sm"
-                    className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
+                    // className="opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100"
                   >
                     <MoreHorizontal />
                   </Button>
@@ -223,9 +220,9 @@ export function HostListItem({
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
-            </div>
-          </div>
-        </div>
+            </ItemActions>
+          </a>
+        </Item>
       </ContextMenuTrigger>
       {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
       <div
