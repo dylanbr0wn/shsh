@@ -184,8 +184,8 @@ export function HostGroupSection({
     <>
       <Collapsible
         open={isExpanded}
-        onOpenChange={() => setExpanded((prev) => ({ ...prev, [group.id]: !isExpanded }))}
-        className="flex flex-col gap-1 rounded-lg bg-accent/40"
+        onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [group.id]: open }))}
+        className="bg-accent/40 flex flex-col gap-1 rounded-lg"
       >
         {/* Group header */}
 
@@ -193,109 +193,102 @@ export function HostGroupSection({
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <Item asChild variant="outline" size="xs">
-              <a>
-                <ItemMedia>
-                  <ChevronRight
-                    className={cn(
-                      'text-muted-foreground/60 size-3.5 shrink-0 transition-transform duration-150',
-                      isExpanded && 'rotate-90'
-                    )}
-                  />
-                </ItemMedia>
-                <ItemContent>
-                  <ItemTitle>
-                    {renaming ? (
-                      <Input
-                        ref={renameInputRef}
-                        value={renameValue}
-                        onChange={(e) => setRenameValue(e.target.value)}
-                        onBlur={commitRename}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') commitRename()
-                          if (e.key === 'Escape') cancelRename()
-                          e.stopPropagation()
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="h-5 flex-1 px-1 text-xs font-semibold"
-                      />
-                    ) : (
-                      <span className="text-muted-foreground/80 flex-1 truncate text-[10px] font-semibold tracking-wider uppercase">
-                        {group.name}
-                      </span>
-                    )}
-                  </ItemTitle>
-                </ItemContent>
-                <ItemActions>
-                  <Badge variant="ghost">
-                    {hosts.length} hosts
-                  </Badge>
+                <div role="button" tabIndex={0}>
+                  <ItemMedia>
+                    <ChevronRight
+                      className={cn(
+                        'text-muted-foreground/60 size-3.5 shrink-0 transition-transform duration-150',
+                        isExpanded && 'rotate-90'
+                      )}
+                    />
+                  </ItemMedia>
+                  <ItemContent>
+                    <ItemTitle>
+                      {renaming ? (
+                        <Input
+                          ref={renameInputRef}
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitRename()
+                            if (e.key === 'Escape') cancelRename()
+                            e.stopPropagation()
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="h-5 flex-1 px-1 text-xs font-semibold"
+                        />
+                      ) : (
+                        <span className="text-muted-foreground/80 flex-1 truncate text-[10px] font-semibold tracking-wider uppercase">
+                          {group.name}
+                        </span>
+                      )}
+                    </ItemTitle>
+                  </ItemContent>
+                  <ItemActions>
+                    <Badge variant="ghost">{hosts.length} hosts</Badge>
 
-                  {/* Connect All button */}
-                  <Button
-                    variant="outline"
-                    size="icon-sm"
-                    // className={cn(
-                    //   'shrink-0 opacity-50 transition-opacity group-hover/header:opacity-100',
-                    //   anyConnecting && 'opacity-100'
-                    // )}
-                    disabled={anyConnecting || hosts.length === 0}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleBulkConnect()
-                    }}
-                    title="Connect all"
-                  >
-                    {anyConnecting ? (
-                      <Loader2 className="size-3.5 animate-spin" />
-                    ) : (
-                      <Plug2 className="size-3.5" />
-                    )}
-                  </Button>
+                    {/* Connect All button */}
+                    <Button
+                      variant="outline"
+                      size="icon-sm"
+                      disabled={anyConnecting || hosts.length === 0}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleBulkConnect()
+                      }}
+                      title="Connect all"
+                    >
+                      {anyConnecting ? (
+                        <Loader2 className="size-3.5 animate-spin" />
+                      ) : (
+                        <Plug2 className="size-3.5" />
+                      )}
+                    </Button>
 
-                  {/* Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="icon-xs"
-                        // className="shrink-0 opacity-50 group-hover/header:opacity-100 data-[state=open]:opacity-100"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <MoreHorizontal className="size-3.5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent side="bottom" align="end">
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          startRename()
-                        }}
-                      >
-                        Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setEditGroupOpen(true)
-                        }}
-                      >
-                        Edit group…
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        variant="destructive"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setConfirmDelete(true)
-                        }}
-                      >
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </ItemActions>
-              </a>
-            </Item>
+                    {/* Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="icon-xs"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreHorizontal className="size-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent side="bottom" align="end">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            startRename()
+                          }}
+                        >
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setEditGroupOpen(true)
+                          }}
+                        >
+                          Edit group…
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setConfirmDelete(true)
+                          }}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </ItemActions>
+                </div>
+              </Item>
             </CollapsibleTrigger>
           </ContextMenuTrigger>
           <ContextMenuContent>
