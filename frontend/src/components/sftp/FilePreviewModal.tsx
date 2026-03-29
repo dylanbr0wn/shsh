@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import {
   Dialog,
   DialogContent,
@@ -36,69 +36,85 @@ export function FilePreviewModal({ channelId, filePath, onClose }: Props) {
   const [state, setState] = useState<
     | { status: 'loading' }
     | { status: 'error'; message: string }
-    | { status: 'ready'; name: string; size: number; mimeType: string; content: string; html?: string }
+    | {
+        status: 'ready'
+        name: string
+        size: number
+        mimeType: string
+        content: string
+        html?: string
+      }
   >({ status: 'loading' })
 
   const { highlight, isLoading: isHighlighting } = useHighlighter()
-
-  const load = useCallback(async () => {
-    try {
-      const preview = await SFTPPreviewFile(channelId, filePath)
-      const isImage = preview.mimeType.startsWith('image/')
-      const raw = isImage ? '' : atob(preview.content)
-
-      if (!isImage && hasHighReplacementRatio(raw)) {
-        setState({ status: 'error', message: 'This file appears to be binary.' })
-        return
-      }
-
-      if (!isImage && raw.length === 0) {
-        setState({
-          status: 'ready',
-          name: preview.name,
-          size: preview.size,
-          mimeType: preview.mimeType,
-          content: preview.content,
-        })
-        return
-      }
-
-      if (isImage) {
-        setState({
-          status: 'ready',
-          name: preview.name,
-          size: preview.size,
-          mimeType: preview.mimeType,
-          content: preview.content,
-        })
-        return
-      }
-
-      // Text file — highlight
-      const html = await highlight(raw, filePath)
-      setState({
-        status: 'ready',
-        name: preview.name,
-        size: preview.size,
-        mimeType: preview.mimeType,
-        content: preview.content,
-        html,
-      })
-    } catch (err) {
-      setState({ status: 'error', message: String(err) })
-    }
-  }, [channelId, filePath, highlight])
+  const didLoad = useRef(false)
 
   useEffect(() => {
+    if (didLoad.current) return
+    didLoad.current = true
+
+    async function load() {
+      try {
+        const preview = await SFTPPreviewFile(channelId, filePath)
+        const isImage = preview.mimeType.startsWith('image/')
+        const raw = isImage ? '' : atob(preview.content)
+
+        if (!isImage && hasHighReplacementRatio(raw)) {
+          setState({ status: 'error', message: 'This file appears to be binary.' })
+          return
+        }
+
+        if (!isImage && raw.length === 0) {
+          setState({
+            status: 'ready',
+            name: preview.name,
+            size: preview.size,
+            mimeType: preview.mimeType,
+            content: preview.content,
+          })
+          return
+        }
+
+        if (isImage) {
+          setState({
+            status: 'ready',
+            name: preview.name,
+            size: preview.size,
+            mimeType: preview.mimeType,
+            content: preview.content,
+          })
+          return
+        }
+
+        // Text file — highlight
+        const html = await highlight(raw, filePath)
+        setState({
+          status: 'ready',
+          name: preview.name,
+          size: preview.size,
+          mimeType: preview.mimeType,
+          content: preview.content,
+          html,
+        })
+      } catch (err) {
+        setState({ status: 'error', message: String(err) })
+      }
+    }
+
     load()
-  }, [load])
+  }, [channelId, filePath, highlight])
 
   const isImage = state.status === 'ready' && state.mimeType.startsWith('image/')
   const isEmpty = state.status === 'ready' && !isImage && state.size === 0
 
   return (
-    <Dialog open onOpenChange={(open) => { if (!open) onClose() }}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh]">
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className="max-h-[85vh] sm:max-w-3xl">
         <DialogHeader>
           <DialogTitle className="truncate">
             {state.status === 'ready' ? state.name : filePath.split('/').pop()}
@@ -119,15 +135,11 @@ export function FilePreviewModal({ channelId, filePath, onClose }: Props) {
           )}
 
           {state.status === 'error' && (
-            <div className="text-destructive py-8 text-center text-sm">
-              {state.message}
-            </div>
+            <div className="text-destructive py-8 text-center text-sm">{state.message}</div>
           )}
 
           {isEmpty && (
-            <div className="text-muted-foreground py-8 text-center text-sm">
-              File is empty
-            </div>
+            <div className="text-muted-foreground py-8 text-center text-sm">File is empty</div>
           )}
 
           {state.status === 'ready' && isImage && (
