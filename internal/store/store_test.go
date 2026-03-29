@@ -1199,3 +1199,276 @@ func TestDeleteVaultMeta_ClearsSecretsAndMeta(t *testing.T) {
 		t.Errorf("expected 0 secrets after delete, got %d", len(secrets))
 	}
 }
+
+// --- UpdateHost credential cleanup tests ---
+
+func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Verify vault secret exists.
+	nonce, _, err := s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected vault secret before update")
+	}
+
+	vfr.deletedSecrets = nil
+
+	// Switch to external PM.
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword,
+		CredentialSource: "1password", CredentialRef: "op://Vault/Item/pw",
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Keychain DeleteSecret should have been called.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected keychain DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
+	}
+
+	// Vault secret should be deleted.
+	nonce, _, err = s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce != nil {
+		t.Error("expected vault secret to be deleted after switching to external PM")
+	}
+}
+
+func TestUpdateHost_PasswordToAgent_ClearsPasswordEntries(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	vfr.deletedSecrets = nil
+
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthAgent,
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Keychain entry should be deleted.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
+	}
+
+	// Vault secret should be gone.
+	nonce, _, _ := s.GetEncryptedSecret(added.ID, "password")
+	if nonce != nil {
+		t.Error("expected vault password deleted after switch to agent")
+	}
+}
+
+func TestUpdateHost_KeyToPassword_ClearsPassphraseEntries(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	kp := "/path/to/key"
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthKey, KeyPath: &kp, KeyPassphrase: "pass123",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Verify passphrase vault secret exists.
+	nonce, _, err := s.GetEncryptedSecret(added.ID, "passphrase")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected passphrase vault secret")
+	}
+
+	vfr.deletedSecrets = nil
+
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "new-pw",
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Passphrase keychain entry should be deleted.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID+":passphrase" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected DeleteSecret(%q), got %v", added.ID+":passphrase", vfr.deletedSecrets)
+	}
+
+	// Passphrase vault secret should be gone.
+	nonce, _, _ = s.GetEncryptedSecret(added.ID, "passphrase")
+	if nonce != nil {
+		t.Error("expected passphrase vault secret deleted after switch to password")
+	}
+}
+
+// --- MigratePasswordsToKeychain tests ---
+
+func TestMigratePasswordsToKeychain(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	// Make StoreSecret fail during AddHost so password falls back to DB column.
+	fr.StoreSecretFn = func(key, value string) error {
+		return ErrKeychainUnavailable
+	}
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "db-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Reset StoreSecretFn so migration can succeed.
+	fr.StoreSecretFn = nil
+
+	if err := s.MigratePasswordsToKeychain(); err != nil {
+		t.Fatalf("MigratePasswordsToKeychain: %v", err)
+	}
+
+	// Verify password is retrievable via InlineSecret (keychain path).
+	pw, ok := fr.storedSecrets[added.ID]
+	if !ok {
+		t.Fatal("expected password in keychain after migration")
+	}
+	if pw != "db-pw" {
+		t.Errorf("migrated password = %q, want %q", pw, "db-pw")
+	}
+}
+
+func TestMigratePasswordsToKeychain_KeychainUnavailable(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	// Make StoreSecret always fail.
+	fr.StoreSecretFn = func(key, value string) error {
+		return ErrKeychainUnavailable
+	}
+
+	_, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Migration should not return an error even if keychain is unavailable.
+	if err := s.MigratePasswordsToKeychain(); err != nil {
+		t.Fatalf("MigratePasswordsToKeychain: %v", err)
+	}
+}
+
+// --- Other gap tests ---
+
+func TestFindHostID(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "find.example.com", Port: 22, Username: "alice", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	id, err := s.FindHostID("find.example.com", 22, "alice")
+	if err != nil {
+		t.Fatalf("FindHostID: %v", err)
+	}
+	if id != added.ID {
+		t.Errorf("FindHostID = %q, want %q", id, added.ID)
+	}
+
+	id, err = s.FindHostID("nope.example.com", 22, "alice")
+	if err != nil {
+		t.Fatalf("FindHostID (not found): %v", err)
+	}
+	if id != "" {
+		t.Errorf("FindHostID not-found = %q, want empty", id)
+	}
+}
+
+func TestListInlinePasswordHostIDs(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	// 1. password inline
+	h1, err := s.AddHost(CreateHostInput{Label: "pw-inline", Hostname: "a.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword, Password: "pw"})
+	if err != nil {
+		t.Fatalf("AddHost pw-inline: %v", err)
+	}
+	// 2. key inline
+	kp := "/path/key"
+	h2, err := s.AddHost(CreateHostInput{Label: "key-inline", Hostname: "b.example.com", Port: 22, Username: "u", AuthMethod: AuthKey, KeyPath: &kp})
+	if err != nil {
+		t.Fatalf("AddHost key-inline: %v", err)
+	}
+	// 3. agent
+	_, err = s.AddHost(CreateHostInput{Label: "agent", Hostname: "c.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost agent: %v", err)
+	}
+	// 4. password external PM
+	_, err = s.AddHost(CreateHostInput{Label: "pw-ext", Hostname: "d.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword, CredentialSource: "1password", CredentialRef: "ref"})
+	if err != nil {
+		t.Fatalf("AddHost pw-ext: %v", err)
+	}
+
+	ids, err := s.ListInlinePasswordHostIDs()
+	if err != nil {
+		t.Fatalf("ListInlinePasswordHostIDs: %v", err)
+	}
+
+	idSet := map[string]bool{}
+	for _, id := range ids {
+		idSet[id] = true
+	}
+	if !idSet[h1.ID] {
+		t.Errorf("expected pw-inline host %q in result", h1.ID)
+	}
+	if !idSet[h2.ID] {
+		t.Errorf("expected key-inline host %q in result", h2.ID)
+	}
+	if len(ids) != 2 {
+		t.Errorf("expected 2 inline hosts, got %d: %v", len(ids), ids)
+	}
+}
