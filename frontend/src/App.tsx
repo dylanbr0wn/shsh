@@ -178,9 +178,16 @@ export default function App() {
                 >
                   <MainArea />
                 </ErrorBoundary>
+                {/* Snap guide — shows at bottom edge when dragging into close zone */}
+                {inSnapZone && (
+                  <div className="border-muted-foreground/30 pointer-events-none absolute inset-x-0 bottom-0 z-20 border-b" />
+                )}
                 {debugPanelOpen && (
                   <div
-                    className="absolute inset-x-0 bottom-0 z-10 flex flex-col"
+                    className={cn(
+                      'absolute inset-x-0 bottom-0 z-10 flex flex-col transition-opacity',
+                      inSnapZone ? 'opacity-40' : 'opacity-100'
+                    )}
                     style={{ height: debugHeight }}
                   >
                     {/* Drag handle — horizontal, matches ResizableHandle style */}
@@ -189,21 +196,15 @@ export default function App() {
                       onMouseDown={onDragStart}
                       className={cn(
                         'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
-                        inSnapZone
-                          ? 'bg-destructive'
-                          : dragging
-                            ? 'bg-primary'
-                            : 'bg-border hover:bg-primary'
+                        dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
                       )}
                     >
                       <div
                         className={cn(
                           'z-10 flex w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                          inSnapZone
-                            ? 'bg-destructive text-destructive-foreground'
-                            : dragging
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
+                          dragging
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
                         )}
                       >
                         <GripHorizontal className="size-3 shrink-0" />
