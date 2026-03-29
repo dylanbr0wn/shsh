@@ -44,7 +44,7 @@ export default function App() {
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
   const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
   const debugRef = usePanelRef()
-  const setVaultEnabled = useSetAtom(vaultEnabledAtom)
+  const [vaultEnabled, setVaultEnabled] = useAtom(vaultEnabledAtom)
   const setVaultLocked = useSetAtom(vaultLockedAtom)
   const setBiometricAvailable = useSetAtom(biometricAvailableAtom)
 
@@ -64,14 +64,12 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.metaKey && e.key === 'l') {
         e.preventDefault()
-        IsVaultEnabled().then((enabled: boolean) => {
-          if (enabled) LockVault()
-        })
+        if (vaultEnabled) LockVault()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [])
+  }, [vaultEnabled])
 
   useEffect(() => {
     if (sidebarCollapsed) {

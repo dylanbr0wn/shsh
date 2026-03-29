@@ -4,6 +4,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"io"
@@ -115,7 +116,7 @@ func VerifyAndDeriveKey(password string, meta *VaultMeta) ([]byte, error) {
 	if err != nil {
 		return nil, ErrWrongPassword
 	}
-	if string(plaintext) != string(verifyPlaintext) {
+	if subtle.ConstantTimeCompare(plaintext, verifyPlaintext) == 0 {
 		ZeroKey(key)
 		return nil, ErrWrongPassword
 	}

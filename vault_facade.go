@@ -83,9 +83,10 @@ func (f *VaultFacade) SetupVault(password string) error {
 	copy(keyCopy, key)
 	f.d.LockState.Unlock(keyCopy)
 
-	// Persist config.
+	// Persist config — mutate, save, rollback on failure.
 	f.d.Cfg.Vault.Enabled = true
 	if err := f.d.Cfg.Save(f.d.CfgPath); err != nil {
+		f.d.Cfg.Vault.Enabled = false
 		return fmt.Errorf("setup vault: save config: %w", err)
 	}
 
@@ -183,7 +184,9 @@ func (f *VaultFacade) DisableVault(password string) error {
 		if s.Kind == "passphrase" {
 			keychainKey = s.HostID + ":passphrase"
 		}
-		if storeErr := resolver.StoreSecret(keychainKey, string(plaintext)); storeErr != nil {
+		storeErr := resolver.StoreSecret(keychainKey, string(plaintext))
+		vault.ZeroKey(plaintext)
+		if storeErr != nil {
 			return fmt.Errorf("disable vault: restore secret %s/%s to keychain: %w", s.HostID, s.Kind, storeErr)
 		}
 	}
@@ -201,9 +204,13 @@ func (f *VaultFacade) DisableVault(password string) error {
 
 	f.d.Store.SetVaultKeyFunc(nil)
 
+	prevEnabled := f.d.Cfg.Vault.Enabled
+	prevTouchID := f.d.Cfg.Vault.TouchIDEnabled
 	f.d.Cfg.Vault.Enabled = false
 	f.d.Cfg.Vault.TouchIDEnabled = false
 	if err := f.d.Cfg.Save(f.d.CfgPath); err != nil {
+		f.d.Cfg.Vault.Enabled = prevEnabled
+		f.d.Cfg.Vault.TouchIDEnabled = prevTouchID
 		return fmt.Errorf("disable vault: save config: %w", err)
 	}
 
@@ -245,6 +252,7 @@ func (f *VaultFacade) ChangeVaultPassword(oldPassword, newPassword string) error
 			return fmt.Errorf("change vault password: decrypt %s/%s: %w", s.HostID, s.Kind, decErr)
 		}
 		nonce, ciphertext, encErr := vault.Encrypt(newKey, plaintext)
+		vault.ZeroKey(plaintext)
 		if encErr != nil {
 			return fmt.Errorf("change vault password: re-encrypt %s/%s: %w", s.HostID, s.Kind, encErr)
 		}
@@ -290,6 +298,7 @@ func (f *VaultFacade) EnableTouchID() error {
 
 	f.d.Cfg.Vault.TouchIDEnabled = true
 	if err := f.d.Cfg.Save(f.d.CfgPath); err != nil {
+		f.d.Cfg.Vault.TouchIDEnabled = false
 		return fmt.Errorf("enable touch id: save config: %w", err)
 	}
 
@@ -304,6 +313,7 @@ func (f *VaultFacade) DisableTouchID() error {
 
 	f.d.Cfg.Vault.TouchIDEnabled = false
 	if err := f.d.Cfg.Save(f.d.CfgPath); err != nil {
+		f.d.Cfg.Vault.TouchIDEnabled = true
 		return fmt.Errorf("disable touch id: save config: %w", err)
 	}
 

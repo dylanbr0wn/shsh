@@ -29,9 +29,11 @@ export function SecuritySettings() {
 
   // Vault settings state
   const [touchIdEnabled, setTouchIdEnabled] = useState(false)
+  const [touchIdError, setTouchIdError] = useState('')
   const [lockTimeout, setLockTimeoutValue] = useState('15')
   const [touchIdLoading, setTouchIdLoading] = useState(false)
   const [timeoutLoading, setTimeoutLoading] = useState(false)
+  const [timeoutError, setTimeoutError] = useState('')
 
   // Disable vault state
   const [showDisable, setShowDisable] = useState(false)
@@ -76,6 +78,7 @@ export function SecuritySettings() {
 
   const handleTouchIdToggle = useCallback(async (enabled: boolean) => {
     setTouchIdLoading(true)
+    setTouchIdError('')
     try {
       if (enabled) {
         await EnableTouchID()
@@ -83,6 +86,8 @@ export function SecuritySettings() {
         await DisableTouchID()
       }
       setTouchIdEnabled(enabled)
+    } catch (err) {
+      setTouchIdError(err instanceof Error ? err.message : String(err))
     } finally {
       setTouchIdLoading(false)
     }
@@ -90,9 +95,12 @@ export function SecuritySettings() {
 
   const handleTimeoutChange = useCallback(async (value: string) => {
     setTimeoutLoading(true)
+    setTimeoutError('')
     try {
       await SetLockTimeout(parseInt(value, 10))
       setLockTimeoutValue(value)
+    } catch (err) {
+      setTimeoutError(err instanceof Error ? err.message : String(err))
     } finally {
       setTimeoutLoading(false)
     }
@@ -184,7 +192,10 @@ export function SecuritySettings() {
       <FieldGroup>
         {biometricAvailable && (
           <Field orientation="horizontal">
-            <FieldLabel>Touch ID</FieldLabel>
+            <div>
+              <FieldLabel>Touch ID</FieldLabel>
+              {touchIdError && <p className="text-destructive mt-1 text-xs">{touchIdError}</p>}
+            </div>
             <Switch
               checked={touchIdEnabled}
               disabled={touchIdLoading}
@@ -208,6 +219,7 @@ export function SecuritySettings() {
               <SelectItem value="60">60 minutes</SelectItem>
             </SelectContent>
           </Select>
+          {timeoutError && <p className="text-destructive text-xs">{timeoutError}</p>}
         </Field>
 
         <Field>

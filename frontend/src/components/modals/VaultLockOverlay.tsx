@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { vaultLockedAtom, biometricAvailableAtom } from '../../atoms/vault'
 import { Input } from '../ui/input'
@@ -42,9 +42,15 @@ export function VaultLockOverlay() {
     }
   }, [password, setVaultLocked])
 
+  // Auto-trigger biometric once when the overlay first appears.
+  const biometricTriggered = useRef(false)
   useEffect(() => {
-    if (vaultLocked && biometricAvailable) {
+    if (vaultLocked && biometricAvailable && !biometricTriggered.current) {
+      biometricTriggered.current = true
       handleBiometric()
+    }
+    if (!vaultLocked) {
+      biometricTriggered.current = false
     }
   }, [vaultLocked, biometricAvailable, handleBiometric])
 
