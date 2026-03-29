@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dylanbr0wn/shsh/internal/vault"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
@@ -257,6 +258,33 @@ func New(dbPath string, creds CredentialResolver) (*Store, error) {
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("create workspace_templates table: %w", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS vault_meta (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		salt BLOB NOT NULL,
+		nonce BLOB NOT NULL,
+		verify_blob BLOB NOT NULL,
+		argon2_time INTEGER NOT NULL DEFAULT 3,
+		argon2_memory INTEGER NOT NULL DEFAULT 65536,
+		argon2_threads INTEGER NOT NULL DEFAULT 4,
+		created_at TEXT NOT NULL
+	)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create vault_meta table: %w", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS secrets (
+		host_id TEXT NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
+		nonce BLOB NOT NULL,
+		ciphertext BLOB NOT NULL,
+		PRIMARY KEY (host_id, kind)
+	)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create secrets table: %w", err)
 	}
 
 	return &Store{db: db, credentials: creds}, nil
@@ -928,4 +956,136 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 		hosts = []Host{}
 	}
 	return hosts, nil
+}
+
+// GetVaultMeta returns the vault metadata, or nil if vault is not set up.
+func (s *Store) GetVaultMeta() (*vault.VaultMeta, error) {
+	row := s.db.QueryRow(`SELECT salt, nonce, verify_blob, argon2_time, argon2_memory, argon2_threads FROM vault_meta WHERE id = 1`)
+	meta := &vault.VaultMeta{}
+	err := row.Scan(&meta.Salt, &meta.Nonce, &meta.VerifyBlob, &meta.ArgonTime, &meta.ArgonMemory, &meta.ArgonThreads)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get vault meta: %w", err)
+	}
+	return meta, nil
+}
+
+// SaveVaultMeta inserts or replaces the vault metadata row.
+func (s *Store) SaveVaultMeta(meta *vault.VaultMeta) error {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO vault_meta (id, salt, nonce, verify_blob, argon2_time, argon2_memory, argon2_threads, created_at)
+		 VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+		meta.Salt, meta.Nonce, meta.VerifyBlob, meta.ArgonTime, meta.ArgonMemory, meta.ArgonThreads,
+	)
+	return err
+}
+
+// DeleteVaultMeta removes the vault metadata and all encrypted secrets.
+func (s *Store) DeleteVaultMeta() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM secrets`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM vault_meta`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// StoreEncryptedSecret stores an encrypted secret for a host.
+func (s *Store) StoreEncryptedSecret(hostID, kind string, nonce, ciphertext []byte) error {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO secrets (host_id, kind, nonce, ciphertext) VALUES (?, ?, ?, ?)`,
+		hostID, kind, nonce, ciphertext,
+	)
+	return err
+}
+
+// GetEncryptedSecret retrieves an encrypted secret for a host.
+func (s *Store) GetEncryptedSecret(hostID, kind string) (nonce, ciphertext []byte, err error) {
+	row := s.db.QueryRow(`SELECT nonce, ciphertext FROM secrets WHERE host_id = ? AND kind = ?`, hostID, kind)
+	err = row.Scan(&nonce, &ciphertext)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
+	}
+	return nonce, ciphertext, err
+}
+
+// ListEncryptedSecrets returns all encrypted secrets (for migration/re-encryption).
+func (s *Store) ListEncryptedSecrets() ([]struct {
+	HostID     string
+	Kind       string
+	Nonce      []byte
+	Ciphertext []byte
+}, error) {
+	rows, err := s.db.Query(`SELECT host_id, kind, nonce, ciphertext FROM secrets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		HostID     string
+		Kind       string
+		Nonce      []byte
+		Ciphertext []byte
+	}
+	for rows.Next() {
+		var r struct {
+			HostID     string
+			Kind       string
+			Nonce      []byte
+			Ciphertext []byte
+		}
+		if err := rows.Scan(&r.HostID, &r.Kind, &r.Nonce, &r.Ciphertext); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// DeleteEncryptedSecret removes a specific encrypted secret.
+func (s *Store) DeleteEncryptedSecret(hostID, kind string) error {
+	_, err := s.db.Exec(`DELETE FROM secrets WHERE host_id = ? AND kind = ?`, hostID, kind)
+	return err
+}
+
+// ClearHostPassword clears the plaintext password fallback column for a host.
+func (s *Store) ClearHostPassword(hostID string) error {
+	_, err := s.db.Exec(`UPDATE hosts SET password = NULL WHERE id = ?`, hostID)
+	return err
+}
+
+// ListInlinePasswordHostIDs returns IDs of hosts using inline credential source.
+func (s *Store) ListInlinePasswordHostIDs() ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT id FROM hosts WHERE auth_method IN ('password', 'key') AND (credential_source = 'inline' OR credential_source = '' OR credential_source IS NULL)`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetCredentials returns the credential resolver.
+func (s *Store) GetCredentials() CredentialResolver {
+	return s.credentials
 }
