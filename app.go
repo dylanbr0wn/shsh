@@ -35,6 +35,7 @@ type App struct {
 	sessions *SessionFacade
 	keys     *KeysFacade
 	tools    *ToolsFacade
+	keybinds *KeybindFacade
 	vault    *VaultFacade
 }
 
@@ -47,6 +48,7 @@ func NewApp(cfg *config.Config) *App {
 		sessions: NewSessionFacade(d),
 		keys:     NewKeysFacade(d),
 		tools:    NewToolsFacade(d),
+		keybinds: NewKeybindFacade(d),
 		vault:    NewVaultFacade(d),
 	}
 }
@@ -153,7 +155,9 @@ func (a *App) GetConfig() config.Config {
 }
 
 // UpdateConfig replaces the current configuration and persists it to disk.
+// Keybinding overrides are preserved — they are managed exclusively via KeybindFacade.
 func (a *App) UpdateConfig(cfg config.Config) error {
+	cfg.Keybindings = a.deps.Cfg.Keybindings
 	*a.deps.Cfg = cfg
 	if a.deps.CfgPath != "" {
 		return cfg.Save(a.deps.CfgPath)
