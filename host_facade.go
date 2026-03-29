@@ -28,6 +28,18 @@ func NewHostFacade(d *deps.Deps) *HostFacade {
 	return &HostFacade{d: d}
 }
 
+// checkVaultUnlocked returns an error if the vault is enabled and locked.
+// It also resets the idle timer on successful access.
+func (f *HostFacade) checkVaultUnlocked() error {
+	if f.d.Cfg.Vault.Enabled && f.d.LockState != nil && f.d.LockState.IsLocked() {
+		return fmt.Errorf("vault is locked")
+	}
+	if f.d.LockState != nil {
+		f.d.LockState.Touch()
+	}
+	return nil
+}
+
 // --- Host CRUD ---
 
 func (f *HostFacade) ListHosts() ([]store.Host, error) {
@@ -35,10 +47,16 @@ func (f *HostFacade) ListHosts() ([]store.Host, error) {
 }
 
 func (f *HostFacade) AddHost(input store.CreateHostInput) (store.Host, error) {
+	if err := f.checkVaultUnlocked(); err != nil {
+		return store.Host{}, err
+	}
 	return f.d.Store.AddHost(input)
 }
 
 func (f *HostFacade) UpdateHost(input store.UpdateHostInput) (store.Host, error) {
+	if err := f.checkVaultUnlocked(); err != nil {
+		return store.Host{}, err
+	}
 	return f.d.Store.UpdateHost(input)
 }
 
