@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"sync"
 
 	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/dylanbr0wn/shsh/internal/vault"
@@ -20,6 +21,9 @@ type pathLooker func(name string) (string, error)
 type Resolver struct {
 	runCmd   cmdRunner
 	lookPath pathLooker
+
+	bwMu         sync.Mutex
+	bwSessionKey string
 }
 
 // NewResolver returns a Resolver wired to real exec.CommandContext/exec.LookPath.

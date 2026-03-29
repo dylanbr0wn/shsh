@@ -82,17 +82,14 @@ func TestStartKeepAlive_MissedPingsCallMarkDead(t *testing.T) {
 	}
 }
 
-// addToKnownHosts writes the server's host key into ~/.ssh/known_hosts so that
-// reconnectHostKeyCallback (which checks known_hosts) accepts the key.
-// Returns a cleanup function that removes the added line.
-func addToKnownHosts(t *testing.T, addr string, signer ssh.Signer) func() {
+// addToKnownHosts writes the server's host key into a temp known_hosts file
+// and sets HOME so that reconnectHostKeyCallback (which reads ~/.ssh/known_hosts)
+// uses the temp file instead of the real one.
+func addToKnownHosts(t *testing.T, addr string, signer ssh.Signer) {
 	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("user home dir: %v", err)
-	}
-	khPath := filepath.Join(home, ".ssh", "known_hosts")
-	os.MkdirAll(filepath.Dir(khPath), 0700) //nolint:errcheck
+	tmpHome := t.TempDir()
+	sshDir := filepath.Join(tmpHome, ".ssh")
+	os.MkdirAll(sshDir, 0700) //nolint:errcheck
 
 	host, port, _ := net.SplitHostPort(addr)
 	// knownhosts uses [host]:port format for non-standard ports.
@@ -104,20 +101,12 @@ func addToKnownHosts(t *testing.T, addr string, signer ssh.Signer) func() {
 	}
 	line := fmt.Sprintf("%s %s", hostname, ssh.MarshalAuthorizedKey(signer.PublicKey()))
 
-	// Read existing content.
-	existing, _ := os.ReadFile(khPath)
-
-	f, err := os.OpenFile(khPath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		t.Fatalf("open known_hosts: %v", err)
+	khPath := filepath.Join(sshDir, "known_hosts")
+	if err := os.WriteFile(khPath, []byte(line), 0600); err != nil {
+		t.Fatalf("write temp known_hosts: %v", err)
 	}
-	f.WriteString(line)
-	f.Close()
 
-	return func() {
-		// Restore original content.
-		os.WriteFile(khPath, existing, 0600) //nolint:errcheck
-	}
+	t.Setenv("HOME", tmpHome)
 }
 
 func TestReconnectLoop_Success(t *testing.T) {
@@ -128,8 +117,7 @@ func TestReconnectLoop_Success(t *testing.T) {
 	host, cb := hostFromKillable(t, ks)
 
 	// Add the server's key to known_hosts so reconnectHostKeyCallback accepts it.
-	khCleanup := addToKnownHosts(t, ks.Addr, ks.Signer)
-	defer khCleanup()
+	addToKnownHosts(t, ks.Addr, ks.Signer)
 
 	// Dial while server is alive to get a real client (needed by attemptReconnect
 	// which closes the old client on success).

@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
-	"sync"
 )
 
 // Source identifies where a host's password credential comes from.
@@ -35,12 +34,6 @@ type PasswordManagersStatus struct {
 	OnePassword PMStatus `json:"onePassword"`
 	Bitwarden   PMStatus `json:"bitwarden"`
 }
-
-// mu guards bwSessionKey.
-var mu sync.Mutex
-
-// bwSessionKey caches the Bitwarden session key for the lifetime of the app.
-var bwSessionKey string
 
 // defaultResolver is used by package-level convenience functions.
 var defaultResolver = NewResolver()
@@ -169,9 +162,9 @@ func (r *Resolver) fetchFromBitwardenCtx(ctx context.Context, ref string) (strin
 		return "", fmt.Errorf("Bitwarden CLI (bw) not installed")
 	}
 
-	mu.Lock()
-	sessionKey := bwSessionKey
-	mu.Unlock()
+	r.bwMu.Lock()
+	sessionKey := r.bwSessionKey
+	r.bwMu.Unlock()
 
 	args := []string{"get", "password", ref}
 	if sessionKey != "" {

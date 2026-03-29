@@ -101,21 +101,26 @@ func TestExtractTarGz_PathTraversal(t *testing.T) {
 		t.Fatalf("extractTarGz: %v", err)
 	}
 
-	// The traversal entry should be skipped — verify it does not exist outside dest.
-	traversalPath := filepath.Join(destDir, "..", "..", "etc", "passwd")
-	if _, err := os.Stat(traversalPath); err == nil {
-		t.Fatal("path traversal entry should have been skipped, but file exists outside dest")
+	// The implementation cleans "../../etc/passwd" via filepath.Clean("/"+name) which
+	// normalizes it to "/etc/passwd", then joins with destDir -> destDir/etc/passwd.
+	// This is safe because the file stays inside destDir. Verify it landed there.
+	sanitizedPath := filepath.Join(destDir, "etc", "passwd")
+	data, err := os.ReadFile(sanitizedPath)
+	if err != nil {
+		t.Fatalf("expected traversal path to be sanitized into destDir/etc/passwd, but file not found: %v", err)
+	}
+	if string(data) != "should not appear" {
+		t.Errorf("sanitized file content = %q, want %q", string(data), "should not appear")
 	}
 
-	// Also verify it didn't end up anywhere in the dest dir.
-	if _, err := os.Stat(filepath.Join(destDir, "etc", "passwd")); err == nil {
-		// This is actually fine — the implementation cleans the path with
-		// filepath.Clean("/"+hdr.Name) which turns "../../etc/passwd" into
-		// "/etc/passwd" -> destDir/etc/passwd. As long as it's inside destDir, it's safe.
+	// Verify nothing was written outside destDir by checking the parent.
+	parentEtc := filepath.Join(destDir, "..", "etc", "passwd")
+	if _, err := os.Stat(parentEtc); err == nil {
+		t.Fatal("path traversal entry escaped destDir")
 	}
 
 	// safe.txt should exist.
-	data, err := os.ReadFile(filepath.Join(destDir, "safe.txt"))
+	data, err = os.ReadFile(filepath.Join(destDir, "safe.txt"))
 	if err != nil {
 		t.Fatalf("read safe.txt: %v", err)
 	}

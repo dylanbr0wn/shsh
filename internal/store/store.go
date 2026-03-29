@@ -1090,6 +1090,9 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 		scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 		hosts = append(hosts, h)
 	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
 	if hosts == nil {
 		hosts = []Host{}
 	}

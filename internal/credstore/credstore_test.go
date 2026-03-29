@@ -257,16 +257,6 @@ func TestFetchFrom1Password_ItemName(t *testing.T) {
 }
 
 func TestFetchFromBitwarden_Basic(t *testing.T) {
-	mu.Lock()
-	oldKey := bwSessionKey
-	bwSessionKey = ""
-	mu.Unlock()
-	defer func() {
-		mu.Lock()
-		bwSessionKey = oldKey
-		mu.Unlock()
-	}()
-
 	var capturedName string
 	var capturedArgs []string
 
@@ -297,16 +287,6 @@ func TestFetchFromBitwarden_Basic(t *testing.T) {
 }
 
 func TestFetchFromBitwarden_WithSessionKey(t *testing.T) {
-	mu.Lock()
-	oldKey := bwSessionKey
-	bwSessionKey = "ses-abc123"
-	mu.Unlock()
-	defer func() {
-		mu.Lock()
-		bwSessionKey = oldKey
-		mu.Unlock()
-	}()
-
 	var capturedArgs []string
 
 	r := &Resolver{
@@ -314,7 +294,8 @@ func TestFetchFromBitwarden_WithSessionKey(t *testing.T) {
 			capturedArgs = args
 			return []byte("pw"), nil
 		},
-		lookPath: func(name string) (string, error) { return "/usr/bin/" + name, nil },
+		lookPath:     func(name string) (string, error) { return "/usr/bin/" + name, nil },
+		bwSessionKey: "ses-abc123",
 	}
 
 	ref := "item-uuid"
