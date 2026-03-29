@@ -33,6 +33,7 @@ type App struct {
 	sessions *SessionFacade
 	keys     *KeysFacade
 	tools    *ToolsFacade
+	keybinds *KeybindFacade
 }
 
 // NewApp creates a new App application struct.
@@ -44,6 +45,7 @@ func NewApp(cfg *config.Config) *App {
 		sessions: NewSessionFacade(d),
 		keys:     NewKeysFacade(d),
 		tools:    NewToolsFacade(d),
+		keybinds: NewKeybindFacade(d),
 	}
 }
 
