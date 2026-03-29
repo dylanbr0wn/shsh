@@ -68,7 +68,7 @@ func mimeForExtension(ext string) string {
 		return mt
 	}
 	if imageExtensions[ext] {
-		return "application/octet-stream"
+		return "image/" + strings.TrimPrefix(ext, ".")
 	}
 	return "text/plain"
 }
