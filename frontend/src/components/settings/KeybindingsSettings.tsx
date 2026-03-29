@@ -21,6 +21,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
 } from '../ui/popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { getDefaultStore } from 'jotai'
 import { ButtonGroup } from '../ui/button-group'
 import { Dot, RotateCcw, Search } from 'lucide-react'
@@ -273,24 +274,28 @@ export function KeybindingsSettings() {
                                   )}
                                   <div className="grow" />
                                   {kb.modified && (
-                                    <div
-                                      role="button"
-                                      className="focus-visible:ring-primary data-[state=open]:bg-muted justify-self-end rounded p-1 opacity-50 transition-opacity hover:opacity-100 focus:opacity-100 focus-visible:ring"
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        handleReset(kb.action_id)
-                                      }}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter' || e.key === ' ') {
-                                          e.preventDefault()
-                                          handleReset(kb.action_id)
-                                        }
-                                      }}
-                                      title="Reset to default"
-                                      tabIndex={0}
-                                    >
-                                      <RotateCcw className="size-3" />
-                                    </div>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <div
+                                          role="button"
+                                          className="focus-visible:ring-primary data-[state=open]:bg-muted justify-self-end rounded p-1 opacity-50 transition-opacity hover:opacity-100 focus:opacity-100 focus-visible:ring"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleReset(kb.action_id)
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                              e.preventDefault()
+                                              handleReset(kb.action_id)
+                                            }
+                                          }}
+                                          tabIndex={0}
+                                        >
+                                          <RotateCcw className="size-3" />
+                                        </div>
+                                      </TooltipTrigger>
+                                      <TooltipContent>Reset to default</TooltipContent>
+                                    </Tooltip>
                                   )}
                                 </Button>
                               </PopoverTrigger>
