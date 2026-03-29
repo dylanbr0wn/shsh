@@ -103,7 +103,7 @@ export function HostGroupSection({
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <Item asChild variant="outline" size="xs">
-                <a>
+                <button>
                   <ItemMedia>
                     <ChevronRight
                       className={cn(
@@ -153,7 +153,7 @@ export function HostGroupSection({
                     </ButtonGroup>
                     {/* Connect All button */}
                   </ItemActions>
-                </a>
+                </button>
               </Item>
             </CollapsibleTrigger>
           </ContextMenuTrigger>

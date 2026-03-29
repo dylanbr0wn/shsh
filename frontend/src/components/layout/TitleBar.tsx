@@ -91,7 +91,7 @@ export function TitleBar() {
           <Button
             variant="outline"
             size="sm"
-            className="text-muted-foreground gap-2 px-3"
+            className="text-muted-foreground w-60 gap-2 px-3"
             onClick={() => setIsCommandPaletteOpen(true)}
           >
             <Search className="size-3.5" />
@@ -102,7 +102,7 @@ export function TitleBar() {
             <TooltipTrigger asChild>
               <Button
                 variant="outline"
-                size="sm"
+                size="icon-sm"
                 className="text-muted-foreground"
                 onClick={() => setIsQuickConnectOpen(true)}
                 aria-label="Quick connect"
