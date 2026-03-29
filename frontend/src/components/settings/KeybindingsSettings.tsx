@@ -12,9 +12,11 @@ import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { Kbd, KbdGroup } from '../ui/kbd'
-import { Item, ItemGroup, ItemContent, ItemTitle, ItemActions } from '../ui/item'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table'
 import { FieldSet, FieldLegend } from '../ui/field'
 import { getDefaultStore } from 'jotai'
+import { ButtonGroup } from '../ui/button-group'
+import { Dot, RotateCcw } from 'lucide-react'
 
 const store = getDefaultStore()
 
@@ -162,83 +164,106 @@ export function KeybindingsSettings() {
           {sortedCategories.map((category) => (
             <FieldSet key={category}>
               <FieldLegend>{category}</FieldLegend>
-              <ItemGroup>
-                {grouped[category].map((kb) => (
-                  <Item key={kb.action_id} variant="muted" size="sm">
-                    <ItemContent>
-                      <ItemTitle>{kb.label}</ItemTitle>
-                    </ItemContent>
-                    <ItemActions>
-                      {recordingActionId === kb.action_id ? (
-                        conflict ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-destructive text-xs">
-                              Conflicts with {conflict.label}.
-                              {conflict.protected && ' (Protected!)'}
-                            </span>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Action</TableHead>
+                    <TableHead className="text-right">Shortcut</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {grouped[category].map((kb, i) => (
+                    <TableRow key={kb.action_id} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
+                      <TableCell className="py-2 font-medium">{kb.label}</TableCell>
+                      <TableCell className="py-2 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          {recordingActionId === kb.action_id ? (
+                            conflict ? (
+                              <ButtonGroup>
+                                <span className="text-destructive text-xs">
+                                  Conflicts with {conflict.label}.
+                                  {conflict.protected && ' (Protected!)'}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={confirmConflictReassign}
+                                >
+                                  Reassign
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 text-xs"
+                                  onClick={() => {
+                                    setRecordingActionId(null)
+                                    setPendingShortcut(null)
+                                    setConflict(null)
+                                  }}
+                                >
+                                  Cancel
+                                </Button>
+                              </ButtonGroup>
+                            ) : (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="border-primary text-primary hover:text-primary"
+                              >
+                                <Dot className="size-4 animate-ping" />
+                                Press shortcut…
+                              </Button>
+                            )
+                          ) : (
                             <Button
-                              variant="ghost"
+                              className="flex min-w-32 cursor-pointer items-center justify-start gap-1"
+                              variant="outline"
                               size="sm"
-                              className="h-6 text-xs"
-                              onClick={confirmConflictReassign}
-                            >
-                              Reassign
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 text-xs"
                               onClick={() => {
-                                setRecordingActionId(null)
+                                setRecordingActionId(kb.action_id)
                                 setPendingShortcut(null)
                                 setConflict(null)
                               }}
                             >
-                              Cancel
+                              {kb.shortcut ? (
+                                <KbdGroup className="text-xs">
+                                  {shortcutParts(kb.shortcut).map((part, j) => (
+                                    <Kbd key={j}>{part}</Kbd>
+                                  ))}
+                                </KbdGroup>
+                              ) : (
+                                <Kbd>Unbound</Kbd>
+                              )}
+                              <div className="grow" />
+                              {kb.modified && recordingActionId !== kb.action_id && (
+                                <div
+                                  role="button"
+                                  className="focus-visible:ring-primary data-[state=open]:bg-muted justify-self-end rounded p-1 opacity-50 transition-opacity hover:opacity-100 focus:opacity-100 focus-visible:ring"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    handleReset(kb.action_id)
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      handleReset(kb.action_id)
+                                    }
+                                  }}
+                                  title="Reset to default"
+                                  tabIndex={0}
+                                >
+                                  <RotateCcw className="size-3" />
+                                </div>
+                              )}
                             </Button>
-                          </div>
-                        ) : (
-                          <Kbd className="border-primary text-primary h-7 animate-pulse border px-2.5 text-xs">
-                            Press shortcut…
-                          </Kbd>
-                        )
-                      ) : (
-                        <button
-                          className="cursor-pointer"
-                          onClick={() => {
-                            setRecordingActionId(kb.action_id)
-                            setPendingShortcut(null)
-                            setConflict(null)
-                          }}
-                        >
-                          {kb.shortcut ? (
-                            <KbdGroup>
-                              {shortcutParts(kb.shortcut).map((part, i) => (
-                                <Kbd key={i} className="h-7 min-w-7 px-1.5 text-xs">
-                                  {part}
-                                </Kbd>
-                              ))}
-                            </KbdGroup>
-                          ) : (
-                            <Kbd className="text-muted-foreground h-7 px-2.5 text-xs">Unbound</Kbd>
                           )}
-                        </button>
-                      )}
-                      {kb.modified && recordingActionId !== kb.action_id && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-foreground h-6 w-6 p-0 text-xs"
-                          onClick={() => handleReset(kb.action_id)}
-                          title="Reset to default"
-                        >
-                          ↺
-                        </Button>
-                      )}
-                    </ItemActions>
-                  </Item>
-                ))}
-              </ItemGroup>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </FieldSet>
           ))}
         </div>
