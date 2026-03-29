@@ -49,7 +49,10 @@ func Parse(shortcut string) (ParsedShortcut, error) {
 				p.Shift = true
 			}
 		} else if i == len(parts)-1 {
-			// Last part is the key
+			// Last part is the key — reject modifier names used as keys
+			if validModifiers[part] {
+				return ParsedShortcut{}, fmt.Errorf("key cannot be a modifier name %q in %q", part, shortcut)
+			}
 			p.Key = part
 		} else {
 			return ParsedShortcut{}, fmt.Errorf("invalid modifier %q in %q (use CmdOrCtrl, Alt, Shift)", part, shortcut)

@@ -25,8 +25,12 @@ func (f *KeybindFacade) GetKeybindings() []keybind.ResolvedKeybinding {
 // UpdateKeybinding validates and saves a keybinding override for the given action.
 func (f *KeybindFacade) UpdateKeybinding(actionID, shortcut string) error {
 	defaults := keybind.Defaults()
-	if _, ok := defaults[actionID]; !ok {
+	def, ok := defaults[actionID]
+	if !ok {
 		return fmt.Errorf("unknown action: %q", actionID)
+	}
+	if def.Protected {
+		return fmt.Errorf("action %q is protected and cannot be rebound", actionID)
 	}
 
 	// Allow empty string to unbind

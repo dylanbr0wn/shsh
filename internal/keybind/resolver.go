@@ -38,15 +38,24 @@ func Resolve(defaults map[string]Keybinding, overrides map[string]string) []Reso
 // DetectConflict checks whether assigning shortcut to actionID would conflict
 // with an existing binding. Returns the conflicting action ID if found.
 // Self-assignment (same actionID) is not a conflict.
+// Both sides are normalized before comparison to handle non-canonical modifier order.
 func DetectConflict(bindings []ResolvedKeybinding, actionID, shortcut string) (string, bool) {
 	if shortcut == "" {
 		return "", false
+	}
+	normalized, err := Normalize(shortcut)
+	if err != nil {
+		normalized = shortcut
 	}
 	for _, b := range bindings {
 		if b.ActionID == actionID {
 			continue
 		}
-		if b.Shortcut == shortcut {
+		existing, nerr := Normalize(b.Shortcut)
+		if nerr != nil {
+			existing = b.Shortcut
+		}
+		if existing == normalized {
 			return b.ActionID, true
 		}
 	}

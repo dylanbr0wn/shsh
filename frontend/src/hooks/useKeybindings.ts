@@ -60,12 +60,4 @@ export function useKeybindings(
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
-
-  const refreshKeybindings = useCallback(() => {
-    GetKeybindings().then((bindings) => {
-      setKeybindings(bindings ?? [])
-    })
-  }, [setKeybindings])
-
-  return { refreshKeybindings }
 }

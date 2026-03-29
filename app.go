@@ -135,7 +135,9 @@ func (a *App) GetConfig() config.Config {
 }
 
 // UpdateConfig replaces the current configuration and persists it to disk.
+// Keybinding overrides are preserved — they are managed exclusively via KeybindFacade.
 func (a *App) UpdateConfig(cfg config.Config) error {
+	cfg.Keybindings = a.deps.Cfg.Keybindings
 	*a.deps.Cfg = cfg
 	if a.deps.CfgPath != "" {
 		return cfg.Save(a.deps.CfgPath)

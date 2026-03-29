@@ -37,6 +37,7 @@ func TestParse_InvalidShortcuts(t *testing.T) {
 		"Ctrl+K",         // must use CmdOrCtrl, not Ctrl
 		"Meta+K",         // must use CmdOrCtrl, not Meta
 		"CmdOrCtrl+CmdOrCtrl+K", // duplicate modifier
+		"CmdOrCtrl+Shift",       // modifier name as key
 	}
 	for _, tc := range cases {
 		t.Run(tc, func(t *testing.T) {

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { keybindingsAtom, type ResolvedKeybinding } from '../../store/atoms'
 import {
   UpdateKeybinding,
@@ -7,7 +7,12 @@ import {
   ResetAllKeybindings,
   GetKeybindings,
 } from '../../../wailsjs/go/main/KeybindFacade'
-import { eventToShortcut, formatShortcutForDisplay } from '../../lib/keybind'
+import {
+  isMac,
+  eventToShortcut,
+  formatShortcutForDisplay,
+  normalizeShortcutForMatch,
+} from '../../lib/keybind'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { Kbd, KbdGroup } from '../ui/kbd'
@@ -22,15 +27,10 @@ import {
   PopoverTrigger,
 } from '../ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { getDefaultStore } from 'jotai'
 import { ButtonGroup } from '../ui/button-group'
 import { Dot, RotateCcw, Search } from 'lucide-react'
 import { Card } from '../ui/card'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group'
-
-const store = getDefaultStore()
-
-const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
 
 /** Split a CmdOrCtrl+Shift+K shortcut into display parts for individual Kbd elements */
 function shortcutParts(shortcut: string): string[] {
@@ -59,11 +59,13 @@ function shortcutParts(shortcut: string): string[] {
 
 export function KeybindingsSettings() {
   const keybindings = useAtomValue(keybindingsAtom)
+  const setKeybindings = useSetAtom(keybindingsAtom)
   const [search, setSearch] = useState('')
   const [recordingActionId, setRecordingActionId] = useState<string | null>(null)
   const [recordedShortcut, setRecordedShortcut] = useState<string | null>(null)
   const [conflict, setConflict] = useState<ResolvedKeybinding | null>(null)
   const recordingRef = useRef<string | null>(null)
+  const applyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Track currently held modifier keys for live display
   const [heldModifiers, setHeldModifiers] = useState<string[]>([])
@@ -76,8 +78,8 @@ export function KeybindingsSettings() {
 
   const refreshBindings = useCallback(async () => {
     const bindings = await GetKeybindings()
-    store.set(keybindingsAtom, bindings ?? [])
-  }, [])
+    setKeybindings(bindings ?? [])
+  }, [setKeybindings])
 
   const applyBinding = useCallback(
     async (actionId: string, shortcut: string) => {
@@ -95,6 +97,10 @@ export function KeybindingsSettings() {
   )
 
   const cancelRecording = useCallback(() => {
+    if (applyTimerRef.current) {
+      clearTimeout(applyTimerRef.current)
+      applyTimerRef.current = null
+    }
     setRecordingActionId(null)
     setRecordedShortcut(null)
     setConflict(null)
@@ -140,14 +146,17 @@ export function KeybindingsSettings() {
       setRecordedShortcut(shortcut)
 
       const conflicting = keybindings.find(
-        (kb) => kb.shortcut === shortcut && kb.action_id !== recordingRef.current
+        (kb) =>
+          normalizeShortcutForMatch(kb.shortcut) === shortcut &&
+          kb.action_id !== recordingRef.current
       )
 
       if (conflicting) {
         setConflict(conflicting)
       } else {
         setConflict(null)
-        setTimeout(() => {
+        applyTimerRef.current = setTimeout(() => {
+          applyTimerRef.current = null
           applyBinding(recordingRef.current!, shortcut)
         }, 300)
       }
@@ -354,6 +363,7 @@ export function KeybindingsSettings() {
                                         variant="destructive"
                                         size="sm"
                                         className="h-7 text-xs"
+                                        disabled={conflict.protected}
                                         onClick={confirmConflictReassign}
                                       >
                                         Reassign
