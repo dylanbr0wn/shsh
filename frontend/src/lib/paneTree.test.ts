@@ -266,10 +266,20 @@ describe('moveLeaf', () => {
     expect(leaves.map((l) => l.paneId)).toEqual(['pane-b', 'pane-a'])
   })
 
-  it('returns null when tree collapses after source removal (target not found)', () => {
+  it('returns null when removing root leaf collapses tree to null', () => {
     const la = leaf('a')
     const result = moveLeaf(la, 'pane-a', 'pane-nonexistent', 'horizontal', 'after')
     expect(result).toBeNull()
+  })
+
+  it('target not found in multi-leaf tree — source is removed (silent loss)', () => {
+    const la = leaf('a')
+    const lb = leaf('b')
+    const tree = split(la, lb)
+    const result = moveLeaf(tree, 'pane-a', 'pane-nonexistent', 'horizontal', 'after')
+    // insertLeaf finds no match after removal — source pane is silently dropped
+    const leaves = collectLeaves(result!)
+    expect(leaves.map((l) => l.paneId)).toEqual(['pane-b'])
   })
 })
 

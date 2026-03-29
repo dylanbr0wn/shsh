@@ -129,6 +129,9 @@ describe('patchLeavesByConnectionIdAtom', () => {
     // Both la1 and la2 should be patched
     const ws1Leaves = workspaces.find((w) => w.id === 'ws1')!
     const ws2Leaves = workspaces.find((w) => w.id === 'ws2')!
+    // la1 should be patched
+    const la1InLayout = (ws1Leaves.layout as SplitNode).left as PaneLeaf
+    expect(la1InLayout.status).toBe('disconnected')
     // lb should be unchanged
     const lbInLayout = (ws1Leaves.layout as SplitNode).right as PaneLeaf
     expect(lbInLayout.status).toBe('connected')

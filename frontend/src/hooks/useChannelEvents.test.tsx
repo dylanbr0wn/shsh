@@ -334,7 +334,7 @@ describe('useChannelEvents', () => {
     it('removes the channelId entry from portForwards', () => {
       const la = leaf('a', { status: 'connected' })
       const ws = workspace('ws1', la)
-      const initialPortForwards = { 'ch-a': { localPort: 8080 }, 'ch-b': { localPort: 9090 } }
+      const initialPortForwards = { 'ch-a': { forwards: [] }, 'ch-b': { forwards: [] } }
       const { store, wrapper } = createWrapper([ws], new Set(), initialPortForwards)
 
       renderHook(() => useChannelEvents(), { wrapper })
