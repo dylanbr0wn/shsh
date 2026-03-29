@@ -1472,3 +1472,119 @@ func TestListInlinePasswordHostIDs(t *testing.T) {
 		t.Errorf("expected 2 inline hosts, got %d: %v", len(ids), ids)
 	}
 }
+
+// --- GetHostsByGroup tests ---
+
+func TestGetHostsByGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Production"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	kp := "/home/user/.ssh/id_ed25519"
+	reconnectEnabled := true
+	reconnectRetries := 5
+	reconnectInitDelay := 2
+	reconnectMaxDelay := 30
+	keepAliveInterval := 15
+	keepAliveMaxMissed := 3
+
+	added, err := s.AddHost(CreateHostInput{
+		Label:                        "prod-server",
+		Hostname:                     "prod.example.com",
+		Port:                         2222,
+		Username:                     "deploy",
+		AuthMethod:                   AuthKey,
+		KeyPath:                      &kp,
+		GroupID:                      &g.ID,
+		Color:                        "#ff0000",
+		Tags:                         []string{"prod", "critical"},
+		CredentialSource:             "inline",
+		ReconnectEnabled:             &reconnectEnabled,
+		ReconnectMaxRetries:          &reconnectRetries,
+		ReconnectInitialDelaySeconds: &reconnectInitDelay,
+		ReconnectMaxDelaySeconds:     &reconnectMaxDelay,
+		KeepAliveIntervalSeconds:     &keepAliveInterval,
+		KeepAliveMaxMissed:           &keepAliveMaxMissed,
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	hosts, err := s.GetHostsByGroup(g.ID)
+	if err != nil {
+		t.Fatalf("GetHostsByGroup: %v", err)
+	}
+	if len(hosts) != 1 {
+		t.Fatalf("expected 1 host, got %d", len(hosts))
+	}
+
+	h := hosts[0]
+	if h.ID != added.ID {
+		t.Errorf("ID = %q, want %q", h.ID, added.ID)
+	}
+	if h.Label != "prod-server" {
+		t.Errorf("Label = %q, want %q", h.Label, "prod-server")
+	}
+	if h.Hostname != "prod.example.com" {
+		t.Errorf("Hostname = %q, want %q", h.Hostname, "prod.example.com")
+	}
+	if h.Port != 2222 {
+		t.Errorf("Port = %d, want 2222", h.Port)
+	}
+	if h.KeyPath == nil || *h.KeyPath != kp {
+		t.Errorf("KeyPath = %v, want %q", h.KeyPath, kp)
+	}
+	if h.CredentialSource != "inline" {
+		t.Errorf("CredentialSource = %q, want %q", h.CredentialSource, "inline")
+	}
+	if h.Color != "#ff0000" {
+		t.Errorf("Color = %q, want %q", h.Color, "#ff0000")
+	}
+	if len(h.Tags) != 2 || h.Tags[0] != "prod" || h.Tags[1] != "critical" {
+		t.Errorf("Tags = %v, want [prod critical]", h.Tags)
+	}
+	if h.GroupID == nil || *h.GroupID != g.ID {
+		t.Errorf("GroupID = %v, want %q", h.GroupID, g.ID)
+	}
+	if h.ReconnectEnabled == nil || !*h.ReconnectEnabled {
+		t.Error("ReconnectEnabled = nil/false, want true")
+	}
+	if h.ReconnectMaxRetries == nil || *h.ReconnectMaxRetries != 5 {
+		t.Errorf("ReconnectMaxRetries = %v, want 5", h.ReconnectMaxRetries)
+	}
+	if h.ReconnectInitialDelaySeconds == nil || *h.ReconnectInitialDelaySeconds != 2 {
+		t.Errorf("ReconnectInitialDelaySeconds = %v, want 2", h.ReconnectInitialDelaySeconds)
+	}
+	if h.ReconnectMaxDelaySeconds == nil || *h.ReconnectMaxDelaySeconds != 30 {
+		t.Errorf("ReconnectMaxDelaySeconds = %v, want 30", h.ReconnectMaxDelaySeconds)
+	}
+	if h.KeepAliveIntervalSeconds == nil || *h.KeepAliveIntervalSeconds != 15 {
+		t.Errorf("KeepAliveIntervalSeconds = %v, want 15", h.KeepAliveIntervalSeconds)
+	}
+	if h.KeepAliveMaxMissed == nil || *h.KeepAliveMaxMissed != 3 {
+		t.Errorf("KeepAliveMaxMissed = %v, want 3", h.KeepAliveMaxMissed)
+	}
+}
+
+func TestGetHostsByGroup_Empty(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Empty"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	hosts, err := s.GetHostsByGroup(g.ID)
+	if err != nil {
+		t.Fatalf("GetHostsByGroup: %v", err)
+	}
+	if hosts == nil {
+		t.Fatal("GetHostsByGroup returned nil, want empty slice")
+	}
+	if len(hosts) != 0 {
+		t.Errorf("expected 0 hosts, got %d", len(hosts))
+	}
+}
