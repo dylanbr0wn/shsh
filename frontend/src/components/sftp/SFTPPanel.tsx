@@ -49,74 +49,6 @@ const DEFAULT_SFTP_STATE: SFTPState = {
   error: null,
 }
 
-const PREVIEWABLE_EXTENSIONS = new Set([
-  // Text
-  '.txt',
-  '.log',
-  '.conf',
-  '.cfg',
-  '.ini',
-  '.json',
-  '.yaml',
-  '.yml',
-  '.xml',
-  '.html',
-  '.css',
-  '.js',
-  '.ts',
-  '.go',
-  '.py',
-  '.rb',
-  '.rs',
-  '.sh',
-  '.bash',
-  '.zsh',
-  '.md',
-  '.toml',
-  '.env',
-  '.csv',
-  '.sql',
-  '.jsx',
-  '.tsx',
-  '.vue',
-  '.svelte',
-  '.java',
-  '.c',
-  '.cpp',
-  '.h',
-  '.hpp',
-  '.cs',
-  '.php',
-  '.swift',
-  '.kt',
-  '.scala',
-  '.lua',
-  '.r',
-  '.pl',
-  '.dockerfile',
-  '.makefile',
-  '.gitignore',
-  // Image
-  '.png',
-  '.jpg',
-  '.jpeg',
-  '.gif',
-  '.svg',
-  '.webp',
-  '.ico',
-  '.bmp',
-])
-
-function isPreviewable(entry: SFTPEntry): boolean {
-  if (entry.isDir) return false
-  const name = entry.name.toLowerCase()
-  // Extensionless files
-  if (name === 'dockerfile' || name === 'makefile' || name === '.gitignore') return true
-  const dot = entry.name.lastIndexOf('.')
-  if (dot === -1) return false
-  return PREVIEWABLE_EXTENSIONS.has(entry.name.slice(dot).toLowerCase())
-}
-
 interface Props {
   channelId: string
   connectionId: string
@@ -544,7 +476,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
-                  {isPreviewable(entry) && (
+                  {!entry.isDir && (
                     <ContextMenuItem onSelect={() => setPreviewPath(entry.path)}>
                       Preview
                     </ContextMenuItem>

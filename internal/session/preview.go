@@ -111,22 +111,11 @@ func (m *Manager) SFTPPreviewFile(channelId string, path string) (*FilePreview, 
 	}
 
 	ext := strings.ToLower(filepath.Ext(info.Name()))
-	// Handle extensionless files by checking the full lowercase name
-	if ext == "" {
-		lowerName := strings.ToLower(info.Name())
-		switch {
-		case lowerName == "dockerfile":
-			ext = ".dockerfile"
-		case lowerName == "makefile":
-			ext = ".makefile"
-		case lowerName == ".gitignore":
-			ext = ".gitignore"
-		}
-	}
-
 	kind := classifyExtension(ext)
+	// Fall back to text for unknown extensions (dotfiles, extensionless configs, etc.).
+	// Binary content is caught by the frontend's replacement-character check.
 	if kind == fileKindUnknown {
-		return nil, fmt.Errorf("preview not supported for %q files", ext)
+		kind = fileKindText
 	}
 
 	limit := maxPreviewSize(kind)
