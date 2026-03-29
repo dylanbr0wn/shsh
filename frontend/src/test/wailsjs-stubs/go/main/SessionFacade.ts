@@ -1,0 +1,12 @@
+// Stub — replaced by vi.mock in setup.ts at runtime.
+export const CloseChannel = (_channelId: string): Promise<void> => Promise.resolve()
+export const ConnectHost = (): Promise<void> => Promise.resolve()
+export const WriteToChannel = (): Promise<void> => Promise.resolve()
+export const ResizeChannel = (): Promise<void> => Promise.resolve()
+export const ListPortForwards = (): Promise<unknown[]> => Promise.resolve([])
+export const RemovePortForward = (): Promise<void> => Promise.resolve()
+export const StartSessionLog = (): Promise<string> => Promise.resolve('')
+export const StopSessionLog = (): Promise<void> => Promise.resolve()
+export const ListSFTPDir = (): Promise<unknown[]> => Promise.resolve([])
+export const DownloadFile = (): Promise<void> => Promise.resolve()
+export const UploadFile = (): Promise<void> => Promise.resolve()

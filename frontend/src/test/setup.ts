@@ -53,3 +53,8 @@ vi.mock('../../wailsjs/go/main/App', () => ({
 vi.mock('../../wailsjs/go/main/ToolsFacade', () => ({
   OpenLogsDirectory: vi.fn(() => Promise.resolve()),
 }))
+
+// Mock sonner toast
+vi.mock('sonner', () => ({
+  toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() },
+}))
