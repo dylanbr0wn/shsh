@@ -9,6 +9,7 @@ import {
   isQuickConnectOpenAtom,
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
+  isCommandPaletteOpenAtom,
   hostHealthAtom,
 } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
@@ -37,6 +38,7 @@ export function WelcomeScreen() {
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const health = useAtomValue(hostHealthAtom)
 
   const recentHosts = useMemo(
@@ -92,7 +94,7 @@ export function WelcomeScreen() {
 
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <div className="flex w-full max-w-[400px] flex-col gap-5 px-6">
+      <div className="flex w-full max-w-100 flex-col gap-5 px-6">
         {/* Branding */}
         <div className="flex flex-col gap-0.5">
           <span className="text-primary font-mono text-sm font-semibold tracking-tight">shsh</span>
@@ -101,35 +103,19 @@ export function WelcomeScreen() {
 
         {/* Search/Connect bar */}
         <Item variant="outline" size="sm" asChild>
-          <a
-            onClick={() => setIsQuickConnectOpen(true)}
-            // className="flex w-full items-center gap-3 px-3 py-2.5 text-left"
-          >
+          <button type="button" onClick={() => setIsCommandPaletteOpen(true)}>
             <ItemMedia>
               <ArrowRight className="text-primary size-3.5 shrink-0" />
             </ItemMedia>
             <ItemContent>
-              <ItemTitle>Quick connect...</ItemTitle>
+              <ItemTitle>Search...</ItemTitle>
             </ItemContent>
             <ItemActions>
               <Kbd>⌘</Kbd>
               <Kbd>K</Kbd>
             </ItemActions>
-          </a>
+          </button>
         </Item>
-        {/* <button
-          type="button"
-          onClick={() => setIsQuickConnectOpen(true)}
-          className="border-border bg-card hover:border-primary/30 flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-        >
-          <ArrowRight className="text-primary size-3.5 shrink-0" />
-          <span className="text-muted-foreground flex-1 text-sm">
-            Quick connect...
-          </span>
-          <kbd className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 font-mono text-[10px]">
-            ⌘K
-          </kbd>
-        </button> */}
 
         {/* Recent hosts */}
         {recentHosts.length > 0 ? (
@@ -138,7 +124,7 @@ export function WelcomeScreen() {
               Recent
             </h2>
             <ItemGroup className="gap-1">
-              {recentHosts.map((host, index) => {
+              {recentHosts.map((host) => {
                 const isConnecting = connectingIds.has(host.id)
                 const latency = health[host.id]
                 const isReachable = latency !== undefined && latency >= 0
@@ -156,7 +142,7 @@ export function WelcomeScreen() {
                     //   animationDelay: `${Math.min(index, 8) * 40}ms`,
                     // }}
                   >
-                    <a onClick={() => handleConnect(host)}>
+                    <button type="button" onClick={() => handleConnect(host)}>
                       <ItemContent>
                         <ItemTitle className="truncate text-sm font-medium">{host.label}</ItemTitle>
                         <ItemDescription className="text-muted-foreground truncate font-mono text-xs">
@@ -174,7 +160,7 @@ export function WelcomeScreen() {
                           />
                         )}
                       </ItemContent>
-                    </a>
+                    </button>
                   </Item>
                 )
               })}
@@ -186,6 +172,14 @@ export function WelcomeScreen() {
 
         {/* Keyboard shortcuts */}
         <ButtonGroup>
+          <Button type="button" variant="ghost" onClick={() => setIsCommandPaletteOpen(true)} size="xs">
+            <Kbd>⌘K</Kbd>
+            Search
+          </Button>
+          <Button type="button" variant="ghost" onClick={() => setIsQuickConnectOpen(true)} size="xs">
+            <Kbd>⌘⇧K</Kbd>
+            Quick Connect
+          </Button>
           <Button type="button" variant="ghost" onClick={() => setIsAddHostOpen(true)} size="xs">
             <Kbd>⌘N</Kbd>
             New Host
