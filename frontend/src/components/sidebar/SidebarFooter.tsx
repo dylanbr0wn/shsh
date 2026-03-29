@@ -3,7 +3,7 @@ import { useAtom, useSetAtom } from 'jotai'
 import {
   groupsAtom,
   isAddHostOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
   isNewGroupOpenAtom,
 } from '../../store/atoms'
 import { Button } from '../ui/button'
@@ -25,7 +25,7 @@ import { AddGroup } from '../../../wailsjs/go/main/HostFacade'
 
 export function SidebarFooter() {
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
-  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
 
   const setGroups = useSetAtom(groupsAtom)
 
@@ -67,12 +67,12 @@ export function SidebarFooter() {
                 variant="outline"
                 size="icon"
                 className="shrink-0"
-                onClick={() => setIsImportSSHConfigOpen(true)}
+                onClick={() => setIsImportHostsOpen(true)}
               >
                 <FileInput />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="top">Import from SSH Config</TooltipContent>
+            <TooltipContent side="top">Import Hosts</TooltipContent>
           </Tooltip>
           <Popover
             open={newGroupOpen}

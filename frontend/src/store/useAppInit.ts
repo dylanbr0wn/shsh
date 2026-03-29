@@ -10,7 +10,7 @@ import {
   isQuickConnectOpenAtom,
   isCommandPaletteOpenAtom,
   isAddHostOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
 } from './atoms'
 import { debugPanelOpenAtom } from './debugStore'
 import { useDebugEvents } from '../hooks/useDebugEvents'
@@ -27,7 +27,7 @@ export function useAppInit() {
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
-  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
 
   useEffect(() => {
     ListHosts()
@@ -71,7 +71,7 @@ export function useAppInit() {
           break
         case 'i':
           e.preventDefault()
-          setIsImportSSHConfigOpen((prev) => !prev)
+          setIsImportHostsOpen((prev) => !prev)
           break
       }
     }
@@ -82,6 +82,6 @@ export function useAppInit() {
     setIsCommandPaletteOpen,
     setIsQuickConnectOpen,
     setIsAddHostOpen,
-    setIsImportSSHConfigOpen,
+    setIsImportHostsOpen,
   ])
 }

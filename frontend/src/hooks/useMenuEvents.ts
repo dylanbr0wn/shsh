@@ -2,7 +2,7 @@ import { useSetAtom } from 'jotai'
 import { useWailsEvent } from './useWailsEvent'
 import {
   isQuickConnectOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
   isSettingsOpenAtom,
   isAddHostOpenAtom,
   isNewGroupOpenAtom,
@@ -13,7 +13,7 @@ import {
 
 export function useMenuEvents() {
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
-  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsNewGroupOpen = useSetAtom(isNewGroupOpenAtom)
@@ -22,7 +22,7 @@ export function useMenuEvents() {
   const setPendingHostKey = useSetAtom(pendingHostKeyAtom)
 
   useWailsEvent('menu:new-connection', () => setIsQuickConnectOpen(true))
-  useWailsEvent('menu:import-ssh-config', () => setIsImportSSHConfigOpen(true))
+  useWailsEvent('menu:import-hosts', () => setIsImportHostsOpen(true))
   useWailsEvent('menu:settings', () => setIsSettingsOpen(true))
   useWailsEvent('menu:add-host', () => setIsAddHostOpen(true))
   useWailsEvent('menu:new-group', () => setIsNewGroupOpen(true))

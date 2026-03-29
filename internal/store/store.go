@@ -755,6 +755,20 @@ func (s *Store) HostExists(hostname string, port int, username string) (bool, er
 	return exists, err
 }
 
+// FindHostID returns the ID of a host matching the given hostname, port, and username,
+// or "" if no match exists.
+func (s *Store) FindHostID(hostname string, port int, username string) (string, error) {
+	var id string
+	err := s.db.QueryRow(
+		`SELECT id FROM hosts WHERE hostname=? AND port=? AND username=? LIMIT 1`,
+		hostname, port, username,
+	).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return id, err
+}
+
 // --- Group CRUD ---
 
 // ListGroups returns all groups ordered by sort_order, created_at.

@@ -8,7 +8,7 @@ import {
   connectingHostIdsAtom,
   isQuickConnectOpenAtom,
   isAddHostOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
   isCommandPaletteOpenAtom,
   hostHealthAtom,
 } from '../../store/atoms'
@@ -37,7 +37,7 @@ export function WelcomeScreen() {
   const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
-  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
   const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const health = useAtomValue(hostHealthAtom)
 
@@ -197,7 +197,7 @@ export function WelcomeScreen() {
           <Button
             type="button"
             variant="ghost"
-            onClick={() => setIsImportSSHConfigOpen(true)}
+            onClick={() => setIsImportHostsOpen(true)}
             size="xs"
           >
             <Kbd>⌘I</Kbd>

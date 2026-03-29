@@ -19,7 +19,7 @@ import {
   isQuickConnectOpenAtom,
   isAddHostOpenAtom,
   isSettingsOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
   isExportHostsOpenAtom,
   connectingHostIdsAtom,
 } from '../store/atoms'
@@ -40,7 +40,7 @@ export function CommandPalette() {
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
-  const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
   const setIsExportHostsOpen = useSetAtom(isExportHostsOpenAtom)
 
   const close = useCallback(() => setOpen(false), [setOpen])
@@ -112,9 +112,9 @@ export function CommandPalette() {
               <Settings />
               Settings
             </CommandItem>
-            <CommandItem onSelect={() => runAction(() => setIsImportSSHConfigOpen(true))}>
+            <CommandItem onSelect={() => runAction(() => setIsImportHostsOpen(true))}>
               <Download />
-              Import SSH Config
+              Import Hosts
               <CommandShortcut>⌘I</CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsExportHostsOpen(true))}>
