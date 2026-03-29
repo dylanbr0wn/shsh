@@ -1,2 +1,11 @@
 // Stub — replaced by vi.mock in setup.ts at runtime.
 export const OpenLogsDirectory = (): Promise<void> => Promise.resolve()
+export const GetHomeDir = (): Promise<string> => Promise.resolve('')
+export const ExportHosts = (): Promise<void> => Promise.resolve()
+export const CheckPasswordManagers = (): Promise<unknown[]> => Promise.resolve([])
+export const TestCredentialRef = (): Promise<unknown> => Promise.resolve({})
+export const ParseImportFile = (): Promise<unknown> => Promise.resolve({})
+export const CommitImport = (): Promise<void> => Promise.resolve()
+export const ListSessionLogs = (): Promise<unknown[]> => Promise.resolve([])
+export const ReadSessionLog = (): Promise<string> => Promise.resolve('')
+export const DeleteSessionLog = (): Promise<void> => Promise.resolve()
