@@ -1049,7 +1049,7 @@ func (s *Store) DeleteWorkspaceTemplate(id string) error {
 // GetHostsByGroup returns all hosts belonging to the given group.
 func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
 		groupID,
 	)
 	if err != nil {
@@ -1060,8 +1060,9 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 	var hosts []Host
 	for rows.Next() {
 		var h Host
-		var lastConn, gid, color, tags, profileID sql.NullString
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID); err != nil {
+		var lastConn, gid, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
+		var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -1073,8 +1074,24 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 		if profileID.Valid {
 			h.TerminalProfileID = &profileID.String
 		}
+		if keyPath.Valid {
+			h.KeyPath = &keyPath.String
+		}
+		if credSrc.Valid {
+			h.CredentialSource = credSrc.String
+		}
+		if credRef.Valid {
+			h.CredentialRef = credRef.String
+		}
+		if jumpHostID.Valid {
+			h.JumpHostID = &jumpHostID.String
+		}
 		scanColorTags(&h, color, tags)
+		scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 		hosts = append(hosts, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	if hosts == nil {
 		hosts = []Host{}

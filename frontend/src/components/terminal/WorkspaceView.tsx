@@ -1,6 +1,7 @@
 import { useAtomValue, useAtom, useSetAtom } from 'jotai'
 import { useAtomCallback } from 'jotai/utils'
 import { useState, useEffect, useCallback } from 'react'
+import { useKeybindings } from '../../hooks/useKeybindings'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -331,35 +332,10 @@ export function WorkspaceView() {
     [handleSplit, handleMovePane]
   )
 
-  // Cmd+F / Ctrl+F to open search
-  // Cmd+D / Ctrl+D to split vertically, Cmd+Shift+D / Ctrl+Shift+D to split horizontally
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-        e.preventDefault()
-        setSearchOpen((open) => !open)
-        return
-      }
-      if (!activeWorkspaceId) return
-      const ws = getWorkspaces().find((w) => w.id === activeWorkspaceId)
-      if (!ws || !ws.focusedPaneId) return
-
-      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key === 'd') {
-        e.preventDefault()
-        handleSplit(activeWorkspaceId, ws.focusedPaneId, 'vertical')
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'd') {
-        e.preventDefault()
-        handleSplit(activeWorkspaceId, ws.focusedPaneId, 'horizontal')
-      }
-    },
-    [activeWorkspaceId, getWorkspaces, handleSplit]
-  )
-
-  useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [handleKeyDown])
+  useKeybindings({
+    splitPane: (workspaceId, paneId, direction) => handleSplit(workspaceId, paneId, direction),
+    setSearchOpen,
+  })
 
   async function toggleLogging(channelId: string) {
     if (activeLogs.has(channelId)) {

@@ -9,12 +9,13 @@ import (
 // Config holds application-level settings that are not per-host.
 // All values have sensible defaults via Default().
 type Config struct {
-	SSH    SSHConfig    `json:"ssh"`
-	SFTP   SFTPConfig   `json:"sftp"`
-	Window WindowConfig `json:"window"`
-	Log    LogConfig    `json:"log"`
-	Debug  DebugConfig  `json:"debug"`
-	Vault  VaultConfig  `json:"vault"`
+	SSH         SSHConfig         `json:"ssh"`
+	SFTP        SFTPConfig        `json:"sftp"`
+	Window      WindowConfig      `json:"window"`
+	Log         LogConfig         `json:"log"`
+	Debug       DebugConfig       `json:"debug"`
+	Keybindings map[string]string `json:"keybindings,omitempty"`
+	Vault       VaultConfig       `json:"vault"`
 }
 
 // LogConfig controls application logging behaviour.

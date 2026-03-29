@@ -1,9 +1,12 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/dylanbr0wn/shsh/internal/vault"
 )
 
 // fakeResolver is a test double for CredentialResolver that records calls
@@ -13,6 +16,8 @@ type fakeResolver struct {
 	InlineSecretFn func(key, fallback string) (string, error)
 	// ResolveFn, if set, overrides Resolve behavior.
 	ResolveFn func(ctx context.Context, source, ref string) (string, error)
+	// StoreSecretFn, if set, overrides StoreSecret behavior.
+	StoreSecretFn func(key, value string) error
 
 	storedSecrets  map[string]string
 	deletedSecrets []string
@@ -41,6 +46,9 @@ func (f *fakeResolver) InlineSecret(key, fallback string) (string, error) {
 }
 
 func (f *fakeResolver) StoreSecret(key, value string) error {
+	if f.StoreSecretFn != nil {
+		return f.StoreSecretFn(key, value)
+	}
 	f.storedSecrets[key] = value
 	return nil
 }
@@ -552,5 +560,1031 @@ func TestDeleteHost_DeletesSecrets(t *testing.T) {
 	}
 	if !found[added.ID+":passphrase"] {
 		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID+":passphrase", fr.deletedSecrets)
+	}
+}
+
+// --- vaultFakeResolver and vault test infrastructure ---
+
+type vaultFakeResolver struct {
+	fakeResolver
+}
+
+var testVaultKey = []byte("01234567890123456789012345678901")
+
+func newTestStoreWithVault(t *testing.T) (*Store, *vaultFakeResolver) {
+	t.Helper()
+	vfr := &vaultFakeResolver{fakeResolver: *newFakeResolver()}
+	s, err := New(":memory:", &vfr.fakeResolver)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	s.SetVaultKeyFunc(func() ([]byte, error) { return testVaultKey, nil })
+	t.Cleanup(s.Close)
+	return s, vfr
+}
+
+// --- Group CRUD tests ---
+
+func TestAddGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g1, err := s.AddGroup(CreateGroupInput{Name: "Servers"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if g1.Name != "Servers" {
+		t.Errorf("Name = %q, want %q", g1.Name, "Servers")
+	}
+	if g1.SortOrder != 0 {
+		t.Errorf("SortOrder = %d, want 0", g1.SortOrder)
+	}
+
+	g2, err := s.AddGroup(CreateGroupInput{Name: "Dev"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if g2.SortOrder != 1 {
+		t.Errorf("SortOrder = %d, want 1", g2.SortOrder)
+	}
+}
+
+func TestListGroups(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	for _, name := range []string{"C", "A", "B"} {
+		if _, err := s.AddGroup(CreateGroupInput{Name: name}); err != nil {
+			t.Fatalf("AddGroup %q: %v", name, err)
+		}
+	}
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(groups))
+	}
+	// Added in order, so sort_order is 0, 1, 2 which matches insertion order.
+	want := []string{"C", "A", "B"}
+	for i, g := range groups {
+		if g.Name != want[i] {
+			t.Errorf("groups[%d].Name = %q, want %q", i, g.Name, want[i])
+		}
+	}
+}
+
+func TestListGroups_EmptyReturnsSlice(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if groups == nil {
+		t.Fatal("ListGroups returned nil, want empty slice")
+	}
+	if len(groups) != 0 {
+		t.Fatalf("expected 0 groups, got %d", len(groups))
+	}
+}
+
+func TestUpdateGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	// Create a profile to assign.
+	p, err := s.AddProfile(CreateProfileInput{Name: "mono", FontSize: 12, CursorStyle: "block", Scrollback: 1000, ColorTheme: "dark"})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Old"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	updated, err := s.UpdateGroup(UpdateGroupInput{
+		ID:                g.ID,
+		Name:              "New",
+		SortOrder:         5,
+		TerminalProfileID: &p.ID,
+	})
+	if err != nil {
+		t.Fatalf("UpdateGroup: %v", err)
+	}
+	if updated.Name != "New" {
+		t.Errorf("Name = %q, want %q", updated.Name, "New")
+	}
+	if updated.SortOrder != 5 {
+		t.Errorf("SortOrder = %d, want 5", updated.SortOrder)
+	}
+	if updated.TerminalProfileID == nil || *updated.TerminalProfileID != p.ID {
+		t.Errorf("TerminalProfileID = %v, want %q", updated.TerminalProfileID, p.ID)
+	}
+}
+
+func TestDeleteGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Tmp"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if err := s.DeleteGroup(g.ID); err != nil {
+		t.Fatalf("DeleteGroup: %v", err)
+	}
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	for _, gr := range groups {
+		if gr.ID == g.ID {
+			t.Error("deleted group still present")
+		}
+	}
+}
+
+func TestAddGroup_SortOrderAfterDeletion(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g1, err := s.AddGroup(CreateGroupInput{Name: "A"})
+	if err != nil {
+		t.Fatalf("AddGroup A: %v", err)
+	}
+	g2, err := s.AddGroup(CreateGroupInput{Name: "B"})
+	if err != nil {
+		t.Fatalf("AddGroup B: %v", err)
+	}
+	if g2.SortOrder != 1 {
+		t.Fatalf("B SortOrder = %d, want 1", g2.SortOrder)
+	}
+
+	// Delete first group; next sort_order should still increment past max.
+	if err := s.DeleteGroup(g1.ID); err != nil {
+		t.Fatalf("DeleteGroup: %v", err)
+	}
+
+	g3, err := s.AddGroup(CreateGroupInput{Name: "C"})
+	if err != nil {
+		t.Fatalf("AddGroup C: %v", err)
+	}
+	if g3.SortOrder != 2 {
+		t.Errorf("C SortOrder = %d, want 2 (should not compact)", g3.SortOrder)
+	}
+}
+
+// --- Terminal Profile CRUD tests ---
+
+func TestAddProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{
+		Name:        "Dev",
+		FontSize:    16,
+		CursorStyle: "underline",
+		CursorBlink: true,
+		Scrollback:  10000,
+		ColorTheme:  "monokai",
+	})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+	if p.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+	if p.Name != "Dev" {
+		t.Errorf("Name = %q, want %q", p.Name, "Dev")
+	}
+	if p.FontSize != 16 {
+		t.Errorf("FontSize = %d, want 16", p.FontSize)
+	}
+	if p.CursorStyle != "underline" {
+		t.Errorf("CursorStyle = %q, want %q", p.CursorStyle, "underline")
+	}
+	if !p.CursorBlink {
+		t.Error("CursorBlink = false, want true")
+	}
+	if p.Scrollback != 10000 {
+		t.Errorf("Scrollback = %d, want 10000", p.Scrollback)
+	}
+	if p.ColorTheme != "monokai" {
+		t.Errorf("ColorTheme = %q, want %q", p.ColorTheme, "monokai")
+	}
+	if p.CreatedAt == "" {
+		t.Error("expected non-empty CreatedAt")
+	}
+}
+
+func TestListProfiles(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	for _, name := range []string{"A", "B", "C"} {
+		if _, err := s.AddProfile(CreateProfileInput{Name: name, FontSize: 14, CursorStyle: "block", Scrollback: 1000, ColorTheme: "auto"}); err != nil {
+			t.Fatalf("AddProfile %q: %v", name, err)
+		}
+	}
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("ListProfiles: %v", err)
+	}
+	if len(profiles) != 3 {
+		t.Fatalf("expected 3 profiles, got %d", len(profiles))
+	}
+}
+
+func TestUpdateProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{
+		Name:        "Old",
+		FontSize:    14,
+		CursorStyle: "block",
+		CursorBlink: true,
+		Scrollback:  5000,
+		ColorTheme:  "auto",
+	})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+
+	updated, err := s.UpdateProfile(UpdateProfileInput{
+		ID:          p.ID,
+		Name:        "New",
+		FontSize:    18,
+		CursorStyle: "bar",
+		CursorBlink: false,
+		Scrollback:  2000,
+		ColorTheme:  "solarized",
+	})
+	if err != nil {
+		t.Fatalf("UpdateProfile: %v", err)
+	}
+	if updated.Name != "New" {
+		t.Errorf("Name = %q, want %q", updated.Name, "New")
+	}
+	if updated.FontSize != 18 {
+		t.Errorf("FontSize = %d, want 18", updated.FontSize)
+	}
+	if updated.CursorStyle != "bar" {
+		t.Errorf("CursorStyle = %q, want %q", updated.CursorStyle, "bar")
+	}
+	if updated.CursorBlink {
+		t.Error("CursorBlink = true, want false")
+	}
+	if updated.Scrollback != 2000 {
+		t.Errorf("Scrollback = %d, want 2000", updated.Scrollback)
+	}
+	if updated.ColorTheme != "solarized" {
+		t.Errorf("ColorTheme = %q, want %q", updated.ColorTheme, "solarized")
+	}
+}
+
+func TestDeleteProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{Name: "Tmp", FontSize: 14, CursorStyle: "block", Scrollback: 1000, ColorTheme: "auto"})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+	if err := s.DeleteProfile(p.ID); err != nil {
+		t.Fatalf("DeleteProfile: %v", err)
+	}
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("ListProfiles: %v", err)
+	}
+	for _, pr := range profiles {
+		if pr.ID == p.ID {
+			t.Error("deleted profile still present")
+		}
+	}
+}
+
+// --- Vault integration tests ---
+
+func TestAddHost_VaultEnabled(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "vault-host", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Password should NOT be in the keychain fake.
+	if _, ok := vfr.storedSecrets[added.ID]; ok {
+		t.Error("password was stored in keychain fake, expected vault path")
+	}
+
+	// Verify via GetEncryptedSecret + vault.Decrypt.
+	nonce, ciphertext, err := s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected encrypted secret, got nil nonce")
+	}
+	plaintext, err := vault.Decrypt(testVaultKey, nonce, ciphertext)
+	if err != nil {
+		t.Fatalf("vault.Decrypt: %v", err)
+	}
+	if string(plaintext) != "vault-pw" {
+		t.Errorf("decrypted = %q, want %q", string(plaintext), "vault-pw")
+	}
+}
+
+func TestAddHost_VaultKeyError_Rollback(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	s.SetVaultKeyFunc(func() ([]byte, error) { return nil, fmt.Errorf("vault locked") })
+
+	_, err := s.AddHost(CreateHostInput{
+		Label: "fail-host", Hostname: "f.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err == nil {
+		t.Fatal("expected error when vault key fails, got nil")
+	}
+
+	// Host row should have been deleted (rollback).
+	hosts, err := s.ListHosts()
+	if err != nil {
+		t.Fatalf("ListHosts: %v", err)
+	}
+	if len(hosts) != 0 {
+		t.Errorf("expected 0 hosts after rollback, got %d", len(hosts))
+	}
+}
+
+func TestGetHostForConnect_VaultPath(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "v", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-secret",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "vault-secret" {
+		t.Errorf("password = %q, want %q", pw, "vault-secret")
+	}
+}
+
+func TestGetHostForConnect_VaultLocked(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "v", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Now lock the vault.
+	s.SetVaultKeyFunc(func() ([]byte, error) { return nil, fmt.Errorf("vault locked") })
+
+	_, _, err = s.GetHostForConnect(added.ID)
+	if err == nil {
+		t.Fatal("expected error when vault is locked, got nil")
+	}
+}
+
+func TestGetHostForConnect_VaultNoSecret_FallsToKeychain(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	// Add host as agent (no password stored in vault).
+	added, err := s.AddHost(CreateHostInput{
+		Label: "a", Hostname: "a.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthAgent,
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Manually switch to password auth without going through vault path.
+	s.db.Exec(`UPDATE hosts SET auth_method='password', credential_source='inline' WHERE id=?`, added.ID) //nolint:errcheck
+
+	// Set InlineSecretFn to return a keychain password.
+	vfr.InlineSecretFn = func(key, fallback string) (string, error) {
+		return "keychain-pw", nil
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "keychain-pw" {
+		t.Errorf("password = %q, want %q (keychain fallthrough)", pw, "keychain-pw")
+	}
+}
+
+// --- Encrypted secret table tests ---
+
+func TestStoreEncryptedSecret_RoundTrip(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Need a host for FK.
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ciphertext, err := vault.Encrypt(testVaultKey, []byte("hello"))
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	gotNonce, gotCiphertext, err := s.GetEncryptedSecret(host.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if !bytes.Equal(gotNonce, nonce) {
+		t.Errorf("nonce mismatch")
+	}
+	if !bytes.Equal(gotCiphertext, ciphertext) {
+		t.Errorf("ciphertext mismatch")
+	}
+}
+
+func TestGetEncryptedSecret_NotFound(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	nonce, ciphertext, err := s.GetEncryptedSecret("nonexistent", "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce != nil {
+		t.Errorf("expected nil nonce, got %v", nonce)
+	}
+	if ciphertext != nil {
+		t.Errorf("expected nil ciphertext, got %v", ciphertext)
+	}
+}
+
+func TestDeleteEncryptedSecret(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ciphertext, _ := vault.Encrypt(testVaultKey, []byte("secret"))
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	if err := s.DeleteEncryptedSecret(host.ID, "password"); err != nil {
+		t.Fatalf("DeleteEncryptedSecret: %v", err)
+	}
+
+	gotNonce, _, err := s.GetEncryptedSecret(host.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret after delete: %v", err)
+	}
+	if gotNonce != nil {
+		t.Error("expected nil nonce after delete")
+	}
+}
+
+func TestListEncryptedSecrets(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Create 3 hosts for FK.
+	var hostIDs []string
+	for i := 0; i < 3; i++ {
+		h, err := s.AddHost(CreateHostInput{
+			Label: fmt.Sprintf("h%d", i), Hostname: fmt.Sprintf("h%d.example.com", i),
+			Port: 22, Username: "u", AuthMethod: AuthAgent,
+		})
+		if err != nil {
+			t.Fatalf("AddHost: %v", err)
+		}
+		hostIDs = append(hostIDs, h.ID)
+	}
+
+	for _, id := range hostIDs {
+		nonce, ct, _ := vault.Encrypt(testVaultKey, []byte("pw-"+id))
+		if err := s.StoreEncryptedSecret(id, "password", nonce, ct); err != nil {
+			t.Fatalf("StoreEncryptedSecret: %v", err)
+		}
+	}
+
+	secrets, err := s.ListEncryptedSecrets()
+	if err != nil {
+		t.Fatalf("ListEncryptedSecrets: %v", err)
+	}
+	if len(secrets) != 3 {
+		t.Fatalf("expected 3 secrets, got %d", len(secrets))
+	}
+}
+
+// --- Vault meta tests ---
+
+func TestSaveVaultMeta_RoundTrip(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	meta := &vault.VaultMeta{
+		Salt:         []byte("test-salt-32-bytes-long-01234567"),
+		Nonce:        []byte("test-nonce12"),
+		VerifyBlob:   []byte("encrypted-verify-blob"),
+		ArgonTime:    3,
+		ArgonMemory:  65536,
+		ArgonThreads: 4,
+	}
+
+	if err := s.SaveVaultMeta(meta); err != nil {
+		t.Fatalf("SaveVaultMeta: %v", err)
+	}
+
+	got, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetVaultMeta returned nil")
+	}
+	if !bytes.Equal(got.Salt, meta.Salt) {
+		t.Errorf("Salt mismatch")
+	}
+	if !bytes.Equal(got.Nonce, meta.Nonce) {
+		t.Errorf("Nonce mismatch")
+	}
+	if !bytes.Equal(got.VerifyBlob, meta.VerifyBlob) {
+		t.Errorf("VerifyBlob mismatch")
+	}
+	if got.ArgonTime != meta.ArgonTime {
+		t.Errorf("ArgonTime = %d, want %d", got.ArgonTime, meta.ArgonTime)
+	}
+	if got.ArgonMemory != meta.ArgonMemory {
+		t.Errorf("ArgonMemory = %d, want %d", got.ArgonMemory, meta.ArgonMemory)
+	}
+	if got.ArgonThreads != meta.ArgonThreads {
+		t.Errorf("ArgonThreads = %d, want %d", got.ArgonThreads, meta.ArgonThreads)
+	}
+}
+
+func TestGetVaultMeta_Empty(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	meta, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if meta != nil {
+		t.Errorf("expected nil meta, got %+v", meta)
+	}
+}
+
+func TestDeleteVaultMeta_ClearsSecretsAndMeta(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Save vault meta first.
+	meta := &vault.VaultMeta{
+		Salt:         []byte("test-salt-32-bytes-long-01234567"),
+		Nonce:        []byte("test-nonce12"),
+		VerifyBlob:   []byte("blob"),
+		ArgonTime:    3,
+		ArgonMemory:  65536,
+		ArgonThreads: 4,
+	}
+	if err := s.SaveVaultMeta(meta); err != nil {
+		t.Fatalf("SaveVaultMeta: %v", err)
+	}
+
+	// Add a host so FK on secrets is satisfied.
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ct, _ := vault.Encrypt(testVaultKey, []byte("secret"))
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ct); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	if err := s.DeleteVaultMeta(); err != nil {
+		t.Fatalf("DeleteVaultMeta: %v", err)
+	}
+
+	// Both tables should be empty.
+	gotMeta, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if gotMeta != nil {
+		t.Error("expected nil meta after delete")
+	}
+
+	secrets, err := s.ListEncryptedSecrets()
+	if err != nil {
+		t.Fatalf("ListEncryptedSecrets: %v", err)
+	}
+	if len(secrets) != 0 {
+		t.Errorf("expected 0 secrets after delete, got %d", len(secrets))
+	}
+}
+
+// --- UpdateHost credential cleanup tests ---
+
+func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Verify vault secret exists.
+	nonce, _, err := s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected vault secret before update")
+	}
+
+	vfr.deletedSecrets = nil
+
+	// Switch to external PM.
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword,
+		CredentialSource: "1password", CredentialRef: "op://Vault/Item/pw",
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Keychain DeleteSecret should have been called.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected keychain DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
+	}
+
+	// Vault secret should be deleted.
+	nonce, _, err = s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce != nil {
+		t.Error("expected vault secret to be deleted after switching to external PM")
+	}
+}
+
+func TestUpdateHost_PasswordToAgent_ClearsPasswordEntries(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	vfr.deletedSecrets = nil
+
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthAgent,
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Keychain entry should be deleted.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
+	}
+
+	// Vault secret should be gone.
+	nonce, _, _ := s.GetEncryptedSecret(added.ID, "password")
+	if nonce != nil {
+		t.Error("expected vault password deleted after switch to agent")
+	}
+}
+
+func TestUpdateHost_KeyToPassword_ClearsPassphraseEntries(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	kp := "/path/to/key"
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthKey, KeyPath: &kp, KeyPassphrase: "pass123",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Verify passphrase vault secret exists.
+	nonce, _, err := s.GetEncryptedSecret(added.ID, "passphrase")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected passphrase vault secret")
+	}
+
+	vfr.deletedSecrets = nil
+
+	_, err = s.UpdateHost(UpdateHostInput{
+		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "new-pw",
+	})
+	if err != nil {
+		t.Fatalf("UpdateHost: %v", err)
+	}
+
+	// Passphrase keychain entry should be deleted.
+	found := false
+	for _, k := range vfr.deletedSecrets {
+		if k == added.ID+":passphrase" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected DeleteSecret(%q), got %v", added.ID+":passphrase", vfr.deletedSecrets)
+	}
+
+	// Passphrase vault secret should be gone.
+	nonce, _, _ = s.GetEncryptedSecret(added.ID, "passphrase")
+	if nonce != nil {
+		t.Error("expected passphrase vault secret deleted after switch to password")
+	}
+}
+
+// --- MigratePasswordsToKeychain tests ---
+
+func TestMigratePasswordsToKeychain(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	// Make StoreSecret fail during AddHost so password falls back to DB column.
+	fr.StoreSecretFn = func(key, value string) error {
+		return ErrKeychainUnavailable
+	}
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "db-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Reset StoreSecretFn so migration can succeed.
+	fr.StoreSecretFn = nil
+
+	if err := s.MigratePasswordsToKeychain(); err != nil {
+		t.Fatalf("MigratePasswordsToKeychain: %v", err)
+	}
+
+	// Verify password is retrievable via InlineSecret (keychain path).
+	pw, ok := fr.storedSecrets[added.ID]
+	if !ok {
+		t.Fatal("expected password in keychain after migration")
+	}
+	if pw != "db-pw" {
+		t.Errorf("migrated password = %q, want %q", pw, "db-pw")
+	}
+}
+
+func TestMigratePasswordsToKeychain_KeychainUnavailable(t *testing.T) {
+	s, fr := newTestStore(t)
+
+	// Make StoreSecret always fail.
+	fr.StoreSecretFn = func(key, value string) error {
+		return ErrKeychainUnavailable
+	}
+
+	_, err := s.AddHost(CreateHostInput{
+		Label: "h", Hostname: "h.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Migration should not return an error even if keychain is unavailable.
+	if err := s.MigratePasswordsToKeychain(); err != nil {
+		t.Fatalf("MigratePasswordsToKeychain: %v", err)
+	}
+}
+
+// --- Other gap tests ---
+
+func TestFindHostID(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	added, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "find.example.com", Port: 22, Username: "alice", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	id, err := s.FindHostID("find.example.com", 22, "alice")
+	if err != nil {
+		t.Fatalf("FindHostID: %v", err)
+	}
+	if id != added.ID {
+		t.Errorf("FindHostID = %q, want %q", id, added.ID)
+	}
+
+	id, err = s.FindHostID("nope.example.com", 22, "alice")
+	if err != nil {
+		t.Fatalf("FindHostID (not found): %v", err)
+	}
+	if id != "" {
+		t.Errorf("FindHostID not-found = %q, want empty", id)
+	}
+}
+
+func TestListInlinePasswordHostIDs(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	// 1. password inline
+	h1, err := s.AddHost(CreateHostInput{Label: "pw-inline", Hostname: "a.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword, Password: "pw"})
+	if err != nil {
+		t.Fatalf("AddHost pw-inline: %v", err)
+	}
+	// 2. key inline
+	kp := "/path/key"
+	h2, err := s.AddHost(CreateHostInput{Label: "key-inline", Hostname: "b.example.com", Port: 22, Username: "u", AuthMethod: AuthKey, KeyPath: &kp})
+	if err != nil {
+		t.Fatalf("AddHost key-inline: %v", err)
+	}
+	// 3. agent
+	_, err = s.AddHost(CreateHostInput{Label: "agent", Hostname: "c.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost agent: %v", err)
+	}
+	// 4. password external PM
+	_, err = s.AddHost(CreateHostInput{Label: "pw-ext", Hostname: "d.example.com", Port: 22, Username: "u", AuthMethod: AuthPassword, CredentialSource: "1password", CredentialRef: "ref"})
+	if err != nil {
+		t.Fatalf("AddHost pw-ext: %v", err)
+	}
+
+	ids, err := s.ListInlinePasswordHostIDs()
+	if err != nil {
+		t.Fatalf("ListInlinePasswordHostIDs: %v", err)
+	}
+
+	idSet := map[string]bool{}
+	for _, id := range ids {
+		idSet[id] = true
+	}
+	if !idSet[h1.ID] {
+		t.Errorf("expected pw-inline host %q in result", h1.ID)
+	}
+	if !idSet[h2.ID] {
+		t.Errorf("expected key-inline host %q in result", h2.ID)
+	}
+	if len(ids) != 2 {
+		t.Errorf("expected 2 inline hosts, got %d: %v", len(ids), ids)
+	}
+}
+
+// --- GetHostsByGroup tests ---
+
+func TestGetHostsByGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Production"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	kp := "/home/user/.ssh/id_ed25519"
+	reconnectEnabled := true
+	reconnectRetries := 5
+	reconnectInitDelay := 2
+	reconnectMaxDelay := 30
+	keepAliveInterval := 15
+	keepAliveMaxMissed := 3
+
+	added, err := s.AddHost(CreateHostInput{
+		Label:                        "prod-server",
+		Hostname:                     "prod.example.com",
+		Port:                         2222,
+		Username:                     "deploy",
+		AuthMethod:                   AuthKey,
+		KeyPath:                      &kp,
+		GroupID:                      &g.ID,
+		Color:                        "#ff0000",
+		Tags:                         []string{"prod", "critical"},
+		CredentialSource:             "inline",
+		ReconnectEnabled:             &reconnectEnabled,
+		ReconnectMaxRetries:          &reconnectRetries,
+		ReconnectInitialDelaySeconds: &reconnectInitDelay,
+		ReconnectMaxDelaySeconds:     &reconnectMaxDelay,
+		KeepAliveIntervalSeconds:     &keepAliveInterval,
+		KeepAliveMaxMissed:           &keepAliveMaxMissed,
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	hosts, err := s.GetHostsByGroup(g.ID)
+	if err != nil {
+		t.Fatalf("GetHostsByGroup: %v", err)
+	}
+	if len(hosts) != 1 {
+		t.Fatalf("expected 1 host, got %d", len(hosts))
+	}
+
+	h := hosts[0]
+	if h.ID != added.ID {
+		t.Errorf("ID = %q, want %q", h.ID, added.ID)
+	}
+	if h.Label != "prod-server" {
+		t.Errorf("Label = %q, want %q", h.Label, "prod-server")
+	}
+	if h.Hostname != "prod.example.com" {
+		t.Errorf("Hostname = %q, want %q", h.Hostname, "prod.example.com")
+	}
+	if h.Port != 2222 {
+		t.Errorf("Port = %d, want 2222", h.Port)
+	}
+	if h.KeyPath == nil || *h.KeyPath != kp {
+		t.Errorf("KeyPath = %v, want %q", h.KeyPath, kp)
+	}
+	if h.CredentialSource != "inline" {
+		t.Errorf("CredentialSource = %q, want %q", h.CredentialSource, "inline")
+	}
+	if h.Color != "#ff0000" {
+		t.Errorf("Color = %q, want %q", h.Color, "#ff0000")
+	}
+	if len(h.Tags) != 2 || h.Tags[0] != "prod" || h.Tags[1] != "critical" {
+		t.Errorf("Tags = %v, want [prod critical]", h.Tags)
+	}
+	if h.GroupID == nil || *h.GroupID != g.ID {
+		t.Errorf("GroupID = %v, want %q", h.GroupID, g.ID)
+	}
+	if h.ReconnectEnabled == nil || !*h.ReconnectEnabled {
+		t.Error("ReconnectEnabled = nil/false, want true")
+	}
+	if h.ReconnectMaxRetries == nil || *h.ReconnectMaxRetries != 5 {
+		t.Errorf("ReconnectMaxRetries = %v, want 5", h.ReconnectMaxRetries)
+	}
+	if h.ReconnectInitialDelaySeconds == nil || *h.ReconnectInitialDelaySeconds != 2 {
+		t.Errorf("ReconnectInitialDelaySeconds = %v, want 2", h.ReconnectInitialDelaySeconds)
+	}
+	if h.ReconnectMaxDelaySeconds == nil || *h.ReconnectMaxDelaySeconds != 30 {
+		t.Errorf("ReconnectMaxDelaySeconds = %v, want 30", h.ReconnectMaxDelaySeconds)
+	}
+	if h.KeepAliveIntervalSeconds == nil || *h.KeepAliveIntervalSeconds != 15 {
+		t.Errorf("KeepAliveIntervalSeconds = %v, want 15", h.KeepAliveIntervalSeconds)
+	}
+	if h.KeepAliveMaxMissed == nil || *h.KeepAliveMaxMissed != 3 {
+		t.Errorf("KeepAliveMaxMissed = %v, want 3", h.KeepAliveMaxMissed)
+	}
+}
+
+func TestGetHostsByGroup_Empty(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Empty"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	hosts, err := s.GetHostsByGroup(g.ID)
+	if err != nil {
+		t.Fatalf("GetHostsByGroup: %v", err)
+	}
+	if hosts == nil {
+		t.Fatal("GetHostsByGroup returned nil, want empty slice")
+	}
+	if len(hosts) != 0 {
+		t.Errorf("expected 0 hosts, got %d", len(hosts))
 	}
 }

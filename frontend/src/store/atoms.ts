@@ -83,3 +83,15 @@ export const sidebarCollapsedAtom = atom<boolean>(false)
 // Pending template to open — set by TabBar, consumed by WorkspaceView
 import type { WorkspaceTemplate } from '../types'
 export const pendingTemplateAtom = atom<WorkspaceTemplate | null>(null)
+
+// Resolved keybindings from the Go backend
+export interface ResolvedKeybinding {
+  action_id: string
+  label: string
+  category: string
+  shortcut: string
+  default: string
+  protected: boolean
+  modified: boolean
+}
+export const keybindingsAtom = atom<ResolvedKeybinding[]>([])

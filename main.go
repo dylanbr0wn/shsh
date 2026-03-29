@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
+	"github.com/dylanbr0wn/shsh/internal/keybind"
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -28,15 +29,28 @@ func buildMenu(app *App) *menu.Menu {
 		m.Append(menu.AppMenu())
 	}
 
+	resolved := keybind.Resolve(keybind.Defaults(), app.deps.Cfg.Keybindings)
+	shortcutMap := make(map[string]string, len(resolved))
+	for _, r := range resolved {
+		shortcutMap[r.ActionID] = r.Shortcut
+	}
+	shortcutLabel := func(actionID string) string {
+		s := shortcutMap[actionID]
+		if s == "" {
+			return ""
+		}
+		return "  " + keybind.FormatForDisplay(s)
+	}
+
 	file := m.AddSubmenu("File")
-	file.AddText("Quick Connect...", keys.CmdOrCtrl("n"), func(_ *menu.CallbackData) {
+	file.AddText("Quick Connect..."+shortcutLabel("quick_connect"), nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:new-connection")
 	})
-	file.AddText("Add Saved Host...", keys.Combo("n", keys.CmdOrCtrlKey, keys.ShiftKey), func(_ *menu.CallbackData) {
+	file.AddText("Add Saved Host..."+shortcutLabel("add_host"), nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:add-host")
 	})
-	file.AddText("Import Hosts...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.deps.Ctx, "menu:import-hosts")
+	file.AddText("Import SSH Config..."+shortcutLabel("import_ssh_config"), nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.deps.Ctx, "menu:import-ssh-config")
 	})
 	file.AddText("Export Hosts...", nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:export-hosts")
@@ -49,7 +63,7 @@ func buildMenu(app *App) *menu.Menu {
 		runtime.EventsEmit(app.deps.Ctx, "menu:terminal-profiles")
 	})
 	file.AddSeparator()
-	file.AddText("Settings...", keys.CmdOrCtrl(","), func(_ *menu.CallbackData) {
+	file.AddText("Settings..."+shortcutLabel("settings"), nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:settings")
 	})
 	file.AddSeparator()
@@ -145,6 +159,7 @@ func main() {
 			app.sessions,
 			app.keys,
 			app.tools,
+			app.keybinds,
 			app.vault,
 		},
 		Mac: &mac.Options{
