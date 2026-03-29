@@ -13,6 +13,7 @@ import {
   FieldSeparator,
   FieldSet,
 } from '../ui/field'
+import { SecuritySettings } from '../settings/SecuritySettings'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(isSettingsOpenAtom)
@@ -57,6 +58,8 @@ export function SettingsModal() {
             </Field>
           </FieldGroup>
         </FieldSet>
+        <FieldSeparator />
+        <SecuritySettings />
       </DialogContent>
     </Dialog>
   )
