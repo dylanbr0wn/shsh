@@ -13,6 +13,7 @@ import {
   FieldSeparator,
   FieldSet,
 } from '../ui/field'
+import { KeybindingsSettings } from '../settings/KeybindingsSettings'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(isSettingsOpenAtom)
@@ -23,7 +24,7 @@ export function SettingsModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Configure your preferences</DialogDescription>
@@ -56,6 +57,11 @@ export function SettingsModal() {
               />
             </Field>
           </FieldGroup>
+        </FieldSet>
+        <FieldSeparator />
+        <FieldSet>
+          <FieldLegend>Keyboard Shortcuts</FieldLegend>
+          <KeybindingsSettings />
         </FieldSet>
       </DialogContent>
     </Dialog>
