@@ -64,6 +64,9 @@ export function KeybindingsSettings() {
   const [conflict, setConflict] = useState<ResolvedKeybinding | null>(null)
   const recordingRef = useRef<string | null>(null)
 
+  // Track currently held modifier keys for live display
+  const [heldModifiers, setHeldModifiers] = useState<string[]>([])
+
   recordingRef.current = recordingActionId
 
   const recordingLabel = recordingActionId
@@ -84,6 +87,7 @@ export function KeybindingsSettings() {
         setRecordingActionId(null)
         setRecordedShortcut(null)
         setConflict(null)
+        setHeldModifiers([])
       }
     },
     [refreshBindings]
@@ -93,6 +97,7 @@ export function KeybindingsSettings() {
     setRecordingActionId(null)
     setRecordedShortcut(null)
     setConflict(null)
+    setHeldModifiers([])
   }, [])
 
   // Fetch keybindings on mount (in case useKeybindings hook hasn't run yet)
@@ -102,11 +107,20 @@ export function KeybindingsSettings() {
     }
   }, [keybindings.length, refreshBindings])
 
-  // Recording keydown handler
+  // Live modifier tracking + recording keydown handler
   useEffect(() => {
     if (!recordingActionId) return
 
-    const handler = (e: KeyboardEvent) => {
+    const updateModifiers = (e: KeyboardEvent) => {
+      const mods: string[] = []
+      const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey
+      if (cmdOrCtrl) mods.push(isMac ? '⌘' : 'Ctrl')
+      if (e.altKey) mods.push(isMac ? '⌥' : 'Alt')
+      if (e.shiftKey) mods.push(isMac ? '⇧' : 'Shift')
+      setHeldModifiers(mods)
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       e.preventDefault()
       e.stopPropagation()
 
@@ -115,10 +129,13 @@ export function KeybindingsSettings() {
         return
       }
 
+      // Update live modifier display
+      updateModifiers(e)
+
       const shortcut = eventToShortcut(e)
       if (!shortcut) return
 
-      // Show the recorded shortcut live
+      // A non-modifier key was pressed — we have a complete shortcut
       setRecordedShortcut(shortcut)
 
       const conflicting = keybindings.find(
@@ -128,7 +145,6 @@ export function KeybindingsSettings() {
       if (conflicting) {
         setConflict(conflicting)
       } else {
-        // No conflict — apply after a brief moment so the user sees what they pressed
         setConflict(null)
         setTimeout(() => {
           applyBinding(recordingRef.current!, shortcut)
@@ -136,8 +152,18 @@ export function KeybindingsSettings() {
       }
     }
 
-    window.addEventListener('keydown', handler, true)
-    return () => window.removeEventListener('keydown', handler, true)
+    const handleKeyUp = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      updateModifiers(e)
+    }
+
+    window.addEventListener('keydown', handleKeyDown, true)
+    window.addEventListener('keyup', handleKeyUp, true)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true)
+      window.removeEventListener('keyup', handleKeyUp, true)
+    }
   }, [recordingActionId, keybindings, applyBinding, cancelRecording])
 
   async function confirmConflictReassign() {
@@ -292,6 +318,17 @@ export function KeybindingsSettings() {
                                           {part}
                                         </Kbd>
                                       ))}
+                                    </KbdGroup>
+                                  ) : heldModifiers.length > 0 ? (
+                                    <KbdGroup className="text-sm">
+                                      {heldModifiers.map((mod, j) => (
+                                        <Kbd key={j} className="h-7 min-w-7 px-1.5">
+                                          {mod}
+                                        </Kbd>
+                                      ))}
+                                      <span className="text-muted-foreground animate-pulse text-xs">
+                                        + key
+                                      </span>
                                     </KbdGroup>
                                   ) : (
                                     <span className="text-muted-foreground flex items-center gap-2 text-sm">
