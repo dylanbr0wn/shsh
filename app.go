@@ -95,6 +95,10 @@ func (a *App) startup(ctx context.Context) {
 		onLock,
 	)
 
+	if a.deps.Cfg.Vault.Enabled {
+		a.deps.Store.SetVaultKeyFunc(a.deps.LockState.GetKey)
+	}
+
 	a.deps.DebugSink = debuglog.NewDebugSink(
 		&wailsEventEmitter{ctx: ctx},
 		a.deps.Cfg.Debug,

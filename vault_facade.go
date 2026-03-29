@@ -89,6 +89,8 @@ func (f *VaultFacade) SetupVault(password string) error {
 		return fmt.Errorf("setup vault: save config: %w", err)
 	}
 
+	f.d.Store.SetVaultKeyFunc(f.d.LockState.GetKey)
+
 	return nil
 }
 
@@ -196,6 +198,8 @@ func (f *VaultFacade) DisableVault(password string) error {
 
 	// Lock and update config.
 	f.d.LockState.Lock()
+
+	f.d.Store.SetVaultKeyFunc(nil)
 
 	f.d.Cfg.Vault.Enabled = false
 	f.d.Cfg.Vault.TouchIDEnabled = false
