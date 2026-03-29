@@ -3,25 +3,46 @@ package credstore
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"sync"
 
 	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/dylanbr0wn/shsh/internal/vault"
 )
 
+// cmdRunner executes an external command and returns its combined stdout.
+type cmdRunner func(ctx context.Context, name string, args ...string) ([]byte, error)
+
+// pathLooker checks if a binary exists on PATH.
+type pathLooker func(name string) (string, error)
+
 // Resolver implements store.CredentialResolver using the OS keychain
 // for inline secrets and external CLI tools for password managers.
-type Resolver struct{}
+type Resolver struct {
+	runCmd   cmdRunner
+	lookPath pathLooker
 
-// NewResolver returns a Resolver ready for use.
-func NewResolver() *Resolver { return &Resolver{} }
+	bwMu         sync.Mutex
+	bwSessionKey string
+}
+
+// NewResolver returns a Resolver wired to real exec.CommandContext/exec.LookPath.
+func NewResolver() *Resolver {
+	return &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return exec.CommandContext(ctx, name, args...).Output()
+		},
+		lookPath: exec.LookPath,
+	}
+}
 
 // Resolve fetches a secret from an external credential source.
 func (r *Resolver) Resolve(ctx context.Context, source, ref string) (string, error) {
 	switch Source(source) {
 	case Source1Password:
-		return fetchFrom1PasswordCtx(ctx, ref)
+		return r.fetchFrom1PasswordCtx(ctx, ref)
 	case SourceBitwarden:
-		return fetchFromBitwardenCtx(ctx, ref)
+		return r.fetchFromBitwardenCtx(ctx, ref)
 	default:
 		return "", fmt.Errorf("unsupported credential source: %s", source)
 	}

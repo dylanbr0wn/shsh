@@ -1,21 +1,10 @@
 package session
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"testing"
-
-	"github.com/dylanbr0wn/shsh/internal/config"
 )
-
-type stubEmitter struct{}
-
-func (s *stubEmitter) Emit(topic string, data any) {}
-
-func newTestManager() *Manager {
-	return NewManager(context.Background(), &config.Config{}, &stubEmitter{}, nil)
-}
 
 func TestOpenLocalFSChannel(t *testing.T) {
 	m := newTestManager()

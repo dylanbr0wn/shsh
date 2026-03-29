@@ -50,6 +50,45 @@ func TestResolveReconnectConfig_HostOverrides(t *testing.T) {
 	}
 }
 
+func TestResolveReconnectConfig_AllOverrides(t *testing.T) {
+	ssh := config.Default().SSH
+	enabled := false
+	maxRetries := 42
+	initialDelay := 7
+	maxDelay := 120
+	keepAliveInterval := 15
+	keepAliveMaxMissed := 10
+
+	host := store.Host{
+		ReconnectEnabled:             &enabled,
+		ReconnectMaxRetries:          &maxRetries,
+		ReconnectInitialDelaySeconds: &initialDelay,
+		ReconnectMaxDelaySeconds:     &maxDelay,
+		KeepAliveIntervalSeconds:     &keepAliveInterval,
+		KeepAliveMaxMissed:           &keepAliveMaxMissed,
+	}
+	rc := session.ResolveReconnectConfig(ssh, host)
+
+	if rc.Enabled != false {
+		t.Errorf("expected enabled=false, got %v", rc.Enabled)
+	}
+	if rc.MaxRetries != 42 {
+		t.Errorf("expected maxRetries=42, got %d", rc.MaxRetries)
+	}
+	if rc.InitialDelay != 7*time.Second {
+		t.Errorf("expected initialDelay=7s, got %s", rc.InitialDelay)
+	}
+	if rc.MaxDelay != 120*time.Second {
+		t.Errorf("expected maxDelay=120s, got %s", rc.MaxDelay)
+	}
+	if rc.KeepAliveInterval != 15*time.Second {
+		t.Errorf("expected keepAliveInterval=15s, got %s", rc.KeepAliveInterval)
+	}
+	if rc.KeepAliveMaxMissed != 10 {
+		t.Errorf("expected keepAliveMaxMissed=10, got %d", rc.KeepAliveMaxMissed)
+	}
+}
+
 func TestBackoffDelay(t *testing.T) {
 	initial := 2 * time.Second
 	max := 30 * time.Second
