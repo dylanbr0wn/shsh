@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"testing"
@@ -196,5 +197,271 @@ func TestVaultStoreSecret_BadKey(t *testing.T) {
 	err := r.VaultStoreSecret(ss, shortKey, "h", "password", "secret")
 	if err == nil {
 		t.Fatal("expected error for short key, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Part 2: PM CLI argument construction and status check tests
+// ---------------------------------------------------------------------------
+
+func TestFetchFrom1Password_OpURI(t *testing.T) {
+	var capturedName string
+	var capturedArgs []string
+
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			capturedName = name
+			capturedArgs = args
+			return []byte("the-password\n"), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/" + name, nil },
+	}
+
+	ref := "op://vault/item/field"
+	got, err := r.fetchFrom1PasswordCtx(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "the-password" {
+		t.Errorf("got %q, want %q", got, "the-password")
+	}
+	if capturedName != "op" {
+		t.Errorf("command = %q, want %q", capturedName, "op")
+	}
+	wantArgs := []string{"read", ref}
+	if fmt.Sprintf("%v", capturedArgs) != fmt.Sprintf("%v", wantArgs) {
+		t.Errorf("args = %v, want %v", capturedArgs, wantArgs)
+	}
+}
+
+func TestFetchFrom1Password_ItemName(t *testing.T) {
+	var capturedArgs []string
+
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			capturedArgs = args
+			return []byte("pw123"), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/" + name, nil },
+	}
+
+	ref := "my-server-login"
+	_, err := r.fetchFrom1PasswordCtx(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantArgs := []string{"item", "get", ref, "--fields", "label=password", "--reveal"}
+	if fmt.Sprintf("%v", capturedArgs) != fmt.Sprintf("%v", wantArgs) {
+		t.Errorf("args = %v, want %v", capturedArgs, wantArgs)
+	}
+}
+
+func TestFetchFromBitwarden_Basic(t *testing.T) {
+	mu.Lock()
+	oldKey := bwSessionKey
+	bwSessionKey = ""
+	mu.Unlock()
+	defer func() {
+		mu.Lock()
+		bwSessionKey = oldKey
+		mu.Unlock()
+	}()
+
+	var capturedName string
+	var capturedArgs []string
+
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			capturedName = name
+			capturedArgs = args
+			return []byte("bw-pass\n"), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/" + name, nil },
+	}
+
+	ref := "my-item"
+	got, err := r.fetchFromBitwardenCtx(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "bw-pass" {
+		t.Errorf("got %q, want %q", got, "bw-pass")
+	}
+	if capturedName != "bw" {
+		t.Errorf("command = %q, want %q", capturedName, "bw")
+	}
+	wantArgs := []string{"get", "password", ref}
+	if fmt.Sprintf("%v", capturedArgs) != fmt.Sprintf("%v", wantArgs) {
+		t.Errorf("args = %v, want %v", capturedArgs, wantArgs)
+	}
+}
+
+func TestFetchFromBitwarden_WithSessionKey(t *testing.T) {
+	mu.Lock()
+	oldKey := bwSessionKey
+	bwSessionKey = "ses-abc123"
+	mu.Unlock()
+	defer func() {
+		mu.Lock()
+		bwSessionKey = oldKey
+		mu.Unlock()
+	}()
+
+	var capturedArgs []string
+
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			capturedArgs = args
+			return []byte("pw"), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/" + name, nil },
+	}
+
+	ref := "item-uuid"
+	_, err := r.fetchFromBitwardenCtx(context.Background(), ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantArgs := []string{"get", "password", ref, "--session", "ses-abc123"}
+	if fmt.Sprintf("%v", capturedArgs) != fmt.Sprintf("%v", wantArgs) {
+		t.Errorf("args = %v, want %v", capturedArgs, wantArgs)
+	}
+}
+
+func TestFetchFrom1Password_CLINotFound(t *testing.T) {
+	r := &Resolver{
+		runCmd:   func(ctx context.Context, name string, args ...string) ([]byte, error) { return nil, nil },
+		lookPath: func(name string) (string, error) { return "", errors.New("not found") },
+	}
+
+	_, err := r.fetchFrom1PasswordCtx(context.Background(), "ref")
+	if err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("expected 'not installed' error, got: %v", err)
+	}
+}
+
+func TestFetchFromBitwarden_CLINotFound(t *testing.T) {
+	r := &Resolver{
+		runCmd:   func(ctx context.Context, name string, args ...string) ([]byte, error) { return nil, nil },
+		lookPath: func(name string) (string, error) { return "", errors.New("not found") },
+	}
+
+	_, err := r.fetchFromBitwardenCtx(context.Background(), "ref")
+	if err == nil || !strings.Contains(err.Error(), "not installed") {
+		t.Fatalf("expected 'not installed' error, got: %v", err)
+	}
+}
+
+func TestFetchFrom1Password_ContextCancelled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately
+
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return nil, ctx.Err()
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/op", nil },
+	}
+
+	_, err := r.fetchFrom1PasswordCtx(ctx, "ref")
+	if err == nil {
+		t.Fatal("expected error for cancelled context")
+	}
+	if !errors.Is(err, context.Canceled) {
+		if !strings.Contains(err.Error(), "canceled") {
+			t.Errorf("expected context.Canceled in error, got: %v", err)
+		}
+	}
+}
+
+func TestCheck1Password_CLIMissing(t *testing.T) {
+	r := &Resolver{
+		runCmd:   func(ctx context.Context, name string, args ...string) ([]byte, error) { return nil, nil },
+		lookPath: func(name string) (string, error) { return "", errors.New("not found") },
+	}
+
+	status := r.check1Password()
+	if status.Available {
+		t.Error("expected Available=false when CLI is missing")
+	}
+}
+
+func TestCheck1Password_Unlocked(t *testing.T) {
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return []byte(`[{"id":"abc"}]`), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/op", nil },
+	}
+
+	status := r.check1Password()
+	if !status.Available {
+		t.Error("expected Available=true")
+	}
+	if status.Locked {
+		t.Error("expected Locked=false")
+	}
+}
+
+func TestCheck1Password_EmptyAccounts(t *testing.T) {
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return []byte(`[]`), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/op", nil },
+	}
+
+	status := r.check1Password()
+	if !status.Available {
+		t.Error("expected Available=true")
+	}
+	if !status.Locked {
+		t.Error("expected Locked=true for empty accounts")
+	}
+}
+
+func TestCheckBitwarden_Unlocked(t *testing.T) {
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return []byte(`{"status":"unlocked"}`), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/bw", nil },
+	}
+
+	status := r.checkBitwarden()
+	if !status.Available {
+		t.Error("expected Available=true")
+	}
+	if status.Locked {
+		t.Error("expected Locked=false")
+	}
+}
+
+func TestCheckBitwarden_Locked(t *testing.T) {
+	r := &Resolver{
+		runCmd: func(ctx context.Context, name string, args ...string) ([]byte, error) {
+			return []byte(`{"status":"locked"}`), nil
+		},
+		lookPath: func(name string) (string, error) { return "/usr/bin/bw", nil },
+	}
+
+	status := r.checkBitwarden()
+	if !status.Available {
+		t.Error("expected Available=true")
+	}
+	if !status.Locked {
+		t.Error("expected Locked=true")
+	}
+}
+
+func TestCheckBitwarden_CLIMissing(t *testing.T) {
+	r := &Resolver{
+		runCmd:   func(ctx context.Context, name string, args ...string) ([]byte, error) { return nil, nil },
+		lookPath: func(name string) (string, error) { return "", errors.New("not found") },
+	}
+
+	status := r.checkBitwarden()
+	if status.Available {
+		t.Error("expected Available=false when CLI is missing")
 	}
 }
