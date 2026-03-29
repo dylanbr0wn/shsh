@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
-import { useAtomValue } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { debugFilteredEntriesAtom } from '../../store/debugStore'
+import { debugFilteredEntriesAtom, debugPanelOpenAtom } from '../../store/debugStore'
 import { DebugFilterBar } from './DebugFilterBar'
 import { DebugSettingsOverlay } from './DebugSettingsOverlay'
 import { DebugLogRow } from './DebugLogRow'
@@ -10,6 +10,7 @@ import { GetConfig } from '@wailsjs/go/main/App'
 
 export function DebugPanel() {
   const entries = useAtomValue(debugFilteredEntriesAtom)
+  const setDebugPanelOpen = useSetAtom(debugPanelOpenAtom)
   const parentRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -59,10 +60,11 @@ export function DebugPanel() {
   }
 
   return (
-    <div className="bg-background border-border relative flex h-full flex-col border-t">
+    <div className="bg-background relative flex h-full flex-col">
       <DebugFilterBar
         onSettingsToggle={() => setSettingsOpen((v) => !v)}
         settingsOpen={settingsOpen}
+        onClose={() => setDebugPanelOpen(false)}
       />
       {settingsOpen && (
         <DebugSettingsOverlay

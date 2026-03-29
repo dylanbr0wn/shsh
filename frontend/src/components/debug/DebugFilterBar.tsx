@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
-import { Search, Settings, X } from 'lucide-react'
+import { Search, Settings, Trash2, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group'
 import {
@@ -43,9 +43,10 @@ const ALL_LEVELS: { key: DebugLevel; label: string }[] = [
 interface Props {
   onSettingsToggle: () => void
   settingsOpen: boolean
+  onClose: () => void
 }
 
-export function DebugFilterBar({ onSettingsToggle, settingsOpen }: Props) {
+export function DebugFilterBar({ onSettingsToggle, settingsOpen, onClose }: Props) {
   const [categories, setCategories] = useAtom(debugFilterCategoriesAtom)
   const [level, setLevel] = useAtom(debugFilterLevelAtom)
   const [search, setSearch] = useAtom(debugFilterSearchAtom)
@@ -170,7 +171,12 @@ export function DebugFilterBar({ onSettingsToggle, settingsOpen }: Props) {
       </Button>
 
       {/* Clear */}
-      <Button variant="ghost" size="icon-xs" title="Clear" onClick={handleClear}>
+      <Button variant="ghost" size="icon-xs" title="Clear log" onClick={handleClear}>
+        <Trash2 />
+      </Button>
+
+      {/* Close */}
+      <Button variant="ghost" size="icon-xs" title="Close debug panel" onClick={onClose}>
         <X />
       </Button>
     </div>
