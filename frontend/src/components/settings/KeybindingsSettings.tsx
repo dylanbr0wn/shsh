@@ -124,10 +124,9 @@ export function KeybindingsSettings() {
                   {recordingActionId === kb.action_id ? (
                     conflict ? (
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-destructive">
-                          Already bound to {conflict.label}.
-                          {conflict.protected && ' (Protected!)'}
-                          {' '}Reassign?
+                        <span className="text-destructive text-xs">
+                          Already bound to {conflict.label}.{conflict.protected && ' (Protected!)'}{' '}
+                          Reassign?
                         </span>
                         <Button
                           variant="ghost"
@@ -151,13 +150,13 @@ export function KeybindingsSettings() {
                         </Button>
                       </div>
                     ) : (
-                      <span className="animate-pulse rounded border border-primary px-2 py-0.5 text-xs text-primary">
+                      <span className="border-primary text-primary animate-pulse rounded border px-2 py-0.5 text-xs">
                         Press shortcut...
                       </span>
                     )
                   ) : (
                     <button
-                      className="rounded border border-border bg-muted px-2 py-0.5 font-mono text-xs text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      className="border-border bg-muted text-muted-foreground hover:border-primary hover:text-primary rounded border px-2 py-0.5 font-mono text-xs transition-colors"
                       onClick={() => {
                         setRecordingActionId(kb.action_id)
                         setPendingShortcut(null)
@@ -169,7 +168,7 @@ export function KeybindingsSettings() {
                   )}
                   {kb.modified && recordingActionId !== kb.action_id && (
                     <button
-                      className="text-xs text-muted-foreground hover:text-foreground"
+                      className="text-muted-foreground hover:text-foreground text-xs"
                       onClick={() => handleReset(kb.action_id)}
                       title="Reset to default"
                     >
