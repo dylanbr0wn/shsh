@@ -1,16 +1,48 @@
-import { useAtom } from 'jotai'
+import { useAtom, useAtomValue } from 'jotai'
 import { BarChart3 } from 'lucide-react'
 import { debugPanelOpenAtom } from '../../store/debugStore'
+import { workspacesAtom } from '../../store/atoms'
+import { collectLeaves } from '../../lib/paneTree'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function StatusBar() {
   const [debugPanelOpen, setDebugPanelOpen] = useAtom(debugPanelOpenAtom)
+  const workspaces = useAtomValue(workspacesAtom)
+
+  // Collect all leaves across all workspaces
+  const allLeaves = workspaces.flatMap((ws) => collectLeaves(ws.layout))
+  const sessionCount = allLeaves.filter((l) => l.kind !== 'local').length
+  const allConnected = sessionCount > 0 && allLeaves
+    .filter((l) => l.kind !== 'local')
+    .every((l) => l.status === 'connected')
+  const anyConnecting = allLeaves
+    .filter((l) => l.kind !== 'local')
+    .some((l) => l.status === 'connecting' || l.status === 'reconnecting')
 
   return (
     <div className="bg-sidebar border-border flex h-6 shrink-0 items-center justify-between border-t px-2 text-xs">
-      {/* Left zone — status info (added in later tasks) */}
-      <div className="flex items-center gap-3" />
+      {/* Left zone — status info */}
+      <div className="text-muted-foreground flex items-center gap-3">
+        {sessionCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    'inline-block size-1.5 rounded-full',
+                    anyConnecting ? 'bg-yellow-500' : allConnected ? 'bg-green-500' : 'bg-red-500'
+                  )}
+                />
+                <span>{sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {sessionCount} active {sessionCount === 1 ? 'session' : 'sessions'}
+            </TooltipContent>
+          </Tooltip>
+        )}
+      </div>
 
       {/* Right zone — actions & indicators */}
       <div className="flex items-center gap-3">
