@@ -28,10 +28,12 @@ describe('useWailsEvent', () => {
 
   it('forwards event args to the current callback via ref', () => {
     let internalHandler: (...args: unknown[]) => void = () => {}
-    vi.mocked(EventsOn).mockImplementation((_event, handler) => {
-      internalHandler = handler
-      return vi.fn()
-    })
+    vi.mocked(EventsOn).mockImplementation(
+      (_event: string, handler: (...args: unknown[]) => void) => {
+        internalHandler = handler
+        return vi.fn()
+      }
+    )
 
     const callback = vi.fn()
     renderHook(() => useWailsEvent('test:event', callback))
@@ -44,10 +46,12 @@ describe('useWailsEvent', () => {
 
   it('does not re-subscribe when callback changes', () => {
     let internalHandler: (...args: unknown[]) => void = () => {}
-    vi.mocked(EventsOn).mockImplementation((_event, handler) => {
-      internalHandler = handler
-      return vi.fn()
-    })
+    vi.mocked(EventsOn).mockImplementation(
+      (_event: string, handler: (...args: unknown[]) => void) => {
+        internalHandler = handler
+        return vi.fn()
+      }
+    )
 
     const callback1 = vi.fn()
     const callback2 = vi.fn()
@@ -74,9 +78,7 @@ describe('useWailsEvent', () => {
   it('re-subscribes when the event name changes', () => {
     const cancel1 = vi.fn()
     const cancel2 = vi.fn()
-    vi.mocked(EventsOn)
-      .mockReturnValueOnce(cancel1)
-      .mockReturnValueOnce(cancel2)
+    vi.mocked(EventsOn).mockReturnValueOnce(cancel1).mockReturnValueOnce(cancel2)
 
     const { rerender } = renderHook(
       ({ event }: { event: string }) => useWailsEvent(event, vi.fn()),

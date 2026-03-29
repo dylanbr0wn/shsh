@@ -108,7 +108,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'connecting' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'connecting',
+        })
       })
 
       expect(store.get(connectingHostIdsAtom)).toEqual(new Set(['host-a']))
@@ -122,7 +127,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'connecting' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'connecting',
+        })
       })
 
       const resultLeaf = store.get(workspacesAtom)[0].layout as PaneLeaf
@@ -140,7 +150,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'connected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'connected',
+        })
       })
 
       const connecting = store.get(connectingHostIdsAtom)
@@ -156,7 +171,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'connected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'connected',
+        })
       })
 
       const resultLeaf = store.get(workspacesAtom)[0].layout as PaneLeaf
@@ -173,7 +193,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'connected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'connected',
+        })
       })
 
       expect(toast.error).not.toHaveBeenCalled()
@@ -188,7 +213,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-unknown', connectionId: 'conn-x', kind: 'terminal', status: 'connected' })
+        channelStatusHandler({
+          channelId: 'ch-unknown',
+          connectionId: 'conn-x',
+          kind: 'terminal',
+          status: 'connected',
+        })
       })
 
       expect(store.get(connectingHostIdsAtom)).toEqual(new Set(['host-x']))
@@ -204,7 +234,13 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'error', error: 'connection refused' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'error',
+          error: 'connection refused',
+        })
       })
 
       const resultLeaf = store.get(workspacesAtom)[0].layout as PaneLeaf
@@ -219,10 +255,18 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'error', error: 'connection refused' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'error',
+          error: 'connection refused',
+        })
       })
 
-      expect(toast.error).toHaveBeenCalledWith('SSH channel error', { description: 'connection refused' })
+      expect(toast.error).toHaveBeenCalledWith('SSH channel error', {
+        description: 'connection refused',
+      })
     })
 
     it('removes hostId from connectingHostIds on error', () => {
@@ -234,7 +278,13 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'error', error: 'timeout' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'error',
+          error: 'timeout',
+        })
       })
 
       expect(store.get(connectingHostIdsAtom).has('host-a')).toBe(false)
@@ -248,7 +298,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'error' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'error',
+        })
       })
 
       expect(toast.error).toHaveBeenCalledWith('SSH channel error', { description: undefined })
@@ -264,7 +319,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'disconnected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'disconnected',
+        })
       })
 
       const resultLeaf = store.get(workspacesAtom)[0].layout as PaneLeaf
@@ -280,7 +340,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'disconnected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'disconnected',
+        })
       })
 
       const portForwards = store.get(portForwardsAtom)
@@ -297,7 +362,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'disconnected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'disconnected',
+        })
       })
 
       expect(store.get(connectingHostIdsAtom)).toEqual(new Set(['host-a']))
@@ -311,7 +381,12 @@ describe('useChannelEvents', () => {
       renderHook(() => useChannelEvents(), { wrapper })
 
       act(() => {
-        channelStatusHandler({ channelId: 'ch-a', connectionId: 'conn-a', kind: 'terminal', status: 'disconnected' })
+        channelStatusHandler({
+          channelId: 'ch-a',
+          connectionId: 'conn-a',
+          kind: 'terminal',
+          status: 'disconnected',
+        })
       })
 
       expect(toast.error).not.toHaveBeenCalled()

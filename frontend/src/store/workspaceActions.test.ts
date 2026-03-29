@@ -45,7 +45,8 @@ function workspace(id: string, layout: PaneNode, focusedPaneId?: string | null):
     id,
     label: `Workspace ${id}`,
     layout,
-    focusedPaneId: focusedPaneId !== undefined ? focusedPaneId : (layout.type === 'leaf' ? layout.paneId : null),
+    focusedPaneId:
+      focusedPaneId !== undefined ? focusedPaneId : layout.type === 'leaf' ? layout.paneId : null,
   }
 }
 
@@ -91,7 +92,10 @@ describe('patchLeafByChannelIdAtom', () => {
     const store = setupStore([ws1])
     const before = store.get(workspacesAtom)
 
-    store.set(patchLeafByChannelIdAtom, { channelId: 'ch-nonexistent', patch: { status: 'disconnected' } })
+    store.set(patchLeafByChannelIdAtom, {
+      channelId: 'ch-nonexistent',
+      patch: { status: 'disconnected' },
+    })
 
     const after = store.get(workspacesAtom)
     // Layout references should be the same objects since nothing matched
@@ -290,8 +294,12 @@ describe('movePaneAtom', () => {
     expect(result.focusedPaneId).toBe('pane-c')
     const leaves = [] as PaneLeaf[]
     const collect = (n: PaneNode): void => {
-      if (n.type === 'leaf') { leaves.push(n); return }
-      collect(n.left); collect(n.right)
+      if (n.type === 'leaf') {
+        leaves.push(n)
+        return
+      }
+      collect(n.left)
+      collect(n.right)
     }
     collect(result.layout)
     expect(leaves.map((l) => l.paneId)).toEqual(['pane-c', 'pane-a', 'pane-b'])
@@ -321,8 +329,12 @@ describe('movePaneAtom', () => {
     expect((sourceWs.layout as PaneLeaf).paneId).toBe('pane-b')
     const targetLeaves: PaneLeaf[] = []
     const collect = (n: PaneNode): void => {
-      if (n.type === 'leaf') { targetLeaves.push(n); return }
-      collect(n.left); collect(n.right)
+      if (n.type === 'leaf') {
+        targetLeaves.push(n)
+        return
+      }
+      collect(n.left)
+      collect(n.right)
     }
     collect(targetWs.layout)
     expect(targetLeaves.map((l) => l.paneId)).toEqual(['pane-c', 'pane-a'])
@@ -344,7 +356,9 @@ describe('requireActiveLeafAtom', () => {
     store.set(requireActiveLeafAtom, { action })
 
     expect(action).toHaveBeenCalledOnce()
-    expect(action).toHaveBeenCalledWith(expect.objectContaining({ paneId: 'pane-a', status: 'connected' }))
+    expect(action).toHaveBeenCalledWith(
+      expect.objectContaining({ paneId: 'pane-a', status: 'connected' })
+    )
     expect(toast.error).not.toHaveBeenCalled()
   })
 
