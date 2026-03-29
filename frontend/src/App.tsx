@@ -44,7 +44,6 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
   const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
-  const debugRef = usePanelRef()
   const [vaultEnabled, setVaultEnabled] = useAtom(vaultEnabledAtom)
   const setVaultLocked = useSetAtom(vaultLockedAtom)
   const setBiometricAvailable = useSetAtom(biometricAvailableAtom)
@@ -80,14 +79,6 @@ export default function App() {
     }
   }, [sidebarCollapsed, sidebarRef])
   const [deployKeyHost] = useAtom(deployKeyHostAtom)
-
-  useEffect(() => {
-    if (debugPanelOpen) {
-      debugRef.current?.resize('30%')
-    } else {
-      debugRef.current?.collapse()
-    }
-  }, [debugPanelOpen, debugRef])
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -132,26 +123,16 @@ export default function App() {
               </ErrorBoundary>
             </ResizablePanel>
             <ResizableHandle />
-            <ResizablePanel defaultSize="82%" className="flex min-h-0 flex-col overflow-hidden">
-              <ResizablePanelGroup orientation="vertical" className="h-full">
-                <ResizablePanel defaultSize="100%" minSize="30%" className="overflow-hidden">
-                  <ErrorBoundary
-                    fallback="panel"
-                    zone="main"
-                    onError={(e, i) => reportUIError(e, i, 'main')}
-                  >
-                    <MainArea />
-                  </ErrorBoundary>
-                </ResizablePanel>
-                <ResizableHandle className={debugPanelOpen ? '' : 'hidden'} />
-                <ResizablePanel
-                  panelRef={debugRef}
-                  defaultSize="0%"
-                  minSize="15%"
-                  maxSize="60%"
-                  collapsible
-                  collapsedSize="0%"
-                >
+            <ResizablePanel defaultSize="82%" className="relative min-h-0 overflow-hidden">
+              <ErrorBoundary
+                fallback="panel"
+                zone="main"
+                onError={(e, i) => reportUIError(e, i, 'main')}
+              >
+                <MainArea />
+              </ErrorBoundary>
+              {debugPanelOpen && (
+                <div className="absolute inset-x-0 bottom-0 z-10 h-[40%] max-h-[400px] min-h-[150px]">
                   <ErrorBoundary
                     fallback="inline"
                     zone="debug"
@@ -159,8 +140,8 @@ export default function App() {
                   >
                     <DebugPanel />
                   </ErrorBoundary>
-                </ResizablePanel>
-              </ResizablePanelGroup>
+                </div>
+              )}
             </ResizablePanel>
           </ResizablePanelGroup>
           <ErrorBoundary
