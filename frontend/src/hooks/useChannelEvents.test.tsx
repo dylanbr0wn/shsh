@@ -65,14 +65,17 @@ function createWrapper(
       React.createElement(
         Provider,
         { store },
-        React.createElement(HydrateAtoms, {
-          atoms: [
-            [workspacesAtom, workspaces],
-            [connectingHostIdsAtom, connectingHostIds],
-            [portForwardsAtom, portForwards],
-          ],
-          children,
-        })
+        React.createElement(
+          HydrateAtoms,
+          {
+            atoms: [
+              [workspacesAtom, workspaces],
+              [connectingHostIdsAtom, connectingHostIds],
+              [portForwardsAtom, portForwards],
+            ],
+          },
+          children
+        )
       ),
   }
 }

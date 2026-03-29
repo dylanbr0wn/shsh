@@ -35,7 +35,9 @@ export function TitleBar() {
   const vaultEnabled = useAtomValue(vaultEnabledAtom)
 
   useEffect(() => {
-    Environment().then((env: any) => setIsMac(env.platform === 'darwin'))
+    Environment().then((env: unknown) =>
+      setIsMac((env as { platform: string }).platform === 'darwin')
+    )
   }, [])
 
   return (

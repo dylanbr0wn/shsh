@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Stub — replaced by vi.mock in setup.ts at runtime.
 export const CloseChannel = (..._args: any[]): Promise<any> => Promise.resolve()
 export const ConnectHost = (..._args: any[]): Promise<any> => Promise.resolve()

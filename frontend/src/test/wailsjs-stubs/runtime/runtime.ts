@@ -1,6 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // Stub — replaced by vi.mock in setup.ts at runtime.
 // Exists so Vitest can resolve wailsjs/runtime/runtime imports without wails generate.
-export const EventsOn = (..._args: any[]): any => () => {}
+export const EventsOn =
+  (..._args: any[]): any =>
+  () => {}
 export const EventsOff = (..._args: any[]): any => {}
 export const EventsEmit = (..._args: any[]): any => {}
 export const WindowSetDarkTheme = (..._args: any[]): any => {}
