@@ -12,7 +12,7 @@ import { AddHostModal } from './components/modals/AddHostModal'
 import { EditHostModal } from './components/modals/EditHostModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { HostKeyDialog } from './components/modals/HostKeyDialog'
-import { ImportSSHConfigModal } from './components/modals/ImportSSHConfigModal'
+import { ImportHostsModal } from './components/modals/ImportHostsModal'
 import { ExportHostsModal } from './components/modals/ExportHostsModal'
 import { QuickConnectModal } from './components/modals/QuickConnectModal'
 import { CommandPalette } from './components/CommandPalette'
@@ -159,7 +159,7 @@ export default function App() {
             zone="modal-import-ssh"
             onError={(e, i) => reportUIError(e, i, 'modal-import-ssh')}
           >
-            <ImportSSHConfigModal />
+            <ImportHostsModal />
           </ErrorBoundary>
           <ErrorBoundary
             fallback="inline"

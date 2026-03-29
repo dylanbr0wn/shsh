@@ -52,7 +52,7 @@ export interface PendingHostKey {
 }
 export const pendingHostKeyAtom = atom<PendingHostKey | null>(null)
 
-export const isImportSSHConfigOpenAtom = atom<boolean>(false)
+export const isImportHostsOpenAtom = atom<boolean>(false)
 export const isExportHostsOpenAtom = atom<boolean>(false)
 export const isQuickConnectOpenAtom = atom<boolean>(false)
 export const isCommandPaletteOpenAtom = atom<boolean>(false)

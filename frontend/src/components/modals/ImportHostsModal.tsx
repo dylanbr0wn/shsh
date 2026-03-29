@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useSetAtom } from 'jotai'
 import type { Host } from '../../types'
-import { isImportSSHConfigOpenAtom, hostsAtom } from '../../store/atoms'
+import { isImportHostsOpenAtom, hostsAtom } from '../../store/atoms'
 import { ListSSHConfigHosts, ImportSSHConfigHosts } from '../../../wailsjs/go/main/HostFacade'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog'
 import { Button } from '../ui/button'
@@ -16,8 +16,8 @@ interface SSHConfigEntry {
   user: string
 }
 
-export function ImportSSHConfigModal() {
-  const [isOpen, setIsOpen] = useAtom(isImportSSHConfigOpenAtom)
+export function ImportHostsModal() {
+  const [isOpen, setIsOpen] = useAtom(isImportHostsOpenAtom)
   const setHosts = useSetAtom(hostsAtom)
 
   const [entries, setEntries] = useState<SSHConfigEntry[]>([])

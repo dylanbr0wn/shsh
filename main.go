@@ -35,8 +35,8 @@ func buildMenu(app *App) *menu.Menu {
 	file.AddText("Add Saved Host...", keys.Combo("n", keys.CmdOrCtrlKey, keys.ShiftKey), func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:add-host")
 	})
-	file.AddText("Import SSH Config...", nil, func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.deps.Ctx, "menu:import-ssh-config")
+	file.AddText("Import Hosts...", nil, func(_ *menu.CallbackData) {
+		runtime.EventsEmit(app.deps.Ctx, "menu:import-hosts")
 	})
 	file.AddText("Export Hosts...", nil, func(_ *menu.CallbackData) {
 		runtime.EventsEmit(app.deps.Ctx, "menu:export-hosts")

@@ -18,7 +18,7 @@ export interface WailsEventMap {
   }
   'connection:hostkey': PendingHostKey
   'menu:new-connection': void
-  'menu:import-ssh-config': void
+  'menu:import-hosts': void
   'menu:settings': void
   'menu:add-host': void
   'menu:new-group': void
