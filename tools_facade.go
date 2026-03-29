@@ -64,7 +64,7 @@ func (f *ToolsFacade) ExportHosts(input ExportInput) (string, error) {
 		filters = []wailsruntime.FileFilter{{DisplayName: "CSV files (*.csv)", Pattern: "*.csv"}}
 	default: // sshconfig
 		defaultFilename = "ssh_config"
-		filters = []wailsruntime.FileFilter{{DisplayName: "All files (*)", Pattern: "*"}}
+		filters = nil
 	}
 
 	home, _ := os.UserHomeDir()
