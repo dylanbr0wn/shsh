@@ -55,6 +55,7 @@ export const pendingHostKeyAtom = atom<PendingHostKey | null>(null)
 export const isImportSSHConfigOpenAtom = atom<boolean>(false)
 export const isExportHostsOpenAtom = atom<boolean>(false)
 export const isQuickConnectOpenAtom = atom<boolean>(false)
+export const isCommandPaletteOpenAtom = atom<boolean>(false)
 export const isNewGroupOpenAtom = atom<boolean>(false)
 
 // Ephemeral per-channel profile override: channelId → profileId (undefined = use host/group/global chain)
