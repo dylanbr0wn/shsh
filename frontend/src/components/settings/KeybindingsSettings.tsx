@@ -31,6 +31,13 @@ export function KeybindingsSettings() {
     store.set(keybindingsAtom, bindings ?? [])
   }, [])
 
+  // Fetch keybindings on mount (in case useKeybindings hook hasn't run yet)
+  useEffect(() => {
+    if (keybindings.length === 0) {
+      refreshBindings()
+    }
+  }, [keybindings.length, refreshBindings])
+
   // Recording keydown handler
   useEffect(() => {
     if (!recordingActionId) return
