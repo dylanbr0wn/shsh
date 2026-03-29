@@ -1,7 +1,8 @@
 import { useAtom, useAtomValue } from 'jotai'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Lock, LockOpen } from 'lucide-react'
 import { debugPanelOpenAtom } from '../../store/debugStore'
 import { workspacesAtom, activeWorkspaceIdAtom, portForwardsAtom } from '../../store/atoms'
+import { vaultEnabledAtom, vaultLockedAtom } from '../../atoms/vault'
 import { collectLeaves } from '../../lib/paneTree'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -21,6 +22,9 @@ export function StatusBar() {
     .some((l) => l.status === 'connecting' || l.status === 'reconnecting')
 
   const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+
+  const vaultEnabled = useAtomValue(vaultEnabledAtom)
+  const vaultLocked = useAtomValue(vaultLockedAtom)
 
   const portForwards = useAtomValue(portForwardsAtom)
   const forwardCount = Object.values(portForwards).reduce(
@@ -74,6 +78,19 @@ export function StatusBar() {
             </TooltipTrigger>
             <TooltipContent side="top">
               {forwardCount} active port {forwardCount === 1 ? 'forward' : 'forwards'}
+            </TooltipContent>
+          </Tooltip>
+        )}
+        {vaultEnabled && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground flex items-center gap-1">
+                {vaultLocked ? <Lock className="size-3" /> : <LockOpen className="size-3" />}
+                <span>{vaultLocked ? 'Locked' : 'Unlocked'}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              Vault {vaultLocked ? 'locked' : 'unlocked'}
             </TooltipContent>
           </Tooltip>
         )}
