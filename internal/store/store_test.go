@@ -13,6 +13,8 @@ type fakeResolver struct {
 	InlineSecretFn func(key, fallback string) (string, error)
 	// ResolveFn, if set, overrides Resolve behavior.
 	ResolveFn func(ctx context.Context, source, ref string) (string, error)
+	// StoreSecretFn, if set, overrides StoreSecret behavior.
+	StoreSecretFn func(key, value string) error
 
 	storedSecrets  map[string]string
 	deletedSecrets []string
@@ -41,6 +43,9 @@ func (f *fakeResolver) InlineSecret(key, fallback string) (string, error) {
 }
 
 func (f *fakeResolver) StoreSecret(key, value string) error {
+	if f.StoreSecretFn != nil {
+		return f.StoreSecretFn(key, value)
+	}
 	f.storedSecrets[key] = value
 	return nil
 }
@@ -552,5 +557,304 @@ func TestDeleteHost_DeletesSecrets(t *testing.T) {
 	}
 	if !found[added.ID+":passphrase"] {
 		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID+":passphrase", fr.deletedSecrets)
+	}
+}
+
+// --- vaultFakeResolver and vault test infrastructure ---
+
+type vaultFakeResolver struct {
+	fakeResolver
+}
+
+var testVaultKey = []byte("01234567890123456789012345678901")
+
+func newTestStoreWithVault(t *testing.T) (*Store, *vaultFakeResolver) {
+	t.Helper()
+	vfr := &vaultFakeResolver{fakeResolver: *newFakeResolver()}
+	s, err := New(":memory:", &vfr.fakeResolver)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	s.SetVaultKeyFunc(func() ([]byte, error) { return testVaultKey, nil })
+	t.Cleanup(s.Close)
+	return s, vfr
+}
+
+// --- Group CRUD tests ---
+
+func TestAddGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g1, err := s.AddGroup(CreateGroupInput{Name: "Servers"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if g1.Name != "Servers" {
+		t.Errorf("Name = %q, want %q", g1.Name, "Servers")
+	}
+	if g1.SortOrder != 0 {
+		t.Errorf("SortOrder = %d, want 0", g1.SortOrder)
+	}
+
+	g2, err := s.AddGroup(CreateGroupInput{Name: "Dev"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if g2.SortOrder != 1 {
+		t.Errorf("SortOrder = %d, want 1", g2.SortOrder)
+	}
+}
+
+func TestListGroups(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	for _, name := range []string{"C", "A", "B"} {
+		if _, err := s.AddGroup(CreateGroupInput{Name: name}); err != nil {
+			t.Fatalf("AddGroup %q: %v", name, err)
+		}
+	}
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if len(groups) != 3 {
+		t.Fatalf("expected 3 groups, got %d", len(groups))
+	}
+	// Added in order, so sort_order is 0, 1, 2 which matches insertion order.
+	want := []string{"C", "A", "B"}
+	for i, g := range groups {
+		if g.Name != want[i] {
+			t.Errorf("groups[%d].Name = %q, want %q", i, g.Name, want[i])
+		}
+	}
+}
+
+func TestListGroups_EmptyReturnsSlice(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	if groups == nil {
+		t.Fatal("ListGroups returned nil, want empty slice")
+	}
+	if len(groups) != 0 {
+		t.Fatalf("expected 0 groups, got %d", len(groups))
+	}
+}
+
+func TestUpdateGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	// Create a profile to assign.
+	p, err := s.AddProfile(CreateProfileInput{Name: "mono", FontSize: 12, CursorStyle: "block", Scrollback: 1000, ColorTheme: "dark"})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Old"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+
+	updated, err := s.UpdateGroup(UpdateGroupInput{
+		ID:                g.ID,
+		Name:              "New",
+		SortOrder:         5,
+		TerminalProfileID: &p.ID,
+	})
+	if err != nil {
+		t.Fatalf("UpdateGroup: %v", err)
+	}
+	if updated.Name != "New" {
+		t.Errorf("Name = %q, want %q", updated.Name, "New")
+	}
+	if updated.SortOrder != 5 {
+		t.Errorf("SortOrder = %d, want 5", updated.SortOrder)
+	}
+	if updated.TerminalProfileID == nil || *updated.TerminalProfileID != p.ID {
+		t.Errorf("TerminalProfileID = %v, want %q", updated.TerminalProfileID, p.ID)
+	}
+}
+
+func TestDeleteGroup(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g, err := s.AddGroup(CreateGroupInput{Name: "Tmp"})
+	if err != nil {
+		t.Fatalf("AddGroup: %v", err)
+	}
+	if err := s.DeleteGroup(g.ID); err != nil {
+		t.Fatalf("DeleteGroup: %v", err)
+	}
+
+	groups, err := s.ListGroups()
+	if err != nil {
+		t.Fatalf("ListGroups: %v", err)
+	}
+	for _, gr := range groups {
+		if gr.ID == g.ID {
+			t.Error("deleted group still present")
+		}
+	}
+}
+
+func TestAddGroup_SortOrderAfterDeletion(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	g1, err := s.AddGroup(CreateGroupInput{Name: "A"})
+	if err != nil {
+		t.Fatalf("AddGroup A: %v", err)
+	}
+	g2, err := s.AddGroup(CreateGroupInput{Name: "B"})
+	if err != nil {
+		t.Fatalf("AddGroup B: %v", err)
+	}
+	if g2.SortOrder != 1 {
+		t.Fatalf("B SortOrder = %d, want 1", g2.SortOrder)
+	}
+
+	// Delete first group; next sort_order should still increment past max.
+	if err := s.DeleteGroup(g1.ID); err != nil {
+		t.Fatalf("DeleteGroup: %v", err)
+	}
+
+	g3, err := s.AddGroup(CreateGroupInput{Name: "C"})
+	if err != nil {
+		t.Fatalf("AddGroup C: %v", err)
+	}
+	if g3.SortOrder != 2 {
+		t.Errorf("C SortOrder = %d, want 2 (should not compact)", g3.SortOrder)
+	}
+}
+
+// --- Terminal Profile CRUD tests ---
+
+func TestAddProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{
+		Name:        "Dev",
+		FontSize:    16,
+		CursorStyle: "underline",
+		CursorBlink: true,
+		Scrollback:  10000,
+		ColorTheme:  "monokai",
+	})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+	if p.ID == "" {
+		t.Error("expected non-empty ID")
+	}
+	if p.Name != "Dev" {
+		t.Errorf("Name = %q, want %q", p.Name, "Dev")
+	}
+	if p.FontSize != 16 {
+		t.Errorf("FontSize = %d, want 16", p.FontSize)
+	}
+	if p.CursorStyle != "underline" {
+		t.Errorf("CursorStyle = %q, want %q", p.CursorStyle, "underline")
+	}
+	if !p.CursorBlink {
+		t.Error("CursorBlink = false, want true")
+	}
+	if p.Scrollback != 10000 {
+		t.Errorf("Scrollback = %d, want 10000", p.Scrollback)
+	}
+	if p.ColorTheme != "monokai" {
+		t.Errorf("ColorTheme = %q, want %q", p.ColorTheme, "monokai")
+	}
+	if p.CreatedAt == "" {
+		t.Error("expected non-empty CreatedAt")
+	}
+}
+
+func TestListProfiles(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	for _, name := range []string{"A", "B", "C"} {
+		if _, err := s.AddProfile(CreateProfileInput{Name: name, FontSize: 14, CursorStyle: "block", Scrollback: 1000, ColorTheme: "auto"}); err != nil {
+			t.Fatalf("AddProfile %q: %v", name, err)
+		}
+	}
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("ListProfiles: %v", err)
+	}
+	if len(profiles) != 3 {
+		t.Fatalf("expected 3 profiles, got %d", len(profiles))
+	}
+}
+
+func TestUpdateProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{
+		Name:        "Old",
+		FontSize:    14,
+		CursorStyle: "block",
+		CursorBlink: true,
+		Scrollback:  5000,
+		ColorTheme:  "auto",
+	})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+
+	updated, err := s.UpdateProfile(UpdateProfileInput{
+		ID:          p.ID,
+		Name:        "New",
+		FontSize:    18,
+		CursorStyle: "bar",
+		CursorBlink: false,
+		Scrollback:  2000,
+		ColorTheme:  "solarized",
+	})
+	if err != nil {
+		t.Fatalf("UpdateProfile: %v", err)
+	}
+	if updated.Name != "New" {
+		t.Errorf("Name = %q, want %q", updated.Name, "New")
+	}
+	if updated.FontSize != 18 {
+		t.Errorf("FontSize = %d, want 18", updated.FontSize)
+	}
+	if updated.CursorStyle != "bar" {
+		t.Errorf("CursorStyle = %q, want %q", updated.CursorStyle, "bar")
+	}
+	if updated.CursorBlink {
+		t.Error("CursorBlink = true, want false")
+	}
+	if updated.Scrollback != 2000 {
+		t.Errorf("Scrollback = %d, want 2000", updated.Scrollback)
+	}
+	if updated.ColorTheme != "solarized" {
+		t.Errorf("ColorTheme = %q, want %q", updated.ColorTheme, "solarized")
+	}
+}
+
+func TestDeleteProfile(t *testing.T) {
+	s, _ := newTestStore(t)
+
+	p, err := s.AddProfile(CreateProfileInput{Name: "Tmp", FontSize: 14, CursorStyle: "block", Scrollback: 1000, ColorTheme: "auto"})
+	if err != nil {
+		t.Fatalf("AddProfile: %v", err)
+	}
+	if err := s.DeleteProfile(p.ID); err != nil {
+		t.Fatalf("DeleteProfile: %v", err)
+	}
+
+	profiles, err := s.ListProfiles()
+	if err != nil {
+		t.Fatalf("ListProfiles: %v", err)
+	}
+	for _, pr := range profiles {
+		if pr.ID == p.ID {
+			t.Error("deleted profile still present")
+		}
 	}
 }
