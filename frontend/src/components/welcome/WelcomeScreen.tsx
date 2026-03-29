@@ -172,11 +172,21 @@ export function WelcomeScreen() {
 
         {/* Keyboard shortcuts */}
         <ButtonGroup>
-          <Button type="button" variant="ghost" onClick={() => setIsCommandPaletteOpen(true)} size="xs">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsCommandPaletteOpen(true)}
+            size="xs"
+          >
             <Kbd>⌘K</Kbd>
             Search
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setIsQuickConnectOpen(true)} size="xs">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsQuickConnectOpen(true)}
+            size="xs"
+          >
             <Kbd>⌘⇧K</Kbd>
             Quick Connect
           </Button>
@@ -184,11 +194,21 @@ export function WelcomeScreen() {
             <Kbd>⌘N</Kbd>
             New Host
           </Button>
-          <Button type="button" variant="ghost" onClick={() => setIsImportSSHConfigOpen(true)} size="xs">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => setIsImportSSHConfigOpen(true)}
+            size="xs"
+          >
             <Kbd>⌘I</Kbd>
             Import
           </Button>
-          <Button type="button" variant="ghost" onClick={() => window.open(DOCS_BASE_URL, '_blank')} size="xs">
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={() => window.open(DOCS_BASE_URL, '_blank')}
+            size="xs"
+          >
             <BookOpen className="size-3" />
             Docs
           </Button>
