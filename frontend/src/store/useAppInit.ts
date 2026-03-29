@@ -8,6 +8,7 @@ import {
   groupsAtom,
   terminalProfilesAtom,
   isQuickConnectOpenAtom,
+  isCommandPaletteOpenAtom,
   isAddHostOpenAtom,
   isImportSSHConfigOpenAtom,
 } from './atoms'
@@ -24,6 +25,7 @@ export function useAppInit() {
   const setTerminalProfiles = useSetAtom(terminalProfilesAtom)
   const setDebugPanelOpen = useSetAtom(debugPanelOpenAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
+  const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsImportSSHConfigOpen = useSetAtom(isImportSSHConfigOpenAtom)
 
@@ -57,7 +59,11 @@ export function useAppInit() {
           break
         case 'k':
           e.preventDefault()
-          setIsQuickConnectOpen((prev) => !prev)
+          if (e.shiftKey) {
+            setIsQuickConnectOpen((prev) => !prev)
+          } else {
+            setIsCommandPaletteOpen((prev) => !prev)
+          }
           break
         case 'n':
           e.preventDefault()
@@ -71,5 +77,11 @@ export function useAppInit() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setDebugPanelOpen, setIsQuickConnectOpen, setIsAddHostOpen, setIsImportSSHConfigOpen])
+  }, [
+    setDebugPanelOpen,
+    setIsCommandPaletteOpen,
+    setIsQuickConnectOpen,
+    setIsAddHostOpen,
+    setIsImportSSHConfigOpen,
+  ])
 }

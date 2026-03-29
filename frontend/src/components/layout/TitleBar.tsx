@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Minus, Square, X, Settings, PanelLeftClose, PanelLeftOpen, Plus, Zap } from 'lucide-react'
+import {
+  Minus,
+  Square,
+  X,
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Zap,
+  Search,
+} from 'lucide-react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   Environment,
@@ -11,17 +20,19 @@ import { cn } from '../../lib/utils'
 import {
   isSettingsOpenAtom,
   sidebarCollapsedAtom,
-  isAddHostOpenAtom,
   isQuickConnectOpenAtom,
+  isCommandPaletteOpenAtom,
 } from '../../store/atoms'
 import { Button } from '../ui/button'
+import { ButtonGroup } from '../ui/button-group'
+import { Kbd } from '../ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function TitleBar() {
   const [isMac, setIsMac] = useState(false)
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
-  const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
+  const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
 
   useEffect(() => {
@@ -41,7 +52,7 @@ export function TitleBar() {
         />
       )}
 
-      {/* Left action buttons */}
+      {/* Left: sidebar toggle */}
       <div
         className={cn('flex items-center', !isMac && 'pl-1')}
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
@@ -66,42 +77,48 @@ export function TitleBar() {
             {sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           </TooltipContent>
         </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground h-9 w-9 rounded-none"
-              onClick={() => setIsAddHostOpen(true)}
-              aria-label="New host"
-            >
-              <Plus className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">New Host</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-muted-foreground h-9 w-9 rounded-none"
-              onClick={() => setIsQuickConnectOpen(true)}
-              aria-label="Quick connect"
-            >
-              <Zap className="size-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">Quick Connect</TooltipContent>
-        </Tooltip>
       </div>
 
       {/* Drag region filler */}
       <div className="flex-1" />
 
-      {/* Settings */}
+      {/* Center: search pill + quick connect */}
+      <div
+        className="flex items-center"
+        style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
+      >
+        <ButtonGroup>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-muted-foreground w-60 gap-2 px-3"
+            onClick={() => setIsCommandPaletteOpen(true)}
+          >
+            <Search className="size-3.5" />
+            <span className="text-xs">Search</span>
+            <Kbd>⌘K</Kbd>
+          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                className="text-muted-foreground"
+                onClick={() => setIsQuickConnectOpen(true)}
+                aria-label="Quick connect"
+              >
+                <Zap className="size-3.5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Quick Connect</TooltipContent>
+          </Tooltip>
+        </ButtonGroup>
+      </div>
+
+      {/* Drag region filler */}
+      <div className="flex-1" />
+
+      {/* Right: settings */}
       <div
         className="flex items-center"
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}

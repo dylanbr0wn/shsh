@@ -76,8 +76,7 @@ export function HostListItem({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <Item asChild size="xs">
-          <a
-            role="button"
+          <button
             draggable
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'copy'
@@ -218,7 +217,7 @@ export function HostListItem({
                 </DropdownMenu>
               </ButtonGroup>
             </ItemActions>
-          </a>
+          </button>
         </Item>
       </ContextMenuTrigger>
       {/* Custom drag preview — hidden off-screen until setDragImage captures it */}

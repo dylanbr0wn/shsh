@@ -15,6 +15,7 @@ import { HostKeyDialog } from './components/modals/HostKeyDialog'
 import { ImportSSHConfigModal } from './components/modals/ImportSSHConfigModal'
 import { ExportHostsModal } from './components/modals/ExportHostsModal'
 import { QuickConnectModal } from './components/modals/QuickConnectModal'
+import { CommandPalette } from './components/CommandPalette'
 import { LogViewerModal } from './components/modals/LogViewerModal'
 import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
@@ -66,6 +67,13 @@ export default function App() {
             onError={(e, i) => reportUIError(e, i, 'titlebar')}
           >
             <TitleBar />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="command-palette"
+            onError={(e, i) => reportUIError(e, i, 'command-palette')}
+          >
+            <CommandPalette />
           </ErrorBoundary>
           <ResizablePanelGroup orientation="horizontal" className="min-h-0 flex-1">
             <ResizablePanel
