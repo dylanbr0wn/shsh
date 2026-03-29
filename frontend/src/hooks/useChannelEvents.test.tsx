@@ -45,10 +45,11 @@ function HydrateAtoms({
   atoms,
   children,
 }: {
-  atoms: Array<[unknown, unknown]>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  atoms: any[]
   children: React.ReactNode
 }) {
-  useHydrateAtoms(atoms as Parameters<typeof useHydrateAtoms>[0])
+  useHydrateAtoms(atoms as unknown as Parameters<typeof useHydrateAtoms>[0])
   return <>{children}</>
 }
 
@@ -64,17 +65,14 @@ function createWrapper(
       React.createElement(
         Provider,
         { store },
-        React.createElement(
-          HydrateAtoms,
-          {
-            atoms: [
-              [workspacesAtom, workspaces],
-              [connectingHostIdsAtom, connectingHostIds],
-              [portForwardsAtom, portForwards],
-            ],
-          },
-          children
-        )
+        React.createElement(HydrateAtoms, {
+          atoms: [
+            [workspacesAtom, workspaces],
+            [connectingHostIdsAtom, connectingHostIds],
+            [portForwardsAtom, portForwards],
+          ],
+          children,
+        })
       ),
   }
 }
