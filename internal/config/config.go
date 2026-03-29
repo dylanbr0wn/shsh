@@ -15,6 +15,7 @@ type Config struct {
 	Log         LogConfig         `json:"log"`
 	Debug       DebugConfig       `json:"debug"`
 	Keybindings map[string]string `json:"keybindings,omitempty"`
+	Vault       VaultConfig       `json:"vault"`
 }
 
 // LogConfig controls application logging behaviour.
@@ -88,6 +89,13 @@ type WindowConfig struct {
 	Height int `json:"height"`
 }
 
+// VaultConfig controls master password and vault behaviour.
+type VaultConfig struct {
+	Enabled            bool `json:"enabled"`
+	LockTimeoutMinutes int  `json:"lockTimeoutMinutes"`
+	TouchIDEnabled     bool `json:"touchIdEnabled"`
+}
+
 // Default returns a Config populated with sensible defaults.
 func Default() *Config {
 	return &Config{
@@ -126,6 +134,11 @@ func Default() *Config {
 			PersistenceMaxSizeMB:  10,
 			PersistenceMaxBackups: 3,
 			PersistenceMaxAgeDays: 30,
+		},
+		Vault: VaultConfig{
+			Enabled:            false,
+			LockTimeoutMinutes: 15,
+			TouchIDEnabled:     false,
 		},
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/dylanbr0wn/shsh/internal/vault"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	_ "modernc.org/sqlite"
@@ -174,6 +175,13 @@ type CreateTemplateInput struct {
 type Store struct {
 	db          *sql.DB
 	credentials CredentialResolver
+	vaultKey    func() ([]byte, error) // nil means vault disabled
+}
+
+// SetVaultKeyFunc sets the function used to retrieve the vault key.
+// Pass nil to disable vault-aware storage (fall back to keychain).
+func (s *Store) SetVaultKeyFunc(fn func() ([]byte, error)) {
+	s.vaultKey = fn
 }
 
 // New opens the SQLite database at dbPath, runs migrations, and enables WAL mode.
@@ -257,6 +265,33 @@ func New(dbPath string, creds CredentialResolver) (*Store, error) {
 	if err != nil {
 		db.Close()
 		return nil, fmt.Errorf("create workspace_templates table: %w", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS vault_meta (
+		id INTEGER PRIMARY KEY CHECK (id = 1),
+		salt BLOB NOT NULL,
+		nonce BLOB NOT NULL,
+		verify_blob BLOB NOT NULL,
+		argon2_time INTEGER NOT NULL DEFAULT 3,
+		argon2_memory INTEGER NOT NULL DEFAULT 65536,
+		argon2_threads INTEGER NOT NULL DEFAULT 4,
+		created_at TEXT NOT NULL
+	)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create vault_meta table: %w", err)
+	}
+
+	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS secrets (
+		host_id TEXT NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+		kind TEXT NOT NULL,
+		nonce BLOB NOT NULL,
+		ciphertext BLOB NOT NULL,
+		PRIMARY KEY (host_id, kind)
+	)`)
+	if err != nil {
+		db.Close()
+		return nil, fmt.Errorf("create secrets table: %w", err)
 	}
 
 	return &Store{db: db, credentials: creds}, nil
@@ -529,23 +564,54 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 		return Host{}, err
 	}
 
-	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
+	// Only store inline passwords in keychain/vault; external PM refs are fetched at connect time.
 	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
-		if err := s.credentials.StoreSecret(host.ID, input.Password); err != nil {
-			if errors.Is(err, ErrKeychainUnavailable) {
-				log.Warn().Str("hostID", host.ID).Msg("keychain unavailable, storing password in DB as fallback")
-				s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, host.ID) //nolint:errcheck
-			} else {
+		if s.vaultKey != nil {
+			key, err := s.vaultKey()
+			if err != nil {
 				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
-				return Host{}, fmt.Errorf("store password in keychain: %w", err)
+				return Host{}, fmt.Errorf("vault locked: %w", err)
+			}
+			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.Password))
+			if err != nil {
+				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
+				return Host{}, fmt.Errorf("vault encrypt: %w", err)
+			}
+			if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
+				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
+				return Host{}, err
 			}
 		} else {
-			s.db.Exec(`UPDATE hosts SET keychain_migrated=1 WHERE id=?`, host.ID) //nolint:errcheck
+			if err := s.credentials.StoreSecret(host.ID, input.Password); err != nil {
+				if errors.Is(err, ErrKeychainUnavailable) {
+					log.Warn().Str("hostID", host.ID).Msg("keychain unavailable, storing password in DB as fallback")
+					s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, host.ID) //nolint:errcheck
+				} else {
+					s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
+					return Host{}, fmt.Errorf("store password in keychain: %w", err)
+				}
+			} else {
+				s.db.Exec(`UPDATE hosts SET keychain_migrated=1 WHERE id=?`, host.ID) //nolint:errcheck
+			}
 		}
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		s.credentials.StoreSecret(host.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		if s.vaultKey != nil {
+			key, err := s.vaultKey()
+			if err != nil {
+				return Host{}, fmt.Errorf("vault locked: %w", err)
+			}
+			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.KeyPassphrase))
+			if err != nil {
+				return Host{}, fmt.Errorf("vault encrypt: %w", err)
+			}
+			if err := s.StoreEncryptedSecret(host.ID, "passphrase", nonce, ciphertext); err != nil {
+				return Host{}, err
+			}
+		} else {
+			s.credentials.StoreSecret(host.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		}
 	}
 
 	return host, nil
@@ -577,31 +643,62 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		return Host{}, err
 	}
 
-	// Only store inline passwords in keychain; external PM refs are fetched at connect time.
+	// Only store inline passwords in keychain/vault; external PM refs are fetched at connect time.
 	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
-		if err := s.credentials.StoreSecret(input.ID, input.Password); err != nil {
-			if errors.Is(err, ErrKeychainUnavailable) {
-				log.Warn().Str("hostID", input.ID).Msg("keychain unavailable, storing password in DB as fallback")
-				s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, input.ID) //nolint:errcheck
-			} else {
-				return Host{}, fmt.Errorf("update password in keychain: %w", err)
+		if s.vaultKey != nil {
+			key, err := s.vaultKey()
+			if err != nil {
+				return Host{}, fmt.Errorf("vault locked: %w", err)
+			}
+			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.Password))
+			if err != nil {
+				return Host{}, fmt.Errorf("vault encrypt: %w", err)
+			}
+			if err := s.StoreEncryptedSecret(input.ID, "password", nonce, ciphertext); err != nil {
+				return Host{}, err
 			}
 		} else {
-			s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
+			if err := s.credentials.StoreSecret(input.ID, input.Password); err != nil {
+				if errors.Is(err, ErrKeychainUnavailable) {
+					log.Warn().Str("hostID", input.ID).Msg("keychain unavailable, storing password in DB as fallback")
+					s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, input.ID) //nolint:errcheck
+				} else {
+					return Host{}, fmt.Errorf("update password in keychain: %w", err)
+				}
+			} else {
+				s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
+			}
 		}
 	} else if input.AuthMethod == AuthPassword && credSrc != "inline" {
-		// Switching to external PM — clear any inline keychain entry.
-		s.credentials.DeleteSecret(input.ID)                                         //nolint:errcheck
+		// Switching to external PM — clear any inline keychain/vault entry.
+		s.credentials.DeleteSecret(input.ID)                             //nolint:errcheck
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
+		_ = s.DeleteEncryptedSecret(input.ID, "password")
 	} else if input.AuthMethod != AuthPassword {
-		s.credentials.DeleteSecret(input.ID)                                         //nolint:errcheck
+		s.credentials.DeleteSecret(input.ID)                             //nolint:errcheck
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
+		_ = s.DeleteEncryptedSecret(input.ID, "password")
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		s.credentials.StoreSecret(input.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		if s.vaultKey != nil {
+			key, err := s.vaultKey()
+			if err != nil {
+				return Host{}, fmt.Errorf("vault locked: %w", err)
+			}
+			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.KeyPassphrase))
+			if err != nil {
+				return Host{}, fmt.Errorf("vault encrypt: %w", err)
+			}
+			if err := s.StoreEncryptedSecret(input.ID, "passphrase", nonce, ciphertext); err != nil {
+				return Host{}, err
+			}
+		} else {
+			s.credentials.StoreSecret(input.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		}
 	} else if input.AuthMethod != AuthKey {
 		s.credentials.DeleteSecret(input.ID + ":passphrase") //nolint:errcheck
+		_ = s.DeleteEncryptedSecret(input.ID, "passphrase")
 	}
 
 	var h Host
@@ -679,6 +776,29 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	switch h.AuthMethod {
 	case AuthPassword:
 		if h.CredentialSource == "inline" || h.CredentialSource == "" {
+			if s.vaultKey != nil {
+				key, err := s.vaultKey()
+				if err != nil {
+					return Host{}, "", fmt.Errorf("vault locked: %w", err)
+				}
+				nonce, ciphertext, err := s.GetEncryptedSecret(id, "password")
+				if err != nil {
+					return Host{}, "", err
+				}
+				if nonce != nil {
+					plaintext, err := vault.Decrypt(key, nonce, ciphertext)
+					if err != nil {
+						return Host{}, "", err
+					}
+					return h, string(plaintext), nil
+				}
+				// No encrypted secret found — fall through to keychain/DB fallback.
+				pw, err := s.credentials.InlineSecret(id, dbPassword.String)
+				if err != nil {
+					return h, dbPassword.String, nil
+				}
+				return h, pw, nil
+			}
 			pw, err := s.credentials.InlineSecret(id, dbPassword.String)
 			if err != nil {
 				return h, dbPassword.String, nil
@@ -694,6 +814,24 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 		}
 		return h, pw, nil
 	case AuthKey:
+		if s.vaultKey != nil {
+			key, err := s.vaultKey()
+			if err != nil {
+				return Host{}, "", fmt.Errorf("vault locked: %w", err)
+			}
+			nonce, ciphertext, err := s.GetEncryptedSecret(id, "passphrase")
+			if err != nil {
+				return Host{}, "", err
+			}
+			if nonce != nil {
+				plaintext, err := vault.Decrypt(key, nonce, ciphertext)
+				if err != nil {
+					return Host{}, "", err
+				}
+				return h, string(plaintext), nil
+			}
+			// No encrypted passphrase — fall through to keychain.
+		}
 		passphrase, _ := s.credentials.InlineSecret(id+":passphrase", "")
 		return h, passphrase, nil
 	default:
@@ -753,6 +891,20 @@ func (s *Store) HostExists(hostname string, port int, username string) (bool, er
 		hostname, port, username,
 	).Scan(&exists)
 	return exists, err
+}
+
+// FindHostID returns the ID of a host matching the given hostname, port, and username,
+// or "" if no match exists.
+func (s *Store) FindHostID(hostname string, port int, username string) (string, error) {
+	var id string
+	err := s.db.QueryRow(
+		`SELECT id FROM hosts WHERE hostname=? AND port=? AND username=? LIMIT 1`,
+		hostname, port, username,
+	).Scan(&id)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return id, err
 }
 
 // --- Group CRUD ---
@@ -897,7 +1049,7 @@ func (s *Store) DeleteWorkspaceTemplate(id string) error {
 // GetHostsByGroup returns all hosts belonging to the given group.
 func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
 		groupID,
 	)
 	if err != nil {
@@ -908,8 +1060,9 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 	var hosts []Host
 	for rows.Next() {
 		var h Host
-		var lastConn, gid, color, tags, profileID sql.NullString
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID); err != nil {
+		var lastConn, gid, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
+		var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -921,11 +1074,159 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 		if profileID.Valid {
 			h.TerminalProfileID = &profileID.String
 		}
+		if keyPath.Valid {
+			h.KeyPath = &keyPath.String
+		}
+		if credSrc.Valid {
+			h.CredentialSource = credSrc.String
+		}
+		if credRef.Valid {
+			h.CredentialRef = credRef.String
+		}
+		if jumpHostID.Valid {
+			h.JumpHostID = &jumpHostID.String
+		}
 		scanColorTags(&h, color, tags)
+		scanReconnectFields(&h, reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed)
 		hosts = append(hosts, h)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	if hosts == nil {
 		hosts = []Host{}
 	}
 	return hosts, nil
+}
+
+// GetVaultMeta returns the vault metadata, or nil if vault is not set up.
+func (s *Store) GetVaultMeta() (*vault.VaultMeta, error) {
+	row := s.db.QueryRow(`SELECT salt, nonce, verify_blob, argon2_time, argon2_memory, argon2_threads FROM vault_meta WHERE id = 1`)
+	meta := &vault.VaultMeta{}
+	err := row.Scan(&meta.Salt, &meta.Nonce, &meta.VerifyBlob, &meta.ArgonTime, &meta.ArgonMemory, &meta.ArgonThreads)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get vault meta: %w", err)
+	}
+	return meta, nil
+}
+
+// SaveVaultMeta inserts or replaces the vault metadata row.
+func (s *Store) SaveVaultMeta(meta *vault.VaultMeta) error {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO vault_meta (id, salt, nonce, verify_blob, argon2_time, argon2_memory, argon2_threads, created_at)
+		 VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+		meta.Salt, meta.Nonce, meta.VerifyBlob, meta.ArgonTime, meta.ArgonMemory, meta.ArgonThreads,
+	)
+	return err
+}
+
+// DeleteVaultMeta removes the vault metadata and all encrypted secrets.
+func (s *Store) DeleteVaultMeta() error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM secrets`); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM vault_meta`); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// StoreEncryptedSecret stores an encrypted secret for a host.
+func (s *Store) StoreEncryptedSecret(hostID, kind string, nonce, ciphertext []byte) error {
+	_, err := s.db.Exec(
+		`INSERT OR REPLACE INTO secrets (host_id, kind, nonce, ciphertext) VALUES (?, ?, ?, ?)`,
+		hostID, kind, nonce, ciphertext,
+	)
+	return err
+}
+
+// GetEncryptedSecret retrieves an encrypted secret for a host.
+func (s *Store) GetEncryptedSecret(hostID, kind string) (nonce, ciphertext []byte, err error) {
+	row := s.db.QueryRow(`SELECT nonce, ciphertext FROM secrets WHERE host_id = ? AND kind = ?`, hostID, kind)
+	err = row.Scan(&nonce, &ciphertext)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil, nil
+	}
+	return nonce, ciphertext, err
+}
+
+// ListEncryptedSecrets returns all encrypted secrets (for migration/re-encryption).
+func (s *Store) ListEncryptedSecrets() ([]struct {
+	HostID     string
+	Kind       string
+	Nonce      []byte
+	Ciphertext []byte
+}, error) {
+	rows, err := s.db.Query(`SELECT host_id, kind, nonce, ciphertext FROM secrets`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var results []struct {
+		HostID     string
+		Kind       string
+		Nonce      []byte
+		Ciphertext []byte
+	}
+	for rows.Next() {
+		var r struct {
+			HostID     string
+			Kind       string
+			Nonce      []byte
+			Ciphertext []byte
+		}
+		if err := rows.Scan(&r.HostID, &r.Kind, &r.Nonce, &r.Ciphertext); err != nil {
+			return nil, err
+		}
+		results = append(results, r)
+	}
+	return results, rows.Err()
+}
+
+// DeleteEncryptedSecret removes a specific encrypted secret.
+func (s *Store) DeleteEncryptedSecret(hostID, kind string) error {
+	_, err := s.db.Exec(`DELETE FROM secrets WHERE host_id = ? AND kind = ?`, hostID, kind)
+	return err
+}
+
+// ClearHostPassword clears the plaintext password fallback column for a host.
+func (s *Store) ClearHostPassword(hostID string) error {
+	_, err := s.db.Exec(`UPDATE hosts SET password = NULL WHERE id = ?`, hostID)
+	return err
+}
+
+// ListInlinePasswordHostIDs returns IDs of hosts using inline credential source.
+func (s *Store) ListInlinePasswordHostIDs() ([]string, error) {
+	rows, err := s.db.Query(
+		`SELECT id FROM hosts WHERE auth_method IN ('password', 'key') AND (credential_source = 'inline' OR credential_source = '' OR credential_source IS NULL)`,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
+// GetCredentials returns the credential resolver.
+func (s *Store) GetCredentials() CredentialResolver {
+	return s.credentials
 }

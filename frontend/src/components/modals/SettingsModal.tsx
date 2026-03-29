@@ -15,6 +15,7 @@ import {
   FieldSet,
 } from '../ui/field'
 import { KeybindingsSettings } from '../settings/KeybindingsSettings'
+import { SecuritySettings } from '../settings/SecuritySettings'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(isSettingsOpenAtom)
@@ -33,6 +34,7 @@ export function SettingsModal() {
         <Tabs defaultValue="general">
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="keybindings">Keyboard Shortcuts</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="space-y-4 pt-2">
@@ -67,6 +69,9 @@ export function SettingsModal() {
                 </Field>
               </FieldGroup>
             </FieldSet>
+          </TabsContent>
+          <TabsContent value="security" className="space-y-4 pt-2">
+            <SecuritySettings />
           </TabsContent>
           <TabsContent value="keybindings" className="pt-2">
             <KeybindingsSettings />

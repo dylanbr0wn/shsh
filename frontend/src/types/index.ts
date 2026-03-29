@@ -192,3 +192,26 @@ export interface WorkspaceTemplate {
   name: string
   layout: TemplateNode
 }
+
+// --- Import ---
+
+export interface ImportCandidate {
+  label: string
+  hostname: string
+  port: number
+  username: string
+  authMethod: string
+  keyPath?: string
+  password?: string
+  tags?: string[]
+  groupName?: string
+  color?: string
+  isDuplicate: boolean
+  duplicateHostId?: string
+}
+
+export interface ImportPreview {
+  candidates: ImportCandidate[]
+  detectedFormat: string
+  skippedCount: number
+}

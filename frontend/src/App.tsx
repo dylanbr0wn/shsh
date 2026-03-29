@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { useAtom, useAtomValue } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -12,7 +12,7 @@ import { AddHostModal } from './components/modals/AddHostModal'
 import { EditHostModal } from './components/modals/EditHostModal'
 import { SettingsModal } from './components/modals/SettingsModal'
 import { HostKeyDialog } from './components/modals/HostKeyDialog'
-import { ImportSSHConfigModal } from './components/modals/ImportSSHConfigModal'
+import { ImportHostsModal } from './components/modals/ImportHostsModal'
 import { ExportHostsModal } from './components/modals/ExportHostsModal'
 import { QuickConnectModal } from './components/modals/QuickConnectModal'
 import { CommandPalette } from './components/CommandPalette'
@@ -20,12 +20,21 @@ import { LogViewerModal } from './components/modals/LogViewerModal'
 import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
+import { VaultLockOverlay } from './components/modals/VaultLockOverlay'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
 import { DebugPanel } from './components/debug/DebugPanel'
 import { isDeployKeyOpenAtom, deployKeyHostAtom, sidebarCollapsedAtom } from './store/atoms'
+import { vaultLockedAtom, vaultEnabledAtom, biometricAvailableAtom } from './atoms/vault'
 import { debugPanelOpenAtom } from './store/debugStore'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { reportUIError } from './lib/reportUIError'
+import {
+  IsVaultEnabled,
+  IsVaultLocked,
+  IsBiometricAvailable,
+  LockVault,
+} from '../wailsjs/go/main/VaultFacade'
+import { EventsOn } from '../wailsjs/runtime/runtime'
 
 export default function App() {
   useAppInit()
@@ -35,6 +44,32 @@ export default function App() {
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
   const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
   const debugRef = usePanelRef()
+  const [vaultEnabled, setVaultEnabled] = useAtom(vaultEnabledAtom)
+  const setVaultLocked = useSetAtom(vaultLockedAtom)
+  const setBiometricAvailable = useSetAtom(biometricAvailableAtom)
+
+  useEffect(() => {
+    IsVaultEnabled().then((enabled: boolean) => {
+      setVaultEnabled(enabled)
+      if (enabled) {
+        IsVaultLocked().then((locked: boolean) => setVaultLocked(locked))
+      }
+    })
+    IsBiometricAvailable().then((available: boolean) => setBiometricAvailable(available))
+    const cancel = EventsOn('vault:locked', () => setVaultLocked(true))
+    return () => cancel?.()
+  }, [setVaultEnabled, setVaultLocked, setBiometricAvailable])
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey && e.key === 'l') {
+        e.preventDefault()
+        if (vaultEnabled) LockVault()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [vaultEnabled])
 
   useEffect(() => {
     if (sidebarCollapsed) {
@@ -61,6 +96,7 @@ export default function App() {
         onError={(e, i) => reportUIError(e, i, 'app')}
       >
         <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
+          <VaultLockOverlay />
           <ErrorBoundary
             fallback="inline"
             zone="titlebar"
@@ -159,7 +195,7 @@ export default function App() {
             zone="modal-import-ssh"
             onError={(e, i) => reportUIError(e, i, 'modal-import-ssh')}
           >
-            <ImportSSHConfigModal />
+            <ImportHostsModal />
           </ErrorBoundary>
           <ErrorBoundary
             fallback="inline"

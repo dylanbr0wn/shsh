@@ -8,8 +8,9 @@ import {
   PanelLeftOpen,
   Zap,
   Search,
+  Lock,
 } from 'lucide-react'
-import { useAtom, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   Environment,
   WindowMinimise,
@@ -23,6 +24,8 @@ import {
   isQuickConnectOpenAtom,
   isCommandPaletteOpenAtom,
 } from '../../store/atoms'
+import { vaultEnabledAtom } from '../../atoms/vault'
+import { LockVault } from '../../../wailsjs/go/main/VaultFacade'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
 import { Kbd } from '../ui/kbd'
@@ -34,6 +37,7 @@ export function TitleBar() {
   const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
   const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
+  const vaultEnabled = useAtomValue(vaultEnabledAtom)
 
   useEffect(() => {
     Environment().then((env) => setIsMac(env.platform === 'darwin'))
@@ -118,11 +122,27 @@ export function TitleBar() {
       {/* Drag region filler */}
       <div className="flex-1" />
 
-      {/* Right: settings */}
+      {/* Right: lock + settings */}
       <div
         className="flex items-center"
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
       >
+        {vaultEnabled && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground h-9 w-9 rounded-none"
+                onClick={() => LockVault()}
+                aria-label="Lock vault"
+              >
+                <Lock className="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Lock vault</TooltipContent>
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

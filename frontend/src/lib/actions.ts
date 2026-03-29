@@ -3,7 +3,7 @@ import {
   isCommandPaletteOpenAtom,
   isQuickConnectOpenAtom,
   isAddHostOpenAtom,
-  isImportSSHConfigOpenAtom,
+  isImportHostsOpenAtom,
   isSettingsOpenAtom,
 } from '../store/atoms'
 import { debugPanelOpenAtom } from '../store/debugStore'
@@ -23,7 +23,7 @@ const globalActions: Record<string, ActionHandler> = {
   command_palette: () => store.set(isCommandPaletteOpenAtom, (v) => !v),
   quick_connect: () => store.set(isQuickConnectOpenAtom, (v) => !v),
   add_host: () => store.set(isAddHostOpenAtom, (v) => !v),
-  import_ssh_config: () => store.set(isImportSSHConfigOpenAtom, (v) => !v),
+  import_ssh_config: () => store.set(isImportHostsOpenAtom, (v: boolean) => !v),
   settings: () => store.set(isSettingsOpenAtom, (v) => !v),
   debug_panel: () => store.set(debugPanelOpenAtom, (v) => !v),
 }

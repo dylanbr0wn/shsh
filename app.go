@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/credstore"
 	"github.com/dylanbr0wn/shsh/internal/debuglog"
 	"github.com/dylanbr0wn/shsh/internal/deps"
+	"github.com/dylanbr0wn/shsh/internal/lockstate"
 	"github.com/dylanbr0wn/shsh/internal/session"
 	"github.com/dylanbr0wn/shsh/internal/store"
 
@@ -34,6 +36,7 @@ type App struct {
 	keys     *KeysFacade
 	tools    *ToolsFacade
 	keybinds *KeybindFacade
+	vault    *VaultFacade
 }
 
 // NewApp creates a new App application struct.
@@ -46,6 +49,7 @@ func NewApp(cfg *config.Config) *App {
 		keys:     NewKeysFacade(d),
 		tools:    NewToolsFacade(d),
 		keybinds: NewKeybindFacade(d),
+		vault:    NewVaultFacade(d),
 	}
 }
 
@@ -84,6 +88,19 @@ func (a *App) startup(ctx context.Context) {
 		log.Warn().Err(err).Msg("keychain migration encountered errors")
 	}
 
+	// Initialize lock state.
+	onLock := func() {
+		wailsruntime.EventsEmit(ctx, "vault:locked")
+	}
+	a.deps.LockState = lockstate.New(
+		time.Duration(a.deps.Cfg.Vault.LockTimeoutMinutes)*time.Minute,
+		onLock,
+	)
+
+	if a.deps.Cfg.Vault.Enabled {
+		a.deps.Store.SetVaultKeyFunc(a.deps.LockState.GetKey)
+	}
+
 	a.deps.DebugSink = debuglog.NewDebugSink(
 		&wailsEventEmitter{ctx: ctx},
 		a.deps.Cfg.Debug,
@@ -101,6 +118,9 @@ func (a *App) startup(ctx context.Context) {
 
 // shutdown is called by Wails on window close.
 func (a *App) shutdown(_ context.Context) {
+	if a.deps.LockState != nil {
+		a.deps.LockState.Shutdown()
+	}
 	if a.deps.Manager != nil {
 		a.deps.Manager.Shutdown()
 	}
