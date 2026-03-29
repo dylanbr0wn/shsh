@@ -77,5 +77,11 @@ export function useAppInit() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [setDebugPanelOpen, setIsCommandPaletteOpen, setIsQuickConnectOpen, setIsAddHostOpen, setIsImportSSHConfigOpen])
+  }, [
+    setDebugPanelOpen,
+    setIsCommandPaletteOpen,
+    setIsQuickConnectOpen,
+    setIsAddHostOpen,
+    setIsImportSSHConfigOpen,
+  ])
 }

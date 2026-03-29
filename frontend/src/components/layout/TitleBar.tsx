@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Minus, Square, X, Settings, PanelLeftClose, PanelLeftOpen, Zap, Search } from 'lucide-react'
+import {
+  Minus,
+  Square,
+  X,
+  Settings,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Zap,
+  Search,
+} from 'lucide-react'
 import { useAtom, useSetAtom } from 'jotai'
 import {
   Environment,

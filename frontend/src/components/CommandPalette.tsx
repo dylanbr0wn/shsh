@@ -1,13 +1,7 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import {
-  Settings,
-  Plus,
-  Download,
-  Upload,
-  Zap,
-} from 'lucide-react'
+import { Settings, Plus, Download, Upload, Zap } from 'lucide-react'
 import {
   CommandDialog,
   Command,
