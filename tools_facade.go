@@ -13,6 +13,8 @@ import (
 	"github.com/dylanbr0wn/shsh/internal/credstore"
 	"github.com/dylanbr0wn/shsh/internal/deps"
 	"github.com/dylanbr0wn/shsh/internal/export"
+	"github.com/dylanbr0wn/shsh/internal/importfile"
+	"github.com/dylanbr0wn/shsh/internal/store"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -130,6 +132,154 @@ func (f *ToolsFacade) ExportHosts(input ExportInput) (string, error) {
 		return "", fmt.Errorf("write export file: %w", err)
 	}
 	return path, nil
+}
+
+// --- Import ---
+
+// ParseImportFile opens a native file dialog, reads the selected file,
+// auto-detects its format, and returns a preview of hosts to import.
+// Returns an empty preview if the user cancels the dialog.
+func (f *ToolsFacade) ParseImportFile() (importfile.ImportPreview, error) {
+	home, _ := os.UserHomeDir()
+	path, err := wailsruntime.OpenFileDialog(f.d.Ctx, wailsruntime.OpenDialogOptions{
+		DefaultDirectory: home,
+		Title:            "Import Hosts",
+		Filters: []wailsruntime.FileFilter{
+			{DisplayName: "JSON & CSV files", Pattern: "*.json;*.csv"},
+			{DisplayName: "All files", Pattern: "*"},
+		},
+	})
+	if err != nil {
+		return importfile.ImportPreview{}, err
+	}
+	if path == "" {
+		return importfile.ImportPreview{Candidates: []importfile.ImportCandidate{}}, nil
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return importfile.ImportPreview{}, fmt.Errorf("read import file: %w", err)
+	}
+
+	format, err := importfile.DetectFormat(content)
+	if err != nil {
+		return importfile.ImportPreview{}, err
+	}
+
+	var candidates []importfile.ImportCandidate
+	var skipped int
+	switch format {
+	case importfile.FormatShshJSON:
+		candidates, err = importfile.ParseJSON(content)
+	case importfile.FormatShshCSV, importfile.FormatTermiusCSV:
+		candidates, skipped, err = importfile.ParseCSV(content, format)
+	}
+	if err != nil {
+		return importfile.ImportPreview{}, err
+	}
+
+	// Mark duplicates.
+	for i := range candidates {
+		c := &candidates[i]
+		id, findErr := f.d.Store.FindHostID(c.Hostname, c.Port, c.Username)
+		if findErr != nil {
+			return importfile.ImportPreview{}, findErr
+		}
+		if id != "" {
+			c.IsDuplicate = true
+			c.DuplicateHostID = id
+		}
+	}
+
+	return importfile.ImportPreview{
+		Candidates:     candidates,
+		DetectedFormat: string(format),
+		SkippedCount:   skipped,
+	}, nil
+}
+
+// CommitImportInput is the payload for committing a previewed import.
+type CommitImportInput struct {
+	Candidates []importfile.ImportCandidate `json:"candidates"`
+}
+
+// CommitImport persists the selected import candidates to the database.
+// Creates groups as needed. Overwrites duplicates when IsDuplicate is true.
+func (f *ToolsFacade) CommitImport(input CommitImportInput) ([]store.Host, error) {
+	// Build group name → ID map from existing groups.
+	existingGroups, err := f.d.Store.ListGroups()
+	if err != nil {
+		return nil, err
+	}
+	groupMap := make(map[string]string, len(existingGroups))
+	for _, g := range existingGroups {
+		groupMap[g.Name] = g.ID
+	}
+
+	var results []store.Host
+	for _, c := range input.Candidates {
+		// Resolve group.
+		var groupID *string
+		if c.GroupName != "" {
+			if id, ok := groupMap[c.GroupName]; ok {
+				groupID = &id
+			} else {
+				g, gErr := f.d.Store.AddGroup(store.CreateGroupInput{Name: c.GroupName})
+				if gErr != nil {
+					return nil, fmt.Errorf("create group %q: %w", c.GroupName, gErr)
+				}
+				groupMap[c.GroupName] = g.ID
+				groupID = &g.ID
+			}
+		}
+
+		var keyPath *string
+		if c.KeyPath != "" {
+			keyPath = &c.KeyPath
+		}
+
+		if c.IsDuplicate && c.DuplicateHostID != "" {
+			host, uErr := f.d.Store.UpdateHost(store.UpdateHostInput{
+				ID:         c.DuplicateHostID,
+				Label:      c.Label,
+				Hostname:   c.Hostname,
+				Port:       c.Port,
+				Username:   c.Username,
+				AuthMethod: store.AuthMethod(c.AuthMethod),
+				Password:   c.Password,
+				KeyPath:    keyPath,
+				GroupID:    groupID,
+				Color:      c.Color,
+				Tags:       c.Tags,
+			})
+			if uErr != nil {
+				return nil, fmt.Errorf("update host %q: %w", c.Label, uErr)
+			}
+			results = append(results, host)
+		} else {
+			host, aErr := f.d.Store.AddHost(store.CreateHostInput{
+				Label:      c.Label,
+				Hostname:   c.Hostname,
+				Port:       c.Port,
+				Username:   c.Username,
+				AuthMethod: store.AuthMethod(c.AuthMethod),
+				Password:   c.Password,
+				KeyPath:    keyPath,
+				GroupID:    groupID,
+				Color:      c.Color,
+				Tags:       c.Tags,
+			})
+			if aErr != nil {
+				return nil, fmt.Errorf("add host %q: %w", c.Label, aErr)
+			}
+			results = append(results, host)
+		}
+	}
+
+	if results == nil {
+		results = []store.Host{}
+	}
+	return results, nil
 }
 
 // --- Password Manager Integration ---
