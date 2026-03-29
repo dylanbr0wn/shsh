@@ -168,7 +168,7 @@ export default function App() {
                 <Sidebar />
               </ErrorBoundary>
             </ResizablePanel>
-            <ResizableHandle />
+            <ResizableHandle className="z-20" />
             <ResizablePanel defaultSize="82%" className="min-h-0 overflow-hidden">
               <div ref={containerRef} className="relative h-full">
                 <ErrorBoundary

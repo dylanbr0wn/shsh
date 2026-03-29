@@ -60,7 +60,7 @@ export function DebugPanel() {
   }
 
   return (
-    <div className="bg-background border-border relative flex h-full flex-col border-t">
+    <div className="bg-background relative flex h-full flex-col">
       <DebugFilterBar
         onSettingsToggle={() => setSettingsOpen((v) => !v)}
         settingsOpen={settingsOpen}
