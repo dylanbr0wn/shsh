@@ -33,8 +33,8 @@ import {
   IsVaultLocked,
   IsBiometricAvailable,
   LockVault,
-} from '../wailsjs/go/main/VaultFacade'
-import { EventsOn } from '../wailsjs/runtime/runtime'
+} from '@wailsjs/go/main/VaultFacade'
+import { EventsOn } from '@wailsjs/runtime/runtime'
 
 export default function App() {
   useAppInit()

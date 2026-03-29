@@ -21,7 +21,7 @@ import {
 import { useRef, useState } from 'react'
 import type { Group } from '@/types'
 import { toast } from 'sonner'
-import { AddGroup } from '../../../wailsjs/go/main/HostFacade'
+import { AddGroup } from '@wailsjs/go/main/HostFacade'
 
 export function SidebarFooter() {
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)

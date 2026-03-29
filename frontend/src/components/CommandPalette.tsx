@@ -29,7 +29,7 @@ import {
   type Workspace,
   type TerminalLeaf,
 } from '../store/workspaces'
-import { ConnectHost } from '../../wailsjs/go/main/SessionFacade'
+import { ConnectHost } from '@wailsjs/go/main/SessionFacade'
 
 export function CommandPalette() {
   const [open, setOpen] = useAtom(isCommandPaletteOpenAtom)

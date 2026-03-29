@@ -19,8 +19,8 @@ import {
   type SFTPLeaf,
 } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
-import { DeleteHost, UpdateHost, ListHosts } from '../../../wailsjs/go/main/HostFacade'
-import { ConnectHost, ConnectForSFTP } from '../../../wailsjs/go/main/SessionFacade'
+import { DeleteHost, UpdateHost, ListHosts } from '@wailsjs/go/main/HostFacade'
+import { ConnectHost, ConnectForSFTP } from '@wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, Search } from 'lucide-react'

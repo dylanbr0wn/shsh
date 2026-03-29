@@ -6,7 +6,7 @@ import { DebugFilterBar } from './DebugFilterBar'
 import { DebugSettingsOverlay } from './DebugSettingsOverlay'
 import { DebugLogRow } from './DebugLogRow'
 import type { DebugLevel } from '../../types/debug'
-import { GetConfig } from '../../../wailsjs/go/main/App'
+import { GetConfig } from '@wailsjs/go/main/App'
 
 export function DebugPanel() {
   const entries = useAtomValue(debugFilteredEntriesAtom)

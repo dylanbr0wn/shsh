@@ -13,7 +13,7 @@ import {
   hostHealthAtom,
 } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
-import { ConnectHost } from '../../../wailsjs/go/main/SessionFacade'
+import { ConnectHost } from '@wailsjs/go/main/SessionFacade'
 import type { Host } from '../../types'
 import {
   Item,

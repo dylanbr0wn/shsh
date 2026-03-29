@@ -4,7 +4,7 @@ import { Spinner } from '../ui/spinner'
 import { useAtom, useSetAtom } from 'jotai'
 import { isQuickConnectOpenAtom } from '../../store/atoms'
 import { workspacesAtom, activeWorkspaceIdAtom, type TerminalLeaf } from '../../store/workspaces'
-import { QuickConnect } from '../../../wailsjs/go/main/SessionFacade'
+import { QuickConnect } from '@wailsjs/go/main/SessionFacade'
 import {
   Dialog,
   DialogBody,

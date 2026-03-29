@@ -11,12 +11,7 @@ import {
   Lock,
 } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import {
-  Environment,
-  WindowMinimise,
-  WindowToggleMaximise,
-  Quit,
-} from '../../../wailsjs/runtime/runtime'
+import { Environment, WindowMinimise, WindowToggleMaximise, Quit } from '@wailsjs/runtime/runtime'
 import { cn } from '../../lib/utils'
 import {
   isSettingsOpenAtom,
@@ -25,7 +20,7 @@ import {
   isCommandPaletteOpenAtom,
 } from '../../store/atoms'
 import { vaultEnabledAtom } from '../../atoms/vault'
-import { LockVault } from '../../../wailsjs/go/main/VaultFacade'
+import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
 import { Kbd } from '../ui/kbd'

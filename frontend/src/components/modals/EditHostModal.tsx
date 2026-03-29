@@ -11,9 +11,9 @@ import {
   isTerminalProfilesOpenAtom,
 } from '../../store/atoms'
 import type { Host } from '../../types'
-import { UpdateHost } from '../../../wailsjs/go/main/HostFacade'
-import { BrowseKeyFile } from '../../../wailsjs/go/main/KeysFacade'
-import { CheckPasswordManagers, TestCredentialRef } from '../../../wailsjs/go/main/ToolsFacade'
+import { UpdateHost } from '@wailsjs/go/main/HostFacade'
+import { BrowseKeyFile } from '@wailsjs/go/main/KeysFacade'
+import { CheckPasswordManagers, TestCredentialRef } from '@wailsjs/go/main/ToolsFacade'
 import {
   Dialog,
   DialogBody,
