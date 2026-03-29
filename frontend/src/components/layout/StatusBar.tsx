@@ -14,9 +14,9 @@ export function StatusBar() {
   // Collect all leaves across all workspaces
   const allLeaves = workspaces.flatMap((ws) => collectLeaves(ws.layout))
   const sessionCount = allLeaves.filter((l) => l.kind !== 'local').length
-  const allConnected = sessionCount > 0 && allLeaves
-    .filter((l) => l.kind !== 'local')
-    .every((l) => l.status === 'connected')
+  const allConnected =
+    sessionCount > 0 &&
+    allLeaves.filter((l) => l.kind !== 'local').every((l) => l.status === 'connected')
   const anyConnecting = allLeaves
     .filter((l) => l.kind !== 'local')
     .some((l) => l.status === 'connecting' || l.status === 'reconnecting')
@@ -27,10 +27,7 @@ export function StatusBar() {
   const vaultLocked = useAtomValue(vaultLockedAtom)
 
   const portForwards = useAtomValue(portForwardsAtom)
-  const forwardCount = Object.values(portForwards).reduce(
-    (sum, pf) => sum + pf.forwards.length,
-    0
-  )
+  const forwardCount = Object.values(portForwards).reduce((sum, pf) => sum + pf.forwards.length, 0)
 
   const focusedHostLabel = (() => {
     if (!activeWorkspaceId) return null
@@ -54,7 +51,9 @@ export function StatusBar() {
                     anyConnecting ? 'bg-yellow-500' : allConnected ? 'bg-green-500' : 'bg-red-500'
                   )}
                 />
-                <span>{sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}</span>
+                <span>
+                  {sessionCount} {sessionCount === 1 ? 'session' : 'sessions'}
+                </span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -73,7 +72,9 @@ export function StatusBar() {
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="text-muted-foreground flex items-center gap-1">
-                <span>{forwardCount} {forwardCount === 1 ? 'forward' : 'forwards'}</span>
+                <span>
+                  {forwardCount} {forwardCount === 1 ? 'forward' : 'forwards'}
+                </span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="top">
@@ -89,9 +90,7 @@ export function StatusBar() {
                 <span>{vaultLocked ? 'Locked' : 'Unlocked'}</span>
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top">
-              Vault {vaultLocked ? 'locked' : 'unlocked'}
-            </TooltipContent>
+            <TooltipContent side="top">Vault {vaultLocked ? 'locked' : 'unlocked'}</TooltipContent>
           </Tooltip>
         )}
         <Tooltip>
