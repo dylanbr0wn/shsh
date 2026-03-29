@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from 'jotai'
 import { BarChart3 } from 'lucide-react'
 import { debugPanelOpenAtom } from '../../store/debugStore'
-import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/atoms'
+import { workspacesAtom, activeWorkspaceIdAtom, portForwardsAtom } from '../../store/atoms'
 import { collectLeaves } from '../../lib/paneTree'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -21,6 +21,12 @@ export function StatusBar() {
     .some((l) => l.status === 'connecting' || l.status === 'reconnecting')
 
   const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+
+  const portForwards = useAtomValue(portForwardsAtom)
+  const forwardCount = Object.values(portForwards).reduce(
+    (sum, pf) => sum + pf.forwards.length,
+    0
+  )
 
   const focusedHostLabel = (() => {
     if (!activeWorkspaceId) return null
@@ -59,6 +65,18 @@ export function StatusBar() {
 
       {/* Right zone — actions & indicators */}
       <div className="flex items-center gap-3">
+        {forwardCount > 0 && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="text-muted-foreground flex items-center gap-1">
+                <span>{forwardCount} {forwardCount === 1 ? 'forward' : 'forwards'}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="top">
+              {forwardCount} active port {forwardCount === 1 ? 'forward' : 'forwards'}
+            </TooltipContent>
+          </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <button
