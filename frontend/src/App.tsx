@@ -39,6 +39,8 @@ import {
 } from '../wailsjs/go/main/VaultFacade'
 import { EventsOn } from '../wailsjs/runtime/runtime'
 
+const SNAP_CLOSE_THRESHOLD = 80
+
 export default function App() {
   useAppInit()
   const { resolvedTheme } = useTheme()
@@ -50,8 +52,6 @@ export default function App() {
   const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
-
-  const SNAP_CLOSE_THRESHOLD = 80
   const inSnapZone = dragging && debugHeight < SNAP_CLOSE_THRESHOLD
 
   const onDragStart = useCallback(
@@ -193,6 +193,7 @@ export default function App() {
                     {/* Drag handle — horizontal, matches ResizableHandle style */}
                     {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                     <div
+                      aria-hidden
                       onMouseDown={onDragStart}
                       className={cn(
                         'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
