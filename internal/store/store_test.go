@@ -1,9 +1,12 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/dylanbr0wn/shsh/internal/vault"
 )
 
 // fakeResolver is a test double for CredentialResolver that records calls
@@ -856,5 +859,343 @@ func TestDeleteProfile(t *testing.T) {
 		if pr.ID == p.ID {
 			t.Error("deleted profile still present")
 		}
+	}
+}
+
+// --- Vault integration tests ---
+
+func TestAddHost_VaultEnabled(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "vault-host", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Password should NOT be in the keychain fake.
+	if _, ok := vfr.storedSecrets[added.ID]; ok {
+		t.Error("password was stored in keychain fake, expected vault path")
+	}
+
+	// Verify via GetEncryptedSecret + vault.Decrypt.
+	nonce, ciphertext, err := s.GetEncryptedSecret(added.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce == nil {
+		t.Fatal("expected encrypted secret, got nil nonce")
+	}
+	plaintext, err := vault.Decrypt(testVaultKey, nonce, ciphertext)
+	if err != nil {
+		t.Fatalf("vault.Decrypt: %v", err)
+	}
+	if string(plaintext) != "vault-pw" {
+		t.Errorf("decrypted = %q, want %q", string(plaintext), "vault-pw")
+	}
+}
+
+func TestAddHost_VaultKeyError_Rollback(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	s.SetVaultKeyFunc(func() ([]byte, error) { return nil, fmt.Errorf("vault locked") })
+
+	_, err := s.AddHost(CreateHostInput{
+		Label: "fail-host", Hostname: "f.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err == nil {
+		t.Fatal("expected error when vault key fails, got nil")
+	}
+
+	// Host row should have been deleted (rollback).
+	hosts, err := s.ListHosts()
+	if err != nil {
+		t.Fatalf("ListHosts: %v", err)
+	}
+	if len(hosts) != 0 {
+		t.Errorf("expected 0 hosts after rollback, got %d", len(hosts))
+	}
+}
+
+func TestGetHostForConnect_VaultPath(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "v", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "vault-secret",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "vault-secret" {
+		t.Errorf("password = %q, want %q", pw, "vault-secret")
+	}
+}
+
+func TestGetHostForConnect_VaultLocked(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	added, err := s.AddHost(CreateHostInput{
+		Label: "v", Hostname: "v.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthPassword, Password: "pw",
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Now lock the vault.
+	s.SetVaultKeyFunc(func() ([]byte, error) { return nil, fmt.Errorf("vault locked") })
+
+	_, _, err = s.GetHostForConnect(added.ID)
+	if err == nil {
+		t.Fatal("expected error when vault is locked, got nil")
+	}
+}
+
+func TestGetHostForConnect_VaultNoSecret_FallsToKeychain(t *testing.T) {
+	s, vfr := newTestStoreWithVault(t)
+
+	// Add host as agent (no password stored in vault).
+	added, err := s.AddHost(CreateHostInput{
+		Label: "a", Hostname: "a.example.com", Port: 22,
+		Username: "u", AuthMethod: AuthAgent,
+	})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	// Manually switch to password auth without going through vault path.
+	s.db.Exec(`UPDATE hosts SET auth_method='password', credential_source='inline' WHERE id=?`, added.ID) //nolint:errcheck
+
+	// Set InlineSecretFn to return a keychain password.
+	vfr.InlineSecretFn = func(key, fallback string) (string, error) {
+		return "keychain-pw", nil
+	}
+
+	_, pw, err := s.GetHostForConnect(added.ID)
+	if err != nil {
+		t.Fatalf("GetHostForConnect: %v", err)
+	}
+	if pw != "keychain-pw" {
+		t.Errorf("password = %q, want %q (keychain fallthrough)", pw, "keychain-pw")
+	}
+}
+
+// --- Encrypted secret table tests ---
+
+func TestStoreEncryptedSecret_RoundTrip(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Need a host for FK.
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ciphertext, err := vault.Encrypt(testVaultKey, []byte("hello"))
+	if err != nil {
+		t.Fatalf("Encrypt: %v", err)
+	}
+
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	gotNonce, gotCiphertext, err := s.GetEncryptedSecret(host.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if !bytes.Equal(gotNonce, nonce) {
+		t.Errorf("nonce mismatch")
+	}
+	if !bytes.Equal(gotCiphertext, ciphertext) {
+		t.Errorf("ciphertext mismatch")
+	}
+}
+
+func TestGetEncryptedSecret_NotFound(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	nonce, ciphertext, err := s.GetEncryptedSecret("nonexistent", "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret: %v", err)
+	}
+	if nonce != nil {
+		t.Errorf("expected nil nonce, got %v", nonce)
+	}
+	if ciphertext != nil {
+		t.Errorf("expected nil ciphertext, got %v", ciphertext)
+	}
+}
+
+func TestDeleteEncryptedSecret(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ciphertext, _ := vault.Encrypt(testVaultKey, []byte("secret"))
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	if err := s.DeleteEncryptedSecret(host.ID, "password"); err != nil {
+		t.Fatalf("DeleteEncryptedSecret: %v", err)
+	}
+
+	gotNonce, _, err := s.GetEncryptedSecret(host.ID, "password")
+	if err != nil {
+		t.Fatalf("GetEncryptedSecret after delete: %v", err)
+	}
+	if gotNonce != nil {
+		t.Error("expected nil nonce after delete")
+	}
+}
+
+func TestListEncryptedSecrets(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Create 3 hosts for FK.
+	var hostIDs []string
+	for i := 0; i < 3; i++ {
+		h, err := s.AddHost(CreateHostInput{
+			Label: fmt.Sprintf("h%d", i), Hostname: fmt.Sprintf("h%d.example.com", i),
+			Port: 22, Username: "u", AuthMethod: AuthAgent,
+		})
+		if err != nil {
+			t.Fatalf("AddHost: %v", err)
+		}
+		hostIDs = append(hostIDs, h.ID)
+	}
+
+	for _, id := range hostIDs {
+		nonce, ct, _ := vault.Encrypt(testVaultKey, []byte("pw-"+id))
+		if err := s.StoreEncryptedSecret(id, "password", nonce, ct); err != nil {
+			t.Fatalf("StoreEncryptedSecret: %v", err)
+		}
+	}
+
+	secrets, err := s.ListEncryptedSecrets()
+	if err != nil {
+		t.Fatalf("ListEncryptedSecrets: %v", err)
+	}
+	if len(secrets) != 3 {
+		t.Fatalf("expected 3 secrets, got %d", len(secrets))
+	}
+}
+
+// --- Vault meta tests ---
+
+func TestSaveVaultMeta_RoundTrip(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	meta := &vault.VaultMeta{
+		Salt:         []byte("test-salt-32-bytes-long-01234567"),
+		Nonce:        []byte("test-nonce12"),
+		VerifyBlob:   []byte("encrypted-verify-blob"),
+		ArgonTime:    3,
+		ArgonMemory:  65536,
+		ArgonThreads: 4,
+	}
+
+	if err := s.SaveVaultMeta(meta); err != nil {
+		t.Fatalf("SaveVaultMeta: %v", err)
+	}
+
+	got, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if got == nil {
+		t.Fatal("GetVaultMeta returned nil")
+	}
+	if !bytes.Equal(got.Salt, meta.Salt) {
+		t.Errorf("Salt mismatch")
+	}
+	if !bytes.Equal(got.Nonce, meta.Nonce) {
+		t.Errorf("Nonce mismatch")
+	}
+	if !bytes.Equal(got.VerifyBlob, meta.VerifyBlob) {
+		t.Errorf("VerifyBlob mismatch")
+	}
+	if got.ArgonTime != meta.ArgonTime {
+		t.Errorf("ArgonTime = %d, want %d", got.ArgonTime, meta.ArgonTime)
+	}
+	if got.ArgonMemory != meta.ArgonMemory {
+		t.Errorf("ArgonMemory = %d, want %d", got.ArgonMemory, meta.ArgonMemory)
+	}
+	if got.ArgonThreads != meta.ArgonThreads {
+		t.Errorf("ArgonThreads = %d, want %d", got.ArgonThreads, meta.ArgonThreads)
+	}
+}
+
+func TestGetVaultMeta_Empty(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	meta, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if meta != nil {
+		t.Errorf("expected nil meta, got %+v", meta)
+	}
+}
+
+func TestDeleteVaultMeta_ClearsSecretsAndMeta(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
+
+	// Save vault meta first.
+	meta := &vault.VaultMeta{
+		Salt:         []byte("test-salt-32-bytes-long-01234567"),
+		Nonce:        []byte("test-nonce12"),
+		VerifyBlob:   []byte("blob"),
+		ArgonTime:    3,
+		ArgonMemory:  65536,
+		ArgonThreads: 4,
+	}
+	if err := s.SaveVaultMeta(meta); err != nil {
+		t.Fatalf("SaveVaultMeta: %v", err)
+	}
+
+	// Add a host so FK on secrets is satisfied.
+	host, err := s.AddHost(CreateHostInput{Label: "h", Hostname: "h.example.com", Port: 22, Username: "u", AuthMethod: AuthAgent})
+	if err != nil {
+		t.Fatalf("AddHost: %v", err)
+	}
+
+	nonce, ct, _ := vault.Encrypt(testVaultKey, []byte("secret"))
+	if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ct); err != nil {
+		t.Fatalf("StoreEncryptedSecret: %v", err)
+	}
+
+	if err := s.DeleteVaultMeta(); err != nil {
+		t.Fatalf("DeleteVaultMeta: %v", err)
+	}
+
+	// Both tables should be empty.
+	gotMeta, err := s.GetVaultMeta()
+	if err != nil {
+		t.Fatalf("GetVaultMeta: %v", err)
+	}
+	if gotMeta != nil {
+		t.Error("expected nil meta after delete")
+	}
+
+	secrets, err := s.ListEncryptedSecrets()
+	if err != nil {
+		t.Fatalf("ListEncryptedSecrets: %v", err)
+	}
+	if len(secrets) != 0 {
+		t.Errorf("expected 0 secrets after delete, got %d", len(secrets))
 	}
 }
