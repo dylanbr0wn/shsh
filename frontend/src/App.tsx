@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
@@ -44,6 +44,38 @@ export default function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
   const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
+  const [debugHeight, setDebugHeight] = useState(300)
+  const dragRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const onDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      dragRef.current = { startY: e.clientY, startHeight: debugHeight }
+      const onMove = (ev: MouseEvent) => {
+        if (!dragRef.current || !containerRef.current) return
+        const containerHeight = containerRef.current.getBoundingClientRect().height
+        const delta = dragRef.current.startY - ev.clientY
+        const next = Math.min(
+          Math.max(dragRef.current.startHeight + delta, 150),
+          containerHeight * 0.8
+        )
+        setDebugHeight(next)
+      }
+      const onUp = () => {
+        dragRef.current = null
+        document.removeEventListener('mousemove', onMove)
+        document.removeEventListener('mouseup', onUp)
+        document.body.style.cursor = ''
+        document.body.style.userSelect = ''
+      }
+      document.addEventListener('mousemove', onMove)
+      document.addEventListener('mouseup', onUp)
+      document.body.style.cursor = 'row-resize'
+      document.body.style.userSelect = 'none'
+    },
+    [debugHeight]
+  )
   const [vaultEnabled, setVaultEnabled] = useAtom(vaultEnabledAtom)
   const setVaultLocked = useSetAtom(vaultLockedAtom)
   const setBiometricAvailable = useSetAtom(biometricAvailableAtom)
@@ -123,25 +155,35 @@ export default function App() {
               </ErrorBoundary>
             </ResizablePanel>
             <ResizableHandle />
-            <ResizablePanel defaultSize="82%" className="relative min-h-0 overflow-hidden">
-              <ErrorBoundary
-                fallback="panel"
-                zone="main"
-                onError={(e, i) => reportUIError(e, i, 'main')}
-              >
-                <MainArea />
-              </ErrorBoundary>
-              {debugPanelOpen && (
-                <div className="absolute inset-x-0 bottom-0 z-10 h-[40%] max-h-[400px] min-h-[150px]">
-                  <ErrorBoundary
-                    fallback="inline"
-                    zone="debug"
-                    onError={(e, i) => reportUIError(e, i, 'debug')}
+            <ResizablePanel defaultSize="82%" className="min-h-0 overflow-hidden">
+              <div ref={containerRef} className="relative h-full">
+                <ErrorBoundary
+                  fallback="panel"
+                  zone="main"
+                  onError={(e, i) => reportUIError(e, i, 'main')}
+                >
+                  <MainArea />
+                </ErrorBoundary>
+                {debugPanelOpen && (
+                  <div
+                    className="absolute inset-x-0 bottom-0 z-10 flex flex-col"
+                    style={{ height: debugHeight }}
                   >
-                    <DebugPanel />
-                  </ErrorBoundary>
-                </div>
-              )}
+                    {/* Drag handle */}
+                    <div
+                      onMouseDown={onDragStart}
+                      className="bg-border hover:bg-primary/50 h-1 shrink-0 cursor-row-resize transition-colors"
+                    />
+                    <ErrorBoundary
+                      fallback="inline"
+                      zone="debug"
+                      onError={(e, i) => reportUIError(e, i, 'debug')}
+                    >
+                      <DebugPanel />
+                    </ErrorBoundary>
+                  </div>
+                )}
+              </div>
             </ResizablePanel>
           </ResizablePanelGroup>
           <ErrorBoundary
