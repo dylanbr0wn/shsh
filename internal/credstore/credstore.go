@@ -42,22 +42,60 @@ var mu sync.Mutex
 // bwSessionKey caches the Bitwarden session key for the lifetime of the app.
 var bwSessionKey string
 
+// defaultResolver is used by package-level convenience functions.
+var defaultResolver = NewResolver()
+
 // Check returns the current availability and lock status of each supported PM.
 func Check() PasswordManagersStatus {
+	return defaultResolver.Check()
+}
+
+// FetchFrom1Password retrieves the password field of a 1Password item.
+// ref can be an item UUID, name, or a `op://vault/item/field` URI.
+func FetchFrom1Password(ref string) (string, error) {
+	return defaultResolver.fetchFrom1PasswordCtx(context.Background(), ref)
+}
+
+// FetchFromBitwarden retrieves the password of a Bitwarden vault item.
+// ref is the item name or UUID.
+func FetchFromBitwarden(ref string) (string, error) {
+	return defaultResolver.fetchFromBitwardenCtx(context.Background(), ref)
+}
+
+// Fetch retrieves a credential from the given external source using ref.
+// source must be Source1Password or SourceBitwarden.
+func Fetch(source Source, ref string) (string, error) {
+	return defaultResolver.Fetch(source, ref)
+}
+
+// Check returns the current availability and lock status of each supported PM.
+func (r *Resolver) Check() PasswordManagersStatus {
 	return PasswordManagersStatus{
-		OnePassword: check1Password(),
-		Bitwarden:   checkBitwarden(),
+		OnePassword: r.check1Password(),
+		Bitwarden:   r.checkBitwarden(),
+	}
+}
+
+// Fetch retrieves a credential from the given external source using ref.
+func (r *Resolver) Fetch(source Source, ref string) (string, error) {
+	switch source {
+	case Source1Password:
+		return r.fetchFrom1PasswordCtx(context.Background(), ref)
+	case SourceBitwarden:
+		return r.fetchFromBitwardenCtx(context.Background(), ref)
+	default:
+		return "", fmt.Errorf("unsupported credential source: %s", source)
 	}
 }
 
 // check1Password probes the `op` CLI.
-func check1Password() PMStatus {
-	if _, err := exec.LookPath("op"); err != nil {
+func (r *Resolver) check1Password() PMStatus {
+	if _, err := r.lookPath("op"); err != nil {
 		return PMStatus{Available: false, Error: "op CLI not found"}
 	}
 
 	// `op account list --format json` exits non-zero when not signed in.
-	out, err := exec.Command("op", "account", "list", "--format", "json").Output()
+	out, err := r.runCmd(context.Background(), "op", "account", "list", "--format", "json")
 	if err != nil {
 		return PMStatus{Available: true, Locked: true, Error: "not signed in to 1Password"}
 	}
@@ -72,12 +110,12 @@ func check1Password() PMStatus {
 }
 
 // checkBitwarden probes the `bw` CLI.
-func checkBitwarden() PMStatus {
-	if _, err := exec.LookPath("bw"); err != nil {
+func (r *Resolver) checkBitwarden() PMStatus {
+	if _, err := r.lookPath("bw"); err != nil {
 		return PMStatus{Available: false, Error: "bw CLI not found"}
 	}
 
-	out, err := exec.Command("bw", "status").Output()
+	out, err := r.runCmd(context.Background(), "bw", "status")
 	if err != nil {
 		return PMStatus{Available: true, Locked: true, Error: "bw status failed"}
 	}
@@ -96,34 +134,10 @@ func checkBitwarden() PMStatus {
 	return PMStatus{Available: true, Locked: false}
 }
 
-// FetchFrom1Password retrieves the password field of a 1Password item.
-// ref can be an item UUID, name, or a `op://vault/item/field` URI.
-func FetchFrom1Password(ref string) (string, error) {
-	return fetchFrom1PasswordCtx(context.Background(), ref)
-}
-
-// FetchFromBitwarden retrieves the password of a Bitwarden vault item.
-// ref is the item name or UUID.
-func FetchFromBitwarden(ref string) (string, error) {
-	return fetchFromBitwardenCtx(context.Background(), ref)
-}
-
-// Fetch retrieves a credential from the given external source using ref.
-// source must be Source1Password or SourceBitwarden.
-func Fetch(source Source, ref string) (string, error) {
-	switch source {
-	case Source1Password:
-		return FetchFrom1Password(ref)
-	case SourceBitwarden:
-		return FetchFromBitwarden(ref)
-	default:
-		return "", fmt.Errorf("unsupported credential source: %s", source)
-	}
-}
-
-// fetchFrom1PasswordCtx is like FetchFrom1Password but respects context for timeout.
-func fetchFrom1PasswordCtx(ctx context.Context, ref string) (string, error) {
-	if _, err := exec.LookPath("op"); err != nil {
+// fetchFrom1PasswordCtx retrieves the password field of a 1Password item,
+// respecting context for timeout.
+func (r *Resolver) fetchFrom1PasswordCtx(ctx context.Context, ref string) (string, error) {
+	if _, err := r.lookPath("op"); err != nil {
 		return "", fmt.Errorf("1Password CLI (op) not installed")
 	}
 
@@ -134,7 +148,7 @@ func fetchFrom1PasswordCtx(ctx context.Context, ref string) (string, error) {
 		args = []string{"item", "get", ref, "--fields", "label=password", "--reveal"}
 	}
 
-	out, err := exec.CommandContext(ctx, "op", args...).Output() //nolint:gosec
+	out, err := r.runCmd(ctx, "op", args...)
 	if err != nil {
 		if ctx.Err() != nil {
 			return "", fmt.Errorf("1Password: %w", ctx.Err())
@@ -148,9 +162,10 @@ func fetchFrom1PasswordCtx(ctx context.Context, ref string) (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
-// fetchFromBitwardenCtx is like FetchFromBitwarden but respects context for timeout.
-func fetchFromBitwardenCtx(ctx context.Context, ref string) (string, error) {
-	if _, err := exec.LookPath("bw"); err != nil {
+// fetchFromBitwardenCtx retrieves the password of a Bitwarden vault item,
+// respecting context for timeout.
+func (r *Resolver) fetchFromBitwardenCtx(ctx context.Context, ref string) (string, error) {
+	if _, err := r.lookPath("bw"); err != nil {
 		return "", fmt.Errorf("Bitwarden CLI (bw) not installed")
 	}
 
@@ -163,7 +178,7 @@ func fetchFromBitwardenCtx(ctx context.Context, ref string) (string, error) {
 		args = append(args, "--session", sessionKey)
 	}
 
-	out, err := exec.CommandContext(ctx, "bw", args...).Output() //nolint:gosec
+	out, err := r.runCmd(ctx, "bw", args...)
 	if err != nil {
 		if ctx.Err() != nil {
 			return "", fmt.Errorf("Bitwarden: %w", ctx.Err())
