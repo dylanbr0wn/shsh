@@ -1,7 +1,7 @@
 import { useAtom, useAtomValue } from 'jotai'
 import { BarChart3 } from 'lucide-react'
 import { debugPanelOpenAtom } from '../../store/debugStore'
-import { workspacesAtom } from '../../store/atoms'
+import { workspacesAtom, activeWorkspaceIdAtom } from '../../store/atoms'
 import { collectLeaves } from '../../lib/paneTree'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
@@ -19,6 +19,16 @@ export function StatusBar() {
   const anyConnecting = allLeaves
     .filter((l) => l.kind !== 'local')
     .some((l) => l.status === 'connecting' || l.status === 'reconnecting')
+
+  const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+
+  const focusedHostLabel = (() => {
+    if (!activeWorkspaceId) return null
+    const ws = workspaces.find((w) => w.id === activeWorkspaceId)
+    if (!ws || !ws.focusedPaneId) return null
+    const leaf = collectLeaves(ws.layout).find((l) => l.paneId === ws.focusedPaneId)
+    return leaf?.hostLabel ?? null
+  })()
 
   return (
     <div className="bg-sidebar border-border flex h-6 shrink-0 items-center justify-between border-t px-2 text-xs">
@@ -41,6 +51,9 @@ export function StatusBar() {
               {sessionCount} active {sessionCount === 1 ? 'session' : 'sessions'}
             </TooltipContent>
           </Tooltip>
+        )}
+        {focusedHostLabel && (
+          <span className="max-w-[200px] truncate opacity-60">{focusedHostLabel}</span>
         )}
       </div>
 
