@@ -2,6 +2,7 @@ package keybind
 
 import (
 	"fmt"
+	goruntime "runtime"
 	"strings"
 )
 
@@ -89,4 +90,45 @@ func Normalize(shortcut string) (string, error) {
 		return "", err
 	}
 	return Format(p), nil
+}
+
+// FormatForDisplay converts a shortcut string to platform-appropriate display symbols.
+// On macOS: CmdOrCtrl→⌘, Shift→⇧, Alt→⌥. On others: CmdOrCtrl→Ctrl+.
+func FormatForDisplay(shortcut string) string {
+	if shortcut == "" {
+		return ""
+	}
+	p, err := Parse(shortcut)
+	if err != nil {
+		return shortcut
+	}
+
+	isMac := goruntime.GOOS == "darwin"
+	var parts []string
+	if p.CmdOrCtrl {
+		if isMac {
+			parts = append(parts, "⌘")
+		} else {
+			parts = append(parts, "Ctrl+")
+		}
+	}
+	if p.Alt {
+		if isMac {
+			parts = append(parts, "⌥")
+		} else {
+			parts = append(parts, "Alt+")
+		}
+	}
+	if p.Shift {
+		if isMac {
+			parts = append(parts, "⇧")
+		} else {
+			parts = append(parts, "Shift+")
+		}
+	}
+
+	if isMac {
+		return strings.Join(parts, "") + strings.ToUpper(p.Key)
+	}
+	return strings.Join(parts, "") + strings.ToUpper(p.Key)
 }
