@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useSetAtom } from 'jotai'
 import { useTheme } from 'next-themes'
 import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
@@ -22,6 +22,8 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { VaultLockOverlay } from './components/modals/VaultLockOverlay'
+import { GripVertical } from 'lucide-react'
+import { cn } from './lib/utils'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
 import { DebugPanel } from './components/debug/DebugPanel'
 import { isDeployKeyOpenAtom, deployKeyHostAtom, sidebarCollapsedAtom } from './store/atoms'
@@ -43,38 +45,49 @@ export default function App() {
   const sidebarRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const [isDeployKeyOpen, setIsDeployKeyOpen] = useAtom(isDeployKeyOpenAtom)
-  const debugPanelOpen = useAtomValue(debugPanelOpenAtom)
+  const [debugPanelOpen, setDebugPanelOpen] = useAtom(debugPanelOpenAtom)
   const [debugHeight, setDebugHeight] = useState(300)
+  const [dragging, setDragging] = useState(false)
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+
+  const SNAP_CLOSE_THRESHOLD = 80
 
   const onDragStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
       dragRef.current = { startY: e.clientY, startHeight: debugHeight }
+      setDragging(true)
       const onMove = (ev: MouseEvent) => {
         if (!dragRef.current || !containerRef.current) return
         const containerHeight = containerRef.current.getBoundingClientRect().height
         const delta = dragRef.current.startY - ev.clientY
-        const next = Math.min(
-          Math.max(dragRef.current.startHeight + delta, 150),
-          containerHeight * 0.8
-        )
+        const raw = dragRef.current.startHeight + delta
+        const next = Math.min(Math.max(raw, 0), containerHeight * 0.8)
         setDebugHeight(next)
       }
       const onUp = () => {
         dragRef.current = null
+        setDragging(false)
         document.removeEventListener('mousemove', onMove)
         document.removeEventListener('mouseup', onUp)
         document.body.style.cursor = ''
         document.body.style.userSelect = ''
+        // Snap closed if dragged below threshold
+        setDebugHeight((h) => {
+          if (h < SNAP_CLOSE_THRESHOLD) {
+            setDebugPanelOpen(false)
+            return 300 // reset for next open
+          }
+          return Math.max(h, 150) // enforce minimum
+        })
       }
       document.addEventListener('mousemove', onMove)
       document.addEventListener('mouseup', onUp)
       document.body.style.cursor = 'row-resize'
       document.body.style.userSelect = 'none'
     },
-    [debugHeight]
+    [debugHeight, setDebugPanelOpen]
   )
   const [vaultEnabled, setVaultEnabled] = useAtom(vaultEnabledAtom)
   const setVaultLocked = useSetAtom(vaultLockedAtom)
@@ -169,11 +182,26 @@ export default function App() {
                     className="absolute inset-x-0 bottom-0 z-10 flex flex-col"
                     style={{ height: debugHeight }}
                   >
-                    {/* Drag handle */}
+                    {/* Drag handle — matches ResizableHandle style */}
+                    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                     <div
                       onMouseDown={onDragStart}
-                      className="bg-border hover:bg-primary/50 h-1 shrink-0 cursor-row-resize transition-colors"
-                    />
+                      className={cn(
+                        'group relative flex h-px shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
+                        dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          'z-10 flex h-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                          dragging
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
+                        )}
+                      >
+                        <GripVertical className="size-3 shrink-0 rotate-90" />
+                      </div>
+                    </div>
                     <ErrorBoundary
                       fallback="inline"
                       zone="debug"
