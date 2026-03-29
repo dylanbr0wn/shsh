@@ -11,10 +11,39 @@ import { eventToShortcut, formatShortcutForDisplay } from '../../lib/keybind'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
-import { FieldSet, FieldLegend, FieldGroup } from '../ui/field'
+import { Kbd, KbdGroup } from '../ui/kbd'
+import { Item, ItemGroup, ItemContent, ItemTitle, ItemActions } from '../ui/item'
+import { FieldSet, FieldLegend } from '../ui/field'
 import { getDefaultStore } from 'jotai'
 
 const store = getDefaultStore()
+
+const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC')
+
+/** Split a CmdOrCtrl+Shift+K shortcut into display parts for individual Kbd elements */
+function shortcutParts(shortcut: string): string[] {
+  if (!shortcut) return []
+  const parts = shortcut.split('+')
+  const key = parts[parts.length - 1]
+  const modifiers = parts.slice(0, -1)
+
+  const result: string[] = []
+  for (const mod of modifiers) {
+    switch (mod) {
+      case 'CmdOrCtrl':
+        result.push(isMac ? '⌘' : 'Ctrl')
+        break
+      case 'Alt':
+        result.push(isMac ? '⌥' : 'Alt')
+        break
+      case 'Shift':
+        result.push(isMac ? '⇧' : 'Shift')
+        break
+    }
+  }
+  result.push(key.toUpperCase())
+  return result
+}
 
 export function KeybindingsSettings() {
   const keybindings = useAtomValue(keybindingsAtom)
@@ -30,6 +59,20 @@ export function KeybindingsSettings() {
     const bindings = await GetKeybindings()
     store.set(keybindingsAtom, bindings ?? [])
   }, [])
+
+  const applyBinding = useCallback(
+    async (actionId: string, shortcut: string) => {
+      try {
+        await UpdateKeybinding(actionId, shortcut)
+        await refreshBindings()
+      } finally {
+        setRecordingActionId(null)
+        setPendingShortcut(null)
+        setConflict(null)
+      }
+    },
+    [refreshBindings]
+  )
 
   // Fetch keybindings on mount (in case useKeybindings hook hasn't run yet)
   useEffect(() => {
@@ -70,18 +113,7 @@ export function KeybindingsSettings() {
 
     window.addEventListener('keydown', handler, true)
     return () => window.removeEventListener('keydown', handler, true)
-  }, [recordingActionId, keybindings])
-
-  async function applyBinding(actionId: string, shortcut: string) {
-    try {
-      await UpdateKeybinding(actionId, shortcut)
-      await refreshBindings()
-    } finally {
-      setRecordingActionId(null)
-      setPendingShortcut(null)
-      setConflict(null)
-    }
-  }
+  }, [recordingActionId, keybindings, applyBinding])
 
   async function confirmConflictReassign() {
     if (!conflict || !pendingShortcut || !recordingActionId) return
@@ -118,29 +150,31 @@ export function KeybindingsSettings() {
   const sortedCategories = Object.keys(grouped).sort()
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <Input
         placeholder="Search shortcuts..."
         value={search}
         onChange={(e) => setSearch(e.target.value)}
       />
 
-      <ScrollArea className="max-h-[50vh]">
+      <ScrollArea className="h-[50vh]">
         <div className="flex flex-col gap-4 pr-3">
           {sortedCategories.map((category) => (
             <FieldSet key={category}>
               <FieldLegend>{category}</FieldLegend>
-              <FieldGroup>
+              <ItemGroup>
                 {grouped[category].map((kb) => (
-                  <div key={kb.action_id} className="flex items-center justify-between py-1.5">
-                    <span className="text-sm">{kb.label}</span>
-                    <div className="flex items-center gap-2">
+                  <Item key={kb.action_id} variant="muted" size="sm">
+                    <ItemContent>
+                      <ItemTitle>{kb.label}</ItemTitle>
+                    </ItemContent>
+                    <ItemActions>
                       {recordingActionId === kb.action_id ? (
                         conflict ? (
                           <div className="flex items-center gap-2">
                             <span className="text-destructive text-xs">
-                              Already bound to {conflict.label}.
-                              {conflict.protected && ' (Protected!)'} Reassign?
+                              Conflicts with {conflict.label}.
+                              {conflict.protected && ' (Protected!)'}
                             </span>
                             <Button
                               variant="ghost"
@@ -148,7 +182,7 @@ export function KeybindingsSettings() {
                               className="h-6 text-xs"
                               onClick={confirmConflictReassign}
                             >
-                              Yes
+                              Reassign
                             </Button>
                             <Button
                               variant="ghost"
@@ -164,35 +198,47 @@ export function KeybindingsSettings() {
                             </Button>
                           </div>
                         ) : (
-                          <span className="border-primary text-primary animate-pulse rounded border px-2 py-0.5 text-xs">
-                            Press shortcut...
-                          </span>
+                          <Kbd className="border-primary text-primary h-7 animate-pulse border px-2.5 text-xs">
+                            Press shortcut…
+                          </Kbd>
                         )
                       ) : (
                         <button
-                          className="border-border bg-muted text-muted-foreground hover:border-primary hover:text-primary rounded border px-2 py-0.5 font-mono text-xs transition-colors"
+                          className="cursor-pointer"
                           onClick={() => {
                             setRecordingActionId(kb.action_id)
                             setPendingShortcut(null)
                             setConflict(null)
                           }}
                         >
-                          {formatShortcutForDisplay(kb.shortcut)}
+                          {kb.shortcut ? (
+                            <KbdGroup>
+                              {shortcutParts(kb.shortcut).map((part, i) => (
+                                <Kbd key={i} className="h-7 min-w-7 px-1.5 text-xs">
+                                  {part}
+                                </Kbd>
+                              ))}
+                            </KbdGroup>
+                          ) : (
+                            <Kbd className="text-muted-foreground h-7 px-2.5 text-xs">Unbound</Kbd>
+                          )}
                         </button>
                       )}
                       {kb.modified && recordingActionId !== kb.action_id && (
-                        <button
-                          className="text-muted-foreground hover:text-foreground text-xs"
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-foreground h-6 w-6 p-0 text-xs"
                           onClick={() => handleReset(kb.action_id)}
                           title="Reset to default"
                         >
                           ↺
-                        </button>
+                        </Button>
                       )}
-                    </div>
-                  </div>
+                    </ItemActions>
+                  </Item>
                 ))}
-              </FieldGroup>
+              </ItemGroup>
             </FieldSet>
           ))}
         </div>
