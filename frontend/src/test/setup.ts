@@ -3,7 +3,7 @@ import { vi } from 'vitest'
 
 // Mock the Wails runtime — every module that imports from wailsjs/runtime/runtime
 // gets these stubs instead. EventsOn returns a cancel function.
-vi.mock('../../wailsjs/runtime/runtime', () => ({
+vi.mock('@wailsjs/runtime/runtime', () => ({
   EventsOn: vi.fn(() => vi.fn()),
   EventsOff: vi.fn(),
   EventsEmit: vi.fn(),
@@ -18,7 +18,7 @@ vi.mock('../../wailsjs/runtime/runtime', () => ({
 }))
 
 // Mock SessionFacade — the most commonly imported Go facade
-vi.mock('../../wailsjs/go/main/SessionFacade', () => ({
+vi.mock('@wailsjs/go/main/SessionFacade', () => ({
   CloseChannel: vi.fn(() => Promise.resolve()),
   ConnectHost: vi.fn(() => Promise.resolve()),
   WriteToChannel: vi.fn(() => Promise.resolve()),
@@ -33,7 +33,7 @@ vi.mock('../../wailsjs/go/main/SessionFacade', () => ({
 }))
 
 // Mock HostFacade
-vi.mock('../../wailsjs/go/main/HostFacade', () => ({
+vi.mock('@wailsjs/go/main/HostFacade', () => ({
   ListHosts: vi.fn(() => Promise.resolve([])),
   ListGroups: vi.fn(() => Promise.resolve([])),
   ListTerminalProfiles: vi.fn(() => Promise.resolve([])),
@@ -43,14 +43,14 @@ vi.mock('../../wailsjs/go/main/HostFacade', () => ({
 }))
 
 // Mock App facade
-vi.mock('../../wailsjs/go/main/App', () => ({
+vi.mock('@wailsjs/go/main/App', () => ({
   GetConfig: vi.fn(() => Promise.resolve({})),
   SetDebugLevel: vi.fn(() => Promise.resolve()),
   UpdateConfig: vi.fn(() => Promise.resolve()),
 }))
 
 // Mock ToolsFacade
-vi.mock('../../wailsjs/go/main/ToolsFacade', () => ({
+vi.mock('@wailsjs/go/main/ToolsFacade', () => ({
   OpenLogsDirectory: vi.fn(() => Promise.resolve()),
 }))
 

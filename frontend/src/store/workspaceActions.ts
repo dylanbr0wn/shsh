@@ -11,7 +11,7 @@ import {
   moveLeaf,
   movePaneAcrossWorkspaces,
 } from '../lib/paneTree'
-import { CloseChannel } from '../../wailsjs/go/main/SessionFacade'
+import { CloseChannel } from '@wailsjs/go/main/SessionFacade'
 import { toast } from 'sonner'
 
 /** Patch every leaf whose channelId matches, across all workspaces. */

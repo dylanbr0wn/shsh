@@ -1,6 +1,6 @@
 import { renderHook } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { EventsOn } from '@wailsjs/runtime/runtime'
 import { useWailsEvent } from './useWailsEvent'
 
 beforeEach(() => {

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react'
-import { EventsOn } from '../../wailsjs/runtime/runtime'
+import { EventsOn } from '@wailsjs/runtime/runtime'
 import type { WailsEventMap } from '../events/topics'
 
 export function useWailsEvent<T extends keyof WailsEventMap>(

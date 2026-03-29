@@ -11,7 +11,7 @@ import {
   requireActiveLeafAtom,
   disconnectAllAtom,
 } from './workspaceActions'
-import { CloseChannel } from '../../wailsjs/go/main/SessionFacade'
+import { CloseChannel } from '@wailsjs/go/main/SessionFacade'
 import { toast } from 'sonner'
 
 // ---------------------------------------------------------------------------

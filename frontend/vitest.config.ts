@@ -7,10 +7,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      // Map wailsjs imports to committed stubs so tests work without wails generate
-      '../wailsjs': path.resolve(__dirname, './src/test/wailsjs-stubs'),
-      '../../wailsjs': path.resolve(__dirname, './src/test/wailsjs-stubs'),
-      '../../../wailsjs': path.resolve(__dirname, './src/test/wailsjs-stubs'),
+      '@wailsjs': path.resolve(__dirname, './src/test/wailsjs-stubs'),
     },
   },
   test: {
