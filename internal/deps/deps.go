@@ -5,6 +5,7 @@ import (
 
 	"github.com/dylanbr0wn/shsh/internal/config"
 	"github.com/dylanbr0wn/shsh/internal/debuglog"
+	"github.com/dylanbr0wn/shsh/internal/lockstate"
 	"github.com/dylanbr0wn/shsh/internal/session"
 	"github.com/dylanbr0wn/shsh/internal/store"
 )
@@ -24,4 +25,5 @@ type Deps struct {
 	Cfg       *config.Config
 	CfgPath   string
 	DebugSink *debuglog.DebugSink
+	LockState *lockstate.State
 }

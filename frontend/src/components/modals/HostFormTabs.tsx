@@ -1,4 +1,6 @@
 import { FolderOpen, Info, KeyRound, Upload } from 'lucide-react'
+import { useAtomValue } from 'jotai'
+import { vaultEnabledAtom } from '../../atoms/vault'
 import type {
   CredentialSource,
   Group,
@@ -71,6 +73,7 @@ export function HostFormTabs({
   onOpenProfilesModal,
 }: HostFormTabsProps) {
   const credSrc = form.credentialSource ?? 'inline'
+  const vaultEnabled = useAtomValue(vaultEnabledAtom)
 
   function field(name: keyof HostFormData) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -206,7 +209,9 @@ export function HostFormTabs({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="inline">Inline (macOS Keychain)</SelectItem>
+                    <SelectItem value="inline">
+                      {vaultEnabled ? 'Stored in vault' : 'Inline (macOS Keychain)'}
+                    </SelectItem>
                     <SelectItem value="1password">1Password</SelectItem>
                     <SelectItem value="bitwarden">Bitwarden</SelectItem>
                   </SelectContent>
@@ -217,7 +222,11 @@ export function HostFormTabs({
                 <Field>
                   <FieldLabel htmlFor="hf-password">
                     Password
-                    <FieldHint>Stored securely in macOS Keychain, never in plain text.</FieldHint>
+                    <FieldHint>
+                      {vaultEnabled
+                        ? 'Encrypted in vault with your master password.'
+                        : 'Stored securely in macOS Keychain, never in plain text.'}
+                    </FieldHint>
                   </FieldLabel>
                   <Input
                     id="hf-password"

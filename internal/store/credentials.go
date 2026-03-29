@@ -25,3 +25,21 @@ type CredentialResolver interface {
 	// DeleteSecret removes a secret from the OS keychain. No error if not found.
 	DeleteSecret(key string) error
 }
+
+// VaultCredentialResolver extends CredentialResolver with vault support.
+type VaultCredentialResolver interface {
+	CredentialResolver
+	// VaultStoreSecret encrypts and stores a secret using the provided key.
+	VaultStoreSecret(store SecretStore, key []byte, hostID, kind, plaintext string) error
+	// VaultGetSecret decrypts and returns a secret using the provided key.
+	VaultGetSecret(store SecretStore, key []byte, hostID, kind string) (string, error)
+	// VaultDeleteSecret removes an encrypted secret.
+	VaultDeleteSecret(store SecretStore, hostID, kind string) error
+}
+
+// SecretStore is the subset of Store needed for vault secret operations.
+type SecretStore interface {
+	StoreEncryptedSecret(hostID, kind string, nonce, ciphertext []byte) error
+	GetEncryptedSecret(hostID, kind string) (nonce, ciphertext []byte, err error)
+	DeleteEncryptedSecret(hostID, kind string) error
+}

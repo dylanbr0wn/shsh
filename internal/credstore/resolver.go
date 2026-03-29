@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dylanbr0wn/shsh/internal/store"
+	"github.com/dylanbr0wn/shsh/internal/vault"
 )
 
 // Resolver implements store.CredentialResolver using the OS keychain
@@ -47,5 +48,38 @@ func (r *Resolver) DeleteSecret(key string) error {
 	return KeychainDelete(key)
 }
 
+// VaultStoreSecret encrypts a plaintext secret and stores it in the DB.
+func (r *Resolver) VaultStoreSecret(ss store.SecretStore, key []byte, hostID, kind, plaintext string) error {
+	nonce, ciphertext, err := vault.Encrypt(key, []byte(plaintext))
+	if err != nil {
+		return fmt.Errorf("vault encrypt: %w", err)
+	}
+	return ss.StoreEncryptedSecret(hostID, kind, nonce, ciphertext)
+}
+
+// VaultGetSecret retrieves and decrypts a secret from the DB.
+func (r *Resolver) VaultGetSecret(ss store.SecretStore, key []byte, hostID, kind string) (string, error) {
+	nonce, ciphertext, err := ss.GetEncryptedSecret(hostID, kind)
+	if err != nil {
+		return "", fmt.Errorf("vault get secret: %w", err)
+	}
+	if nonce == nil {
+		return "", nil // no secret stored
+	}
+	plaintext, err := vault.Decrypt(key, nonce, ciphertext)
+	if err != nil {
+		return "", fmt.Errorf("vault decrypt: %w", err)
+	}
+	return string(plaintext), nil
+}
+
+// VaultDeleteSecret removes an encrypted secret.
+func (r *Resolver) VaultDeleteSecret(ss store.SecretStore, hostID, kind string) error {
+	return ss.DeleteEncryptedSecret(hostID, kind)
+}
+
 // Compile-time check that Resolver satisfies store.CredentialResolver.
 var _ store.CredentialResolver = (*Resolver)(nil)
+
+// Compile-time check that Resolver satisfies store.VaultCredentialResolver.
+var _ store.VaultCredentialResolver = (*Resolver)(nil)

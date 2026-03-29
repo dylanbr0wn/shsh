@@ -40,6 +40,18 @@ func NewSessionFacade(d *deps.Deps) *SessionFacade {
 	return &SessionFacade{d: d}
 }
 
+// checkVaultUnlocked returns an error if the vault is enabled and locked.
+// It also resets the idle timer on successful access.
+func (f *SessionFacade) checkVaultUnlocked() error {
+	if f.d.Cfg.Vault.Enabled && f.d.LockState != nil && f.d.LockState.IsLocked() {
+		return fmt.Errorf("vault is locked")
+	}
+	if f.d.LockState != nil {
+		f.d.LockState.Touch()
+	}
+	return nil
+}
+
 // resolveWithJump fetches host+password by ID and resolves jump host if configured.
 func (f *SessionFacade) resolveWithJump(hostID string) (host store.Host, password string, jumpHost *store.Host, jumpPassword string, err error) {
 	host, password, err = f.d.Store.GetHostForConnect(hostID)
@@ -62,6 +74,9 @@ func (f *SessionFacade) resolveWithJump(hostID string) (host store.Host, passwor
 
 // BulkConnectGroup dials SSH for all hosts in the given group and returns the resulting connection/channel pairs.
 func (f *SessionFacade) BulkConnectGroup(groupID string) ([]BulkConnectResult, error) {
+	if err := f.checkVaultUnlocked(); err != nil {
+		return nil, err
+	}
 	hosts, err := f.d.Store.GetHostsByGroup(groupID)
 	if err != nil {
 		return nil, err
@@ -120,6 +135,9 @@ func (f *SessionFacade) QuickConnect(input QuickConnectInput) (session.ConnectHo
 
 // ConnectHost dials SSH for the given host and returns a connection+channel result.
 func (f *SessionFacade) ConnectHost(hostID string) (session.ConnectHostResult, error) {
+	if err := f.checkVaultUnlocked(); err != nil {
+		return session.ConnectHostResult{}, err
+	}
 	host, password, jumpHost, jumpPassword, err := f.resolveWithJump(hostID)
 	if err != nil {
 		return session.ConnectHostResult{}, err
@@ -142,6 +160,9 @@ func (f *SessionFacade) ConnectHost(hostID string) (session.ConnectHostResult, e
 
 // ConnectForSFTP dials SSH for the given host and opens an SFTP channel.
 func (f *SessionFacade) ConnectForSFTP(hostID string) (session.ConnectHostResult, error) {
+	if err := f.checkVaultUnlocked(); err != nil {
+		return session.ConnectHostResult{}, err
+	}
 	host, password, jumpHost, jumpPassword, err := f.resolveWithJump(hostID)
 	if err != nil {
 		return session.ConnectHostResult{}, err
