@@ -122,26 +122,28 @@ export function CommandPalette() {
               Export Hosts
             </CommandItem>
           </CommandGroup>
-          <CommandSeparator />
           {hosts.length > 0 && (
-            <CommandGroup heading="Hosts">
-              {hosts.map((host) => (
-                <CommandItem
-                  key={host.id}
-                  value={`${host.label} ${host.username}@${host.hostname}`}
-                  onSelect={() => handleConnect(host.id, host.label)}
-                >
-                  <span
-                    className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: host.color ?? 'var(--muted-foreground)' }}
-                  />
-                  <span className="flex-1 truncate">{host.label}</span>
-                  <span className="text-muted-foreground truncate font-mono text-xs">
-                    {host.username}@{host.hostname}
-                  </span>
-                </CommandItem>
-              ))}
-            </CommandGroup>
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="Hosts">
+                {hosts.map((host) => (
+                  <CommandItem
+                    key={host.id}
+                    value={`${host.label} ${host.username}@${host.hostname}`}
+                    onSelect={() => handleConnect(host.id, host.label)}
+                  >
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: host.color ?? 'var(--muted-foreground)' }}
+                    />
+                    <span className="flex-1 truncate">{host.label}</span>
+                    <span className="text-muted-foreground truncate font-mono text-xs">
+                      {host.username}@{host.hostname}
+                    </span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
           )}
         </CommandList>
       </Command>
