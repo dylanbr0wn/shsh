@@ -22,7 +22,7 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { VaultLockOverlay } from './components/modals/VaultLockOverlay'
-import { GripVertical } from 'lucide-react'
+import { GripHorizontal } from 'lucide-react'
 import { cn } from './lib/utils'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
 import { DebugPanel } from './components/debug/DebugPanel'
@@ -52,6 +52,7 @@ export default function App() {
   const containerRef = useRef<HTMLDivElement>(null)
 
   const SNAP_CLOSE_THRESHOLD = 80
+  const inSnapZone = dragging && debugHeight < SNAP_CLOSE_THRESHOLD
 
   const onDragStart = useCallback(
     (e: React.MouseEvent) => {
@@ -182,24 +183,30 @@ export default function App() {
                     className="absolute inset-x-0 bottom-0 z-10 flex flex-col"
                     style={{ height: debugHeight }}
                   >
-                    {/* Drag handle — matches ResizableHandle style */}
+                    {/* Drag handle — horizontal, matches ResizableHandle style */}
                     {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                     <div
                       onMouseDown={onDragStart}
                       className={cn(
-                        'group relative flex h-px shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
-                        dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
+                        'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
+                        inSnapZone
+                          ? 'bg-destructive'
+                          : dragging
+                            ? 'bg-primary'
+                            : 'bg-border hover:bg-primary'
                       )}
                     >
                       <div
                         className={cn(
-                          'z-10 flex h-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                          dragging
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
+                          'z-10 flex w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                          inSnapZone
+                            ? 'bg-destructive text-destructive-foreground'
+                            : dragging
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
                         )}
                       >
-                        <GripVertical className="size-3 shrink-0 rotate-90" />
+                        <GripHorizontal className="size-3 shrink-0" />
                       </div>
                     </div>
                     <ErrorBoundary
