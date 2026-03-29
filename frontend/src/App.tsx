@@ -16,6 +16,7 @@ import { ImportHostsModal } from './components/modals/ImportHostsModal'
 import { ExportHostsModal } from './components/modals/ExportHostsModal'
 import { QuickConnectModal } from './components/modals/QuickConnectModal'
 import { CommandPalette } from './components/CommandPalette'
+import { StatusBar } from './components/layout/StatusBar'
 import { LogViewerModal } from './components/modals/LogViewerModal'
 import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
@@ -162,6 +163,13 @@ export default function App() {
               </ResizablePanelGroup>
             </ResizablePanel>
           </ResizablePanelGroup>
+          <ErrorBoundary
+            fallback="inline"
+            zone="statusbar"
+            onError={(e, i) => reportUIError(e, i, 'statusbar')}
+          >
+            <StatusBar />
+          </ErrorBoundary>
           <ErrorBoundary
             fallback="inline"
             zone="modal-add-host"
