@@ -44,11 +44,10 @@ function workspace(id: string, layout: PaneLeaf): Workspace {
 function HydrateAtoms({
   atoms,
   children,
-}: {
+}: React.PropsWithChildren<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   atoms: any[]
-  children: React.ReactNode
-}) {
+}>) {
   useHydrateAtoms(atoms as unknown as Parameters<typeof useHydrateAtoms>[0])
   return <>{children}</>
 }
