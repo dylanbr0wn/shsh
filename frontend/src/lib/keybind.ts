@@ -51,9 +51,15 @@ export function formatShortcutForDisplay(shortcut: string): string {
     const symbols: string[] = []
     for (const mod of modifiers) {
       switch (mod) {
-        case 'CmdOrCtrl': symbols.push('⌘'); break
-        case 'Alt': symbols.push('⌥'); break
-        case 'Shift': symbols.push('⇧'); break
+        case 'CmdOrCtrl':
+          symbols.push('⌘')
+          break
+        case 'Alt':
+          symbols.push('⌥')
+          break
+        case 'Shift':
+          symbols.push('⇧')
+          break
       }
     }
     return symbols.join('') + key.toUpperCase()
@@ -62,9 +68,15 @@ export function formatShortcutForDisplay(shortcut: string): string {
   const labels: string[] = []
   for (const mod of modifiers) {
     switch (mod) {
-      case 'CmdOrCtrl': labels.push('Ctrl'); break
-      case 'Alt': labels.push('Alt'); break
-      case 'Shift': labels.push('Shift'); break
+      case 'CmdOrCtrl':
+        labels.push('Ctrl')
+        break
+      case 'Alt':
+        labels.push('Alt')
+        break
+      case 'Shift':
+        labels.push('Shift')
+        break
     }
   }
   labels.push(key.toUpperCase())
