@@ -15,8 +15,8 @@ import {
   SFTPDelete,
   SFTPRename,
   TransferBetweenChannels,
-} from '../../../wailsjs/go/main/SessionFacade'
-import { EventsOn, EventsOff } from '../../../wailsjs/runtime/runtime'
+} from '@wailsjs/go/main/SessionFacade'
+import { EventsOn, EventsOff } from '@wailsjs/runtime/runtime'
 import { PathBreadcrumb } from '../shared/PathBreadcrumb'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'

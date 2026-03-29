@@ -4,7 +4,7 @@ import { Separator } from '../ui/separator'
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group'
 import type { DebugCategory, DebugLevel } from '../../types/debug'
 import { CATEGORY_COLORS } from '../../types/debug'
-import { SetDebugLevel } from '../../../wailsjs/go/main/App'
+import { SetDebugLevel } from '@wailsjs/go/main/App'
 
 const ALL_CATEGORIES: { key: DebugCategory; label: string }[] = [
   { key: 'ssh', label: 'SSH' },

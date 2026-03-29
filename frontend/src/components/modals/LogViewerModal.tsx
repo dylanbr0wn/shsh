@@ -22,7 +22,7 @@ import {
   ReadSessionLog,
   DeleteSessionLog,
   OpenLogsDirectory,
-} from '../../../wailsjs/go/main/ToolsFacade'
+} from '@wailsjs/go/main/ToolsFacade'
 import { toast } from 'sonner'
 import type { LogFileInfo } from '../../types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'

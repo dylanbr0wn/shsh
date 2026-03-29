@@ -4,7 +4,7 @@ import { vaultLockedAtom, biometricAvailableAtom } from '../../atoms/vault'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Lock, Fingerprint } from 'lucide-react'
-import { UnlockVault, UnlockVaultBiometric } from '../../../wailsjs/go/main/VaultFacade'
+import { UnlockVault, UnlockVaultBiometric } from '@wailsjs/go/main/VaultFacade'
 
 export function VaultLockOverlay() {
   const [vaultLocked, setVaultLocked] = useAtom(vaultLockedAtom)

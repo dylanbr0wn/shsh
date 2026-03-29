@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { FolderOpen, KeyRound } from 'lucide-react'
-import {
-  BrowseKeyFile,
-  DeployPublicKey,
-  ReadPublicKeyText,
-} from '../../../wailsjs/go/main/KeysFacade'
+import { BrowseKeyFile, DeployPublicKey, ReadPublicKeyText } from '@wailsjs/go/main/KeysFacade'
 import {
   Dialog,
   DialogBody,

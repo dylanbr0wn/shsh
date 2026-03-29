@@ -33,7 +33,7 @@ import {
   OpenSFTPChannel,
   OpenLocalFSChannel,
   ConnectHost,
-} from '../../../wailsjs/go/main/SessionFacade'
+} from '@wailsjs/go/main/SessionFacade'
 import { toast } from 'sonner'
 
 export function WorkspaceView() {

@@ -1,0 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+// Stub — replaced by vi.mock in setup.ts at runtime.
+export const SetMasterPassword = (..._args: any[]): Promise<any> => Promise.resolve()
+export const UnlockVault = (..._args: any[]): Promise<any> => Promise.resolve()
+export const UnlockVaultBiometric = (..._args: any[]): Promise<any> => Promise.resolve()
+export const LockVault = (..._args: any[]): Promise<any> => Promise.resolve()
+export const IsBiometricAvailable = (..._args: any[]): Promise<any> => Promise.resolve(false)
+export const IsVaultEnabled = (..._args: any[]): Promise<any> => Promise.resolve(false)
+export const IsVaultLocked = (..._args: any[]): Promise<any> => Promise.resolve(false)
+export const SetupVault = (..._args: any[]): Promise<any> => Promise.resolve()
+export const EnableTouchID = (..._args: any[]): Promise<any> => Promise.resolve()
+export const DisableTouchID = (..._args: any[]): Promise<any> => Promise.resolve()
+export const SetLockTimeout = (..._args: any[]): Promise<any> => Promise.resolve()
+export const DisableVault = (..._args: any[]): Promise<any> => Promise.resolve()

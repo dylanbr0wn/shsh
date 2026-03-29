@@ -8,8 +8,8 @@ import {
   SetLockTimeout,
   LockVault,
   DisableVault,
-} from '../../../wailsjs/go/main/VaultFacade'
-import { GetConfig } from '../../../wailsjs/go/main/App'
+} from '@wailsjs/go/main/VaultFacade'
+import { GetConfig } from '@wailsjs/go/main/App'
 import { Input } from '../ui/input'
 import { Button } from '../ui/button'
 import { Switch } from '../ui/switch'
