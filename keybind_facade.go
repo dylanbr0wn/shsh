@@ -9,7 +9,8 @@ import (
 
 // KeybindFacade exposes keybinding operations to the frontend via Wails.
 type KeybindFacade struct {
-	deps *deps.Deps
+	deps      *deps.Deps
+	onChanged func()
 }
 
 // NewKeybindFacade creates a new KeybindFacade.
@@ -48,7 +49,13 @@ func (f *KeybindFacade) UpdateKeybinding(actionID, shortcut string) error {
 	f.deps.Cfg.Keybindings[actionID] = shortcut
 
 	if f.deps.CfgPath != "" {
-		return f.deps.Cfg.Save(f.deps.CfgPath)
+		if err := f.deps.Cfg.Save(f.deps.CfgPath); err != nil {
+			return err
+		}
+	}
+
+	if f.onChanged != nil {
+		f.onChanged()
 	}
 	return nil
 }
@@ -65,7 +72,13 @@ func (f *KeybindFacade) ResetKeybinding(actionID string) error {
 	}
 
 	if f.deps.CfgPath != "" {
-		return f.deps.Cfg.Save(f.deps.CfgPath)
+		if err := f.deps.Cfg.Save(f.deps.CfgPath); err != nil {
+			return err
+		}
+	}
+
+	if f.onChanged != nil {
+		f.onChanged()
 	}
 	return nil
 }
@@ -75,7 +88,13 @@ func (f *KeybindFacade) ResetAllKeybindings() error {
 	f.deps.Cfg.Keybindings = nil
 
 	if f.deps.CfgPath != "" {
-		return f.deps.Cfg.Save(f.deps.CfgPath)
+		if err := f.deps.Cfg.Save(f.deps.CfgPath); err != nil {
+			return err
+		}
+	}
+
+	if f.onChanged != nil {
+		f.onChanged()
 	}
 	return nil
 }
