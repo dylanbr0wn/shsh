@@ -40,6 +40,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from '../ui/context-menu'
+import { FilePreviewModal } from './FilePreviewModal'
 
 const DEFAULT_SFTP_STATE: SFTPState = {
   currentPath: '~',
@@ -67,6 +68,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
   const draggedEntryRef = useRef<SFTPEntry | null>(null)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
   const isDragOverRef = useRef(false)
 
@@ -163,15 +165,11 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
 
   if (!currentPath) return null
 
-  async function handleRowDoubleClick(entry: SFTPEntry) {
+  function handleRowDoubleClick(entry: SFTPEntry) {
     if (entry.isDir) {
-      await listDir(entry.path)
+      listDir(entry.path)
     } else {
-      try {
-        await SFTPDownload(channelId, entry.path)
-      } catch (err) {
-        toast.error(String(err))
-      }
+      setPreviewPath(entry.path)
     }
   }
 
@@ -474,6 +472,11 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
+                  {!entry.isDir && (
+                    <ContextMenuItem onSelect={() => setPreviewPath(entry.path)}>
+                      Preview
+                    </ContextMenuItem>
+                  )}
                   <ContextMenuItem
                     onSelect={() => {
                       const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
@@ -610,6 +613,13 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
           )}
         </DialogContent>
       </Dialog>
+      {previewPath && (
+        <FilePreviewModal
+          channelId={channelId}
+          filePath={previewPath}
+          onClose={() => setPreviewPath(null)}
+        />
+      )}
     </div>
   )
 }

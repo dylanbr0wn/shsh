@@ -58,6 +58,15 @@ type SFTPProgressEvent struct {
 	Total int64  `json:"total"`
 }
 
+// FilePreview holds the content and metadata for an in-app file preview.
+type FilePreview struct {
+	Name     string `json:"name"`
+	Path     string `json:"path"`
+	Size     int64  `json:"size"`
+	MimeType string `json:"mimeType"`
+	Content  string `json:"content"` // base64-encoded
+}
+
 type portForward struct {
 	id         string
 	localPort  int

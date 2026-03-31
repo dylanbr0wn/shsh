@@ -238,6 +238,10 @@ func (f *SessionFacade) LocalRename(channelID string, oldPath string, newPath st
 	return f.d.Manager.LocalRename(channelID, oldPath, newPath)
 }
 
+func (f *SessionFacade) LocalPreviewFile(channelID string, path string) (*session.FilePreview, error) {
+	return f.d.Manager.LocalPreviewFile(channelID, path)
+}
+
 // --- SFTP ---
 
 func (f *SessionFacade) SFTPListDir(channelID string, path string) ([]session.SFTPEntry, error) {
@@ -289,6 +293,10 @@ func (f *SessionFacade) SFTPDelete(channelID string, path string) error {
 
 func (f *SessionFacade) SFTPRename(channelID string, oldPath string, newPath string) error {
 	return f.d.Manager.SFTPRename(channelID, oldPath, newPath)
+}
+
+func (f *SessionFacade) SFTPPreviewFile(channelID string, path string) (*session.FilePreview, error) {
+	return f.d.Manager.SFTPPreviewFile(channelID, path)
 }
 
 // TransferBetweenChannels copies a file between any two channels (SFTP or local FS).
