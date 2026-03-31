@@ -73,10 +73,7 @@ export function useHighlighter() {
 
       // For plain text files, return a simple pre-wrapped escape instead of using shiki
       if (lang === 'text') {
-        const escaped = code
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
+        const escaped = code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
         return `<pre class="shiki" style="background-color:#24292e;color:#e1e4e8"><code>${escaped}</code></pre>`
       }
 

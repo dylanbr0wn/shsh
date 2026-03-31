@@ -165,15 +165,11 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
 
   if (!currentPath) return null
 
-  async function handleRowDoubleClick(entry: SFTPEntry) {
+  function handleRowDoubleClick(entry: SFTPEntry) {
     if (entry.isDir) {
-      await listDir(entry.path)
+      listDir(entry.path)
     } else {
-      try {
-        await SFTPDownload(channelId, entry.path)
-      } catch (err) {
-        toast.error(String(err))
-      }
+      setPreviewPath(entry.path)
     }
   }
 
