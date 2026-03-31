@@ -9,12 +9,16 @@ import {
 } from '../ui/dialog'
 import { Skeleton } from '../ui/skeleton'
 import { SFTPPreviewFile } from '@wailsjs/go/main/SessionFacade'
+import type { session } from '@wailsjs/go/models'
 import { useHighlighter } from '../../hooks/useHighlighter'
+
+type PreviewFn = (channelId: string, path: string) => Promise<session.FilePreview>
 
 interface Props {
   channelId: string
   filePath: string
   onClose: () => void
+  previewFn?: PreviewFn
 }
 
 function formatSize(bytes: number): string {
@@ -32,7 +36,12 @@ function hasHighReplacementRatio(text: string): boolean {
   return count / text.length > 0.1
 }
 
-export function FilePreviewModal({ channelId, filePath, onClose }: Props) {
+export function FilePreviewModal({
+  channelId,
+  filePath,
+  onClose,
+  previewFn = SFTPPreviewFile,
+}: Props) {
   const [state, setState] = useState<
     | { status: 'loading' }
     | { status: 'error'; message: string }
@@ -55,7 +64,7 @@ export function FilePreviewModal({ channelId, filePath, onClose }: Props) {
 
     async function load() {
       try {
-        const preview = await SFTPPreviewFile(channelId, filePath)
+        const preview = await previewFn(channelId, filePath)
         const isImage = preview.mimeType.startsWith('image/')
         const raw = isImage ? '' : atob(preview.content)
 
@@ -102,7 +111,7 @@ export function FilePreviewModal({ channelId, filePath, onClose }: Props) {
     }
 
     load()
-  }, [channelId, filePath, highlight])
+  }, [channelId, filePath, highlight, previewFn])
 
   const isImage = state.status === 'ready' && state.mimeType.startsWith('image/')
   const isEmpty = state.status === 'ready' && !isImage && state.size === 0

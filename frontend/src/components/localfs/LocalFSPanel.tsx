@@ -9,6 +9,7 @@ import {
   LocalMkdir,
   LocalDelete,
   LocalRename,
+  LocalPreviewFile,
   TransferBetweenChannels,
 } from '@wailsjs/go/main/SessionFacade'
 import { GetHomeDir } from '@wailsjs/go/main/ToolsFacade'
@@ -36,6 +37,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from '../ui/context-menu'
+import { FilePreviewModal } from '../sftp/FilePreviewModal'
 
 const DEFAULT_LOCAL_STATE: SFTPState = {
   currentPath: '/',
@@ -62,6 +64,7 @@ export function LocalFSPanel({ channelId }: Props) {
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
   const draggedEntryRef = useRef<SFTPEntry | null>(null)
+  const [previewPath, setPreviewPath] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
 
   const listDir = useCallback(
@@ -128,9 +131,11 @@ export function LocalFSPanel({ channelId }: Props) {
 
   if (!currentPath) return null
 
-  async function handleRowDoubleClick(entry: SFTPEntry) {
+  function handleRowDoubleClick(entry: SFTPEntry) {
     if (entry.isDir) {
-      await listDir(entry.path)
+      listDir(entry.path)
+    } else {
+      setPreviewPath(entry.path)
     }
   }
 
@@ -393,6 +398,11 @@ export function LocalFSPanel({ channelId }: Props) {
                   </button>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
+                  {!entry.isDir && (
+                    <ContextMenuItem onSelect={() => setPreviewPath(entry.path)}>
+                      Preview
+                    </ContextMenuItem>
+                  )}
                   <ContextMenuItem
                     onSelect={() => setModal({ type: 'rename', entry, value: entry.name })}
                   >
@@ -521,6 +531,14 @@ export function LocalFSPanel({ channelId }: Props) {
           )}
         </DialogContent>
       </Dialog>
+      {previewPath && (
+        <FilePreviewModal
+          channelId={channelId}
+          filePath={previewPath}
+          onClose={() => setPreviewPath(null)}
+          previewFn={LocalPreviewFile}
+        />
+      )}
     </div>
   )
 }

@@ -2,10 +2,13 @@ package session
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -161,4 +164,50 @@ func (m *Manager) LocalRename(channelID, oldPath, newPath string) error {
 		return fmt.Errorf("LocalRename: %w", err)
 	}
 	return nil
+}
+
+// LocalPreviewFile reads a local file for in-app preview.
+func (m *Manager) LocalPreviewFile(channelID, path string) (*FilePreview, error) {
+	if _, err := m.getLocalFSChannel(channelID); err != nil {
+		return nil, err
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, fmt.Errorf("cannot preview a directory")
+	}
+
+	ext := strings.ToLower(filepath.Ext(info.Name()))
+	kind := classifyExtension(ext)
+	if kind == fileKindUnknown {
+		kind = fileKindText
+	}
+
+	limit := maxPreviewSize(kind)
+	if info.Size() > limit {
+		return nil, fmt.Errorf("file too large to preview (%s, max %s for %s files)",
+			formatBytes(info.Size()), formatBytes(limit), kind)
+	}
+
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	buf, err := io.ReadAll(io.LimitReader(f, limit+1))
+	if err != nil {
+		return nil, fmt.Errorf("reading file: %w", err)
+	}
+
+	return &FilePreview{
+		Name:     info.Name(),
+		Path:     path,
+		Size:     info.Size(),
+		MimeType: mimeForExtension(ext),
+		Content:  base64.StdEncoding.EncodeToString(buf),
+	}, nil
 }

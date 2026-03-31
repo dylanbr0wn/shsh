@@ -17,30 +17,30 @@ const (
 	fileKindUnknown fileKind = "unknown"
 )
 
-var textExtensions = map[string]bool{
-	".txt": true, ".log": true, ".conf": true, ".cfg": true, ".ini": true,
-	".json": true, ".yaml": true, ".yml": true, ".xml": true, ".html": true,
-	".css": true, ".js": true, ".ts": true, ".go": true, ".py": true,
-	".rb": true, ".rs": true, ".sh": true, ".bash": true, ".zsh": true,
-	".md": true, ".toml": true, ".env": true, ".csv": true, ".sql": true,
-	".jsx": true, ".tsx": true, ".vue": true, ".svelte": true, ".java": true,
-	".c": true, ".cpp": true, ".h": true, ".hpp": true, ".cs": true,
-	".php": true, ".swift": true, ".kt": true, ".scala": true, ".lua": true,
-	".r": true, ".pl": true, ".dockerfile": true, ".makefile": true,
-	".gitignore": true,
+var textExtensions = map[string]struct{}{
+	".txt": {}, ".log": {}, ".conf": {}, ".cfg": {}, ".ini": {},
+	".json": {}, ".yaml": {}, ".yml": {}, ".xml": {}, ".html": {},
+	".css": {}, ".js": {}, ".ts": {}, ".go": {}, ".py": {},
+	".rb": {}, ".rs": {}, ".sh": {}, ".bash": {}, ".zsh": {},
+	".md": {}, ".toml": {}, ".env": {}, ".csv": {}, ".sql": {},
+	".jsx": {}, ".tsx": {}, ".vue": {}, ".svelte": {}, ".java": {},
+	".c": {}, ".cpp": {}, ".h": {}, ".hpp": {}, ".cs": {},
+	".php": {}, ".swift": {}, ".kt": {}, ".scala": {}, ".lua": {},
+	".r": {}, ".pl": {}, ".dockerfile": {}, ".makefile": {},
+	".gitignore": {},
 }
 
-var imageExtensions = map[string]bool{
-	".png": true, ".jpg": true, ".jpeg": true, ".gif": true,
-	".svg": true, ".webp": true, ".ico": true, ".bmp": true,
+var imageExtensions = map[string]struct{}{
+	".png": {}, ".jpg": {}, ".jpeg": {}, ".gif": {},
+	".svg": {}, ".webp": {}, ".ico": {}, ".bmp": {},
 }
 
 func classifyExtension(ext string) fileKind {
 	ext = strings.ToLower(ext)
-	if textExtensions[ext] {
+	if _, ok := textExtensions[ext]; ok {
 		return fileKindText
 	}
-	if imageExtensions[ext] {
+	if _, ok := imageExtensions[ext]; ok {
 		return fileKindImage
 	}
 	return fileKindUnknown
@@ -67,7 +67,7 @@ func mimeForExtension(ext string) string {
 		}
 		return mt
 	}
-	if imageExtensions[ext] {
+	if _, ok := imageExtensions[ext]; ok {
 		return "image/" + strings.TrimPrefix(ext, ".")
 	}
 	return "text/plain"

@@ -238,6 +238,10 @@ func (f *SessionFacade) LocalRename(channelID string, oldPath string, newPath st
 	return f.d.Manager.LocalRename(channelID, oldPath, newPath)
 }
 
+func (f *SessionFacade) LocalPreviewFile(channelID string, path string) (*session.FilePreview, error) {
+	return f.d.Manager.LocalPreviewFile(channelID, path)
+}
+
 // --- SFTP ---
 
 func (f *SessionFacade) SFTPListDir(channelID string, path string) ([]session.SFTPEntry, error) {
