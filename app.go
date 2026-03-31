@@ -114,6 +114,11 @@ func (a *App) startup(ctx context.Context) {
 			"paths": paths,
 		})
 	})
+
+	a.keybinds.onChanged = func() {
+		newMenu := buildMenu(a)
+		wailsruntime.MenuSetApplicationMenu(ctx, newMenu)
+	}
 }
 
 // shutdown is called by Wails on window close.
