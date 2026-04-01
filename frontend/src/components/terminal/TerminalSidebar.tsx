@@ -1,4 +1,4 @@
-import { Circle, CircleStop, ScrollText, ArrowLeftRight } from 'lucide-react'
+import { Circle, CircleStop, ScrollText, ArrowLeftRight, SlidersHorizontal } from 'lucide-react'
 import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover'
@@ -25,7 +25,26 @@ export function TerminalSidebar({
 }: TerminalSidebarProps) {
   return (
     <div className="border-border bg-muted/20 flex w-10 shrink-0 flex-col items-center gap-0.5 border-l pt-2">
-      <TerminalSettings />
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground"
+                aria-label="Terminal settings"
+              >
+                <SlidersHorizontal aria-hidden="true" />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="left">Terminal settings</TooltipContent>
+        </Tooltip>
+        <PopoverContent side="left" align="start" className="w-64 p-4">
+          <TerminalSettings />
+        </PopoverContent>
+      </Popover>
       <Popover>
         <Tooltip>
           <TooltipTrigger asChild>

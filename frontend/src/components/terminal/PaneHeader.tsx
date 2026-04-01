@@ -131,6 +131,7 @@ export function PaneHeader({
       <PaneToolbar
         connectionId={connectionId}
         channelId={channelId}
+        hostId={hostId}
         kind={kind}
         loggingActive={loggingActive}
         logPath={logPath}
