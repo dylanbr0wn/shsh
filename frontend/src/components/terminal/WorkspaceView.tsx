@@ -6,7 +6,6 @@ import {
   workspacesAtom,
   activeWorkspaceIdAtom,
   activeLogsAtom,
-  isLogViewerOpenAtom,
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
@@ -25,7 +24,6 @@ import {
 } from '../ui/dropdown-menu'
 import { Terminal, FolderOpen, HardDrive } from 'lucide-react'
 import { TerminalSearch } from './TerminalSearch'
-import { TerminalSidebar } from './TerminalSidebar'
 import {
   StartSessionLog,
   StopSessionLog,
@@ -41,7 +39,6 @@ export function WorkspaceView() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom)
   const hosts = useAtomValue(hostsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
-  const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
   const splitPane = useSetAtom(splitPaneAtom)
@@ -405,15 +402,6 @@ export function WorkspaceView() {
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
               )}
             </div>
-            {isWorkspaceActive && focusedChannelId && focusedLeaf && (
-              <TerminalSidebar
-                connectionId={focusedLeaf.connectionId}
-                loggingActive={activeLogs.has(focusedChannelId)}
-                logPath={activeLogs.get(focusedChannelId)}
-                onToggleLogging={() => toggleLogging(focusedChannelId)}
-                onViewLogs={() => setLogViewerOpen(true)}
-              />
-            )}
           </div>
         )
       })}
