@@ -337,30 +337,33 @@ export function WorkspaceView() {
     setSearchOpen,
   })
 
-  async function toggleLogging(channelId: string) {
-    if (activeLogs.has(channelId)) {
-      const logPath = activeLogs.get(channelId)!
-      try {
-        await StopSessionLog(channelId)
-        setActiveLogs((prev) => {
-          const next = new Map(prev)
-          next.delete(channelId)
-          return next
-        })
-        toast.success('Log saved', { description: logPath })
-      } catch (e: unknown) {
-        toast.error('Failed to stop logging', { description: String(e) })
+  const toggleLogging = useCallback(
+    async (channelId: string) => {
+      if (activeLogs.has(channelId)) {
+        const logPath = activeLogs.get(channelId)!
+        try {
+          await StopSessionLog(channelId)
+          setActiveLogs((prev) => {
+            const next = new Map(prev)
+            next.delete(channelId)
+            return next
+          })
+          toast.success('Log saved', { description: logPath })
+        } catch (e: unknown) {
+          toast.error('Failed to stop logging', { description: String(e) })
+        }
+      } else {
+        try {
+          const logPath = await StartSessionLog(channelId)
+          setActiveLogs((prev) => new Map(prev).set(channelId, logPath))
+          toast.info('Logging started', { description: logPath })
+        } catch (e: unknown) {
+          toast.error('Failed to start logging', { description: String(e) })
+        }
       }
-    } else {
-      try {
-        const logPath = await StartSessionLog(channelId)
-        setActiveLogs((prev) => new Map(prev).set(channelId, logPath))
-        toast.info('Logging started', { description: logPath })
-      } catch (e: unknown) {
-        toast.error('Failed to start logging', { description: String(e) })
-      }
-    }
-  }
+    },
+    [activeLogs, setActiveLogs]
+  )
 
   return (
     <div className="relative h-full w-full">
@@ -396,7 +399,7 @@ export function WorkspaceView() {
                 onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
                   handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
                 }
-                onToggleLogging={(channelId) => toggleLogging(channelId)}
+                onToggleLogging={toggleLogging}
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
