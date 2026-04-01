@@ -43,7 +43,10 @@ interface TerminalSettingsProps {
   hostId?: string
 }
 
-export function TerminalSettings({ channelId: channelIdProp, hostId: hostIdProp }: TerminalSettingsProps) {
+export function TerminalSettings({
+  channelId: channelIdProp,
+  hostId: hostIdProp,
+}: TerminalSettingsProps) {
   const [settings, setSettings] = useAtom(terminalSettingsAtom)
   const setProfilesOpen = useSetAtom(isTerminalProfilesOpenAtom)
 
@@ -100,18 +103,18 @@ export function TerminalSettings({ channelId: channelIdProp, hostId: hostIdProp 
   const autoLabel = hostProfile ? `Default (${hostProfile.name})` : 'Default'
 
   return (
-    <div className="flex flex-col gap-4">
-      <FieldSet>
-        <FieldLegend className="flex items-center justify-between">
-          <span>Terminal settings</span>
-          <Button variant="outline" size="sm" onClick={reset}>
-            Reset
-          </Button>
-        </FieldLegend>
-        <FieldDescription>Customize your terminal</FieldDescription>
-        <FieldSeparator />
-        <FieldGroup>
-          {activeChannelId && (
+    <FieldSet>
+      <FieldLegend className="flex items-center justify-between">
+        <span>Terminal settings</span>
+        <Button variant="outline" size="sm" onClick={reset}>
+          Reset
+        </Button>
+      </FieldLegend>
+      <FieldDescription>Customize your terminal</FieldDescription>
+      <FieldSeparator />
+      <FieldGroup>
+        {activeChannelId && (
+          <>
             <Field>
               <FieldLabel htmlFor="ts-profile">Profile</FieldLabel>
               <Select value={selectValue} onValueChange={setProfileOverride}>
@@ -139,90 +142,85 @@ export function TerminalSettings({ channelId: channelIdProp, hostId: hostIdProp 
                 </SelectContent>
               </Select>
             </Field>
-          )}
+            <FieldSeparator />
+          </>
+        )}
 
-          <FieldSeparator />
+        {/* Font size */}
+        <Field className="flex flex-col gap-2">
+          <FieldLabel htmlFor="ts-fontsize" className="flex items-center justify-between">
+            <div>Font Size</div>
+            <span className="text-muted-foreground text-xs">{settings.fontSize}px</span>
+          </FieldLabel>
+          <Slider
+            id="ts-fontsize"
+            min={10}
+            max={24}
+            step={1}
+            value={[settings.fontSize]}
+            onValueChange={([v]) => update('fontSize', v)}
+          />
+        </Field>
 
-          {/* Font size */}
-          <Field className="flex flex-col gap-2">
-            <FieldLabel htmlFor="ts-fontsize" className="flex items-center justify-between">
-              <div>Font Size</div>
-              <span className="text-muted-foreground text-xs">{settings.fontSize}px</span>
-            </FieldLabel>
-            <Slider
-              id="ts-fontsize"
-              min={10}
-              max={24}
-              step={1}
-              value={[settings.fontSize]}
-              onValueChange={([v]) => update('fontSize', v)}
-            />
-          </Field>
-
-          {/* Cursor style */}
-          <Field>
-            <FieldLabel id="ts-cursor-label">Cursor Style</FieldLabel>
-            <ToggleGroup
-              type="single"
-              value={settings.cursorStyle}
-              onValueChange={(v) => v && update('cursorStyle', v as CursorStyle)}
-              className="justify-start"
-              aria-labelledby="ts-cursor-label"
-            >
-              {CURSOR_STYLES.map((style) => (
-                <ToggleGroupItem
-                  key={style}
-                  value={style}
-                  className="h-7 flex-1 text-xs capitalize"
-                >
-                  {style}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </Field>
-
-          {/* Cursor blink */}
-          <Field orientation="horizontal">
-            <FieldLabel htmlFor="cursor-blink">Cursor Blink</FieldLabel>
-            <Switch
-              id="cursor-blink"
-              checked={settings.cursorBlink}
-              onCheckedChange={(v) => update('cursorBlink', v)}
-            />
-          </Field>
-
-          <FieldSeparator />
-
-          {/* Scrollback */}
-          <Field>
-            <FieldLabel id="ts-scrollback-label">Scrollback Lines</FieldLabel>
-            <ToggleGroup
-              type="single"
-              value={String(settings.scrollback)}
-              onValueChange={(v) => v && update('scrollback', Number(v))}
-              className="grid grid-cols-2 gap-1"
-              aria-labelledby="ts-scrollback-label"
-            >
-              {SCROLLBACK_OPTIONS.map((n) => (
-                <ToggleGroupItem key={n} value={String(n)} className="h-7 text-xs">
-                  {n.toLocaleString()}
-                </ToggleGroupItem>
-              ))}
-            </ToggleGroup>
-          </Field>
-
-          <FieldSeparator />
-
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 w-full justify-start px-2 text-xs"
-            onClick={() => setProfilesOpen(true)}
+        {/* Cursor style */}
+        <Field>
+          <FieldLabel id="ts-cursor-label">Cursor Style</FieldLabel>
+          <ToggleGroup
+            type="single"
+            value={settings.cursorStyle}
+            onValueChange={(v) => v && update('cursorStyle', v as CursorStyle)}
+            className="justify-start"
+            aria-labelledby="ts-cursor-label"
           >
-            Manage Profiles…
-          </Button>
-        </FieldGroup>
-      </FieldSet>
-    </div>
+            {CURSOR_STYLES.map((style) => (
+              <ToggleGroupItem key={style} value={style} className="h-7 flex-1 text-xs capitalize">
+                {style}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </Field>
+
+        {/* Cursor blink */}
+        <Field orientation="horizontal">
+          <FieldLabel htmlFor="cursor-blink">Cursor Blink</FieldLabel>
+          <Switch
+            id="cursor-blink"
+            checked={settings.cursorBlink}
+            onCheckedChange={(v) => update('cursorBlink', v)}
+          />
+        </Field>
+
+        <FieldSeparator />
+
+        {/* Scrollback */}
+        <Field>
+          <FieldLabel id="ts-scrollback-label">Scrollback Lines</FieldLabel>
+          <ToggleGroup
+            type="single"
+            value={String(settings.scrollback)}
+            onValueChange={(v) => v && update('scrollback', Number(v))}
+            className="grid grid-cols-2 gap-1"
+            aria-labelledby="ts-scrollback-label"
+          >
+            {SCROLLBACK_OPTIONS.map((n) => (
+              <ToggleGroupItem key={n} value={String(n)} className="h-7 text-xs">
+                {n.toLocaleString()}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </Field>
+
+        <FieldSeparator />
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 w-full justify-start px-2 text-xs"
+          onClick={() => setProfilesOpen(true)}
+        >
+          Manage Profiles…
+        </Button>
+      </FieldGroup>
+    </FieldSet>
   )
 }

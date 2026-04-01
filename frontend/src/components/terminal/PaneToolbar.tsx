@@ -72,7 +72,11 @@ export function PaneToolbar({
             <TooltipContent>Port forwards</TooltipContent>
           </Tooltip>
           <PopoverContent side="bottom" align="end" className="w-72 p-0">
-            <ErrorBoundary fallback="inline" zone="port-forwards" onError={(e, i) => reportUIError(e, i, 'port-forwards')}>
+            <ErrorBoundary
+              fallback="inline"
+              zone="port-forwards"
+              onError={(e, i) => reportUIError(e, i, 'port-forwards')}
+            >
               <PortForwardsPanel connectionId={connectionId} />
             </ErrorBoundary>
           </PopoverContent>
@@ -89,10 +93,16 @@ export function PaneToolbar({
               aria-label={loggingActive ? 'Stop logging' : 'Start logging'}
               aria-pressed={loggingActive}
             >
-              {loggingActive ? <CircleStop className="size-3" aria-hidden="true" /> : <Circle className="size-3" aria-hidden="true" />}
+              {loggingActive ? (
+                <CircleStop className="size-3" aria-hidden="true" />
+              ) : (
+                <Circle className="size-3" aria-hidden="true" />
+              )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>{loggingActive ? `Logging: ${logPath ?? 'unknown'}` : 'Start logging'}</TooltipContent>
+          <TooltipContent>
+            {loggingActive ? `Logging: ${logPath ?? 'unknown'}` : 'Start logging'}
+          </TooltipContent>
         </Tooltip>
       )}
     </div>
