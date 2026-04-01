@@ -20,6 +20,7 @@ interface PaneTreeProps {
   node: PaneNode
   workspace: Workspace
   isWorkspaceActive: boolean
+  activeLogs: Map<string, string>
   onSplit: (
     paneId: string,
     direction: 'horizontal' | 'vertical',
@@ -36,15 +37,18 @@ interface PaneTreeProps {
     clientX: number,
     clientY: number
   ) => void
+  onToggleLogging: (channelId: string) => void
 }
 
 export function PaneTree({
   node,
   workspace,
   isWorkspaceActive,
+  activeLogs,
   onSplit,
   onClose,
   onDrop,
+  onToggleLogging,
 }: PaneTreeProps) {
   if (node.type === 'split') {
     const leftPct = node.ratio * 100
@@ -59,9 +63,11 @@ export function PaneTree({
             node={node.left}
             workspace={workspace}
             isWorkspaceActive={isWorkspaceActive}
+            activeLogs={activeLogs}
             onSplit={onSplit}
             onClose={onClose}
             onDrop={onDrop}
+            onToggleLogging={onToggleLogging}
           />
         </ResizablePanel>
         <ResizableHandle />
@@ -70,9 +76,11 @@ export function PaneTree({
             node={node.right}
             workspace={workspace}
             isWorkspaceActive={isWorkspaceActive}
+            activeLogs={activeLogs}
             onSplit={onSplit}
             onClose={onClose}
             onDrop={onDrop}
+            onToggleLogging={onToggleLogging}
           />
         </ResizablePanel>
       </ResizablePanelGroup>
@@ -84,9 +92,11 @@ export function PaneTree({
       leaf={node}
       workspace={workspace}
       isWorkspaceActive={isWorkspaceActive}
+      activeLogs={activeLogs}
       onSplit={onSplit}
       onClose={onClose}
       onDrop={onDrop}
+      onToggleLogging={onToggleLogging}
     />
   )
 }
@@ -95,6 +105,7 @@ interface PaneLeafViewProps {
   leaf: PaneLeaf
   workspace: Workspace
   isWorkspaceActive: boolean
+  activeLogs: Map<string, string>
   onSplit: (
     paneId: string,
     direction: 'horizontal' | 'vertical',
@@ -111,15 +122,18 @@ interface PaneLeafViewProps {
     clientX: number,
     clientY: number
   ) => void
+  onToggleLogging: (channelId: string) => void
 }
 
 function PaneLeafView({
   leaf,
   workspace,
   isWorkspaceActive,
+  activeLogs,
   onSplit,
   onClose,
   onDrop,
+  onToggleLogging,
 }: PaneLeafViewProps) {
   const [, setWorkspaces] = useAtom(workspacesAtom)
   const hosts = useAtomValue(hostsAtom)
@@ -173,11 +187,16 @@ function PaneLeafView({
         kind={leaf.kind}
         paneId={leaf.paneId}
         workspaceId={workspace.id}
+        connectionId={leaf.connectionId}
+        channelId={leaf.channelId}
         status={leaf.status}
         isFocused={isFocused}
+        loggingActive={activeLogs.has(leaf.channelId)}
+        logPath={activeLogs.get(leaf.channelId)}
         onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
         canClose={canClose}
+        onToggleLogging={() => onToggleLogging(leaf.channelId)}
         onDragStateChange={setIsDragging}
         onToggle={
           leaf.kind !== 'local'

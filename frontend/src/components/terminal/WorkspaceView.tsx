@@ -388,6 +388,7 @@ export function WorkspaceView() {
                 node={workspace.layout}
                 workspace={workspace}
                 isWorkspaceActive={isWorkspaceActive}
+                activeLogs={activeLogs}
                 onSplit={(paneId, direction, kind, hostId) =>
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
@@ -395,6 +396,7 @@ export function WorkspaceView() {
                 onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
                   handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
                 }
+                onToggleLogging={(channelId) => toggleLogging(channelId)}
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
