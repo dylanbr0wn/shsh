@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
+import { PaneToolbar } from './PaneToolbar'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
 import type { SessionStatus } from '../../types'
@@ -27,8 +28,12 @@ interface Props {
   kind: 'terminal' | 'sftp' | 'local'
   paneId: string
   workspaceId: string
+  connectionId: string
+  channelId: string
   status: SessionStatus
   isFocused: boolean
+  loggingActive: boolean
+  logPath?: string
   onSplit: (
     direction: 'horizontal' | 'vertical',
     kind: 'terminal' | 'sftp' | 'local',
@@ -37,6 +42,7 @@ interface Props {
   onClose: () => void
   canClose: boolean
   onToggle?: () => void // terminal<->SFTP toggle, undefined for local
+  onToggleLogging: () => void
   onDragStateChange?: (isDragging: boolean) => void
 }
 
@@ -47,12 +53,17 @@ export function PaneHeader({
   kind,
   paneId,
   workspaceId,
+  connectionId,
+  channelId,
   status,
   isFocused,
+  loggingActive,
+  logPath,
   onSplit,
   onClose,
   canClose,
   onToggle,
+  onToggleLogging,
   onDragStateChange,
 }: Props) {
   const previewRef = useRef<HTMLDivElement>(null)
@@ -117,6 +128,14 @@ export function PaneHeader({
       >
         {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
       </span>
+      <PaneToolbar
+        connectionId={connectionId}
+        channelId={channelId}
+        kind={kind}
+        loggingActive={loggingActive}
+        logPath={logPath}
+        onToggleLogging={onToggleLogging}
+      />
       <div className="flex-1" />
       <ButtonGroup className="opacity-40 transition-opacity group-hover/pane:opacity-100">
         {onToggle && (
