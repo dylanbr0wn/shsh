@@ -6,7 +6,6 @@ import {
   workspacesAtom,
   activeWorkspaceIdAtom,
   activeLogsAtom,
-  isLogViewerOpenAtom,
   hostsAtom,
   pendingTemplateAtom,
 } from '../../store/atoms'
@@ -25,7 +24,6 @@ import {
 } from '../ui/dropdown-menu'
 import { Terminal, FolderOpen, HardDrive } from 'lucide-react'
 import { TerminalSearch } from './TerminalSearch'
-import { TerminalSidebar } from './TerminalSidebar'
 import {
   StartSessionLog,
   StopSessionLog,
@@ -41,7 +39,6 @@ export function WorkspaceView() {
   const [activeWorkspaceId, setActiveWorkspaceId] = useAtom(activeWorkspaceIdAtom)
   const hosts = useAtomValue(hostsAtom)
   const [activeLogs, setActiveLogs] = useAtom(activeLogsAtom)
-  const [, setLogViewerOpen] = useAtom(isLogViewerOpenAtom)
   const [searchOpen, setSearchOpen] = useState(false)
   const [pendingTemplate, setPendingTemplate] = useAtom(pendingTemplateAtom)
   const splitPane = useSetAtom(splitPaneAtom)
@@ -337,30 +334,33 @@ export function WorkspaceView() {
     setSearchOpen,
   })
 
-  async function toggleLogging(channelId: string) {
-    if (activeLogs.has(channelId)) {
-      const logPath = activeLogs.get(channelId)!
-      try {
-        await StopSessionLog(channelId)
-        setActiveLogs((prev) => {
-          const next = new Map(prev)
-          next.delete(channelId)
-          return next
-        })
-        toast.success('Log saved', { description: logPath })
-      } catch (e: unknown) {
-        toast.error('Failed to stop logging', { description: String(e) })
+  const toggleLogging = useCallback(
+    async (channelId: string) => {
+      if (activeLogs.has(channelId)) {
+        const logPath = activeLogs.get(channelId)!
+        try {
+          await StopSessionLog(channelId)
+          setActiveLogs((prev) => {
+            const next = new Map(prev)
+            next.delete(channelId)
+            return next
+          })
+          toast.success('Log saved', { description: logPath })
+        } catch (e: unknown) {
+          toast.error('Failed to stop logging', { description: String(e) })
+        }
+      } else {
+        try {
+          const logPath = await StartSessionLog(channelId)
+          setActiveLogs((prev) => new Map(prev).set(channelId, logPath))
+          toast.info('Logging started', { description: logPath })
+        } catch (e: unknown) {
+          toast.error('Failed to start logging', { description: String(e) })
+        }
       }
-    } else {
-      try {
-        const logPath = await StartSessionLog(channelId)
-        setActiveLogs((prev) => new Map(prev).set(channelId, logPath))
-        toast.info('Logging started', { description: logPath })
-      } catch (e: unknown) {
-        toast.error('Failed to start logging', { description: String(e) })
-      }
-    }
-  }
+    },
+    [activeLogs, setActiveLogs]
+  )
 
   return (
     <div className="relative h-full w-full">
@@ -388,6 +388,7 @@ export function WorkspaceView() {
                 node={workspace.layout}
                 workspace={workspace}
                 isWorkspaceActive={isWorkspaceActive}
+                activeLogs={activeLogs}
                 onSplit={(paneId, direction, kind, hostId) =>
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
@@ -395,20 +396,12 @@ export function WorkspaceView() {
                 onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
                   handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
                 }
+                onToggleLogging={toggleLogging}
               />
               {isWorkspaceActive && searchOpen && focusedChannelId && (
                 <TerminalSearch channelId={focusedChannelId} onClose={() => setSearchOpen(false)} />
               )}
             </div>
-            {isWorkspaceActive && focusedChannelId && focusedLeaf && (
-              <TerminalSidebar
-                connectionId={focusedLeaf.connectionId}
-                loggingActive={activeLogs.has(focusedChannelId)}
-                logPath={activeLogs.get(focusedChannelId)}
-                onToggleLogging={() => toggleLogging(focusedChannelId)}
-                onViewLogs={() => setLogViewerOpen(true)}
-              />
-            )}
           </div>
         )
       })}
