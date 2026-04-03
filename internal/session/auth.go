@@ -18,9 +18,9 @@ func ResolveAuth(host store.Host, secret string) (goph.Auth, error) {
 		}
 		return goph.Key(*host.KeyPath, secret)
 	case store.AuthAgent:
-		return goph.UseAgent()
+		return useAgent()
 	default:
-		agent, err := goph.UseAgent()
+		agent, err := useAgent()
 		if err != nil {
 			return goph.Password(secret), nil
 		}

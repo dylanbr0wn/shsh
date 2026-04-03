@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(go get:*)",
+      "Bash(go mod:*)",
+      "Bash(gcc:*)",
+      "Read(//c/msys64/mingw64/bin/**)",
+      "Read(//c/msys64/ucrt64/bin/**)",
+      "Read(//c/msys64/mingw32/bin/**)",
+      "Bash(export PATH=\"$PATH:/c/msys64/ucrt64/bin\")"
+    ]
+  }
+}

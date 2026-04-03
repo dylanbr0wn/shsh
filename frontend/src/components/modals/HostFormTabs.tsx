@@ -1,4 +1,5 @@
 import { FolderOpen, Info, KeyRound, Upload } from 'lucide-react'
+import { isMac, isWindows } from '../../lib/keybind'
 import { useAtomValue } from 'jotai'
 import { vaultEnabledAtom } from '../../atoms/vault'
 import type {
@@ -210,7 +211,13 @@ export function HostFormTabs({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="inline">
-                      {vaultEnabled ? 'Stored in vault' : 'Inline (macOS Keychain)'}
+                      {vaultEnabled
+                        ? 'Stored in vault'
+                        : isMac
+                          ? 'Inline (macOS Keychain)'
+                          : isWindows
+                            ? 'Inline (Windows Credential Manager)'
+                            : 'Inline (OS keyring)'}
                     </SelectItem>
                     <SelectItem value="1password">1Password</SelectItem>
                     <SelectItem value="bitwarden">Bitwarden</SelectItem>
@@ -225,7 +232,11 @@ export function HostFormTabs({
                     <FieldHint>
                       {vaultEnabled
                         ? 'Encrypted in vault with your master password.'
-                        : 'Stored securely in macOS Keychain, never in plain text.'}
+                        : isMac
+                          ? 'Stored securely in macOS Keychain, never in plain text.'
+                          : isWindows
+                            ? 'Stored securely in Windows Credential Manager, never in plain text.'
+                            : 'Stored securely in your OS keyring, never in plain text.'}
                     </FieldHint>
                   </FieldLabel>
                   <Input
@@ -343,7 +354,8 @@ export function HostFormTabs({
 
           {form.authMethod === 'agent' && (
             <p className="text-muted-foreground text-xs">
-              Will authenticate using your running SSH agent (e.g. ssh-agent or 1Password).
+              Will authenticate using your running SSH agent (e.g.{' '}
+              {isWindows ? 'OpenSSH Agent service' : 'ssh-agent'} or 1Password).
             </p>
           )}
         </FieldGroup>

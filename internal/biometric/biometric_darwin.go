@@ -1,4 +1,5 @@
-//go:build darwin
+//go:build darwin && cgo
+// +build darwin,cgo
 
 package biometric
 
@@ -108,11 +109,11 @@ import (
 
 var ErrUnsupported = errors.New("biometric: not supported on this platform")
 
-func Available() bool {
+func available() bool {
 	return C.checkBiometric() == 1
 }
 
-func StoreKey(key []byte) error {
+func storeKey(key []byte) error {
 	if !Available() {
 		return ErrUnsupported
 	}
@@ -123,7 +124,7 @@ func StoreKey(key []byte) error {
 	return nil
 }
 
-func RetrieveKey() ([]byte, error) {
+func retrieveKey() ([]byte, error) {
 	if !Available() {
 		return nil, ErrUnsupported
 	}
@@ -136,7 +137,7 @@ func RetrieveKey() ([]byte, error) {
 	return buf[:outLen], nil
 }
 
-func DeleteKey() error {
+func deleteKey() error {
 	status := C.deleteDerivedKey()
 	if status != 0 {
 		return fmt.Errorf("biometric: delete key failed (OSStatus %d)", status)

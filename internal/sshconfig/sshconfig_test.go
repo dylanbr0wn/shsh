@@ -32,6 +32,7 @@ func listFromFile(t *testing.T, configPath string) ([]Entry, error) {
 
 	orig := os.Getenv("HOME")
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 	defer os.Setenv("HOME", orig)
 
 	return List()
@@ -55,6 +56,7 @@ func TestList_NonexistentFile(t *testing.T) {
 	home := t.TempDir()
 	// No .ssh/config created.
 	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
 
 	entries, err := List()
 	if err != nil {

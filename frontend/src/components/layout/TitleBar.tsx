@@ -24,6 +24,7 @@ import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
 import { Kbd } from '../ui/kbd'
+import { formatShortcutForDisplay } from '../../lib/keybind'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function TitleBar() {
@@ -55,7 +56,7 @@ export function TitleBar() {
 
       {/* Left: sidebar toggle */}
       <div
-        className={cn('flex items-center', !isMac && 'pl-1')}
+        className={cn('flex items-center')}
         style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
       >
         <Tooltip>
@@ -97,7 +98,7 @@ export function TitleBar() {
           >
             <Search className="size-3.5" />
             <span className="text-xs">Search</span>
-            <Kbd>⌘K</Kbd>
+            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+k')}</Kbd>
           </Button>
           <Tooltip>
             <TooltipTrigger asChild>

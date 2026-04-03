@@ -25,6 +25,7 @@ import {
   ItemTitle,
 } from '../ui/item'
 import { Kbd } from '../ui/kbd'
+import { isMac, formatShortcutForDisplay } from '../../lib/keybind'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
 import { ButtonGroup } from '../ui/button-group'
@@ -111,7 +112,7 @@ export function WelcomeScreen() {
               <ItemTitle>Search...</ItemTitle>
             </ItemContent>
             <ItemActions>
-              <Kbd>⌘</Kbd>
+              <Kbd>{isMac ? '⌘' : 'Ctrl'}</Kbd>
               <Kbd>K</Kbd>
             </ItemActions>
           </button>
@@ -178,7 +179,7 @@ export function WelcomeScreen() {
             onClick={() => setIsCommandPaletteOpen(true)}
             size="xs"
           >
-            <Kbd>⌘K</Kbd>
+            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+k')}</Kbd>
             Search
           </Button>
           <Button
@@ -187,11 +188,11 @@ export function WelcomeScreen() {
             onClick={() => setIsQuickConnectOpen(true)}
             size="xs"
           >
-            <Kbd>⌘⇧K</Kbd>
+            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+Shift+k')}</Kbd>
             Quick Connect
           </Button>
           <Button type="button" variant="ghost" onClick={() => setIsAddHostOpen(true)} size="xs">
-            <Kbd>⌘N</Kbd>
+            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+n')}</Kbd>
             New Host
           </Button>
           <Button
@@ -200,7 +201,7 @@ export function WelcomeScreen() {
             onClick={() => setIsImportHostsOpen(true)}
             size="xs"
           >
-            <Kbd>⌘I</Kbd>
+            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+i')}</Kbd>
             Import
           </Button>
           <Button

@@ -5,6 +5,7 @@ import { workspacesAtom, activeWorkspaceIdAtom, portForwardsAtom } from '../../s
 import { vaultEnabledAtom, vaultLockedAtom } from '../../atoms/vault'
 import { collectLeaves } from '../../lib/paneTree'
 import { cn } from '../../lib/utils'
+import { formatShortcutForDisplay } from '../../lib/keybind'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function StatusBar() {
@@ -111,7 +112,7 @@ export function StatusBar() {
               <span>Debug</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">Toggle debug panel (⌘J)</TooltipContent>
+          <TooltipContent side="top">Toggle debug panel ({formatShortcutForDisplay('CmdOrCtrl+j')})</TooltipContent>
         </Tooltip>
       </div>
     </div>

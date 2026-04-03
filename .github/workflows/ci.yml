@@ -8,8 +8,12 @@ on:
 
 jobs:
   go:
-    name: Go — test & vet
-    runs-on: ubuntu-latest
+    name: Go — test & vet (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 

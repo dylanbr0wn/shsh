@@ -107,6 +107,7 @@ func addToKnownHosts(t *testing.T, addr string, signer ssh.Signer) {
 	}
 
 	t.Setenv("HOME", tmpHome)
+	t.Setenv("USERPROFILE", tmpHome)
 }
 
 func TestReconnectLoop_Success(t *testing.T) {

@@ -1,4 +1,5 @@
 export const isMac = navigator.platform.toUpperCase().includes('MAC')
+export const isWindows = navigator.platform.toUpperCase().includes('WIN')
 
 /**
  * Converts a KeyboardEvent into the normalized CmdOrCtrl+... format
