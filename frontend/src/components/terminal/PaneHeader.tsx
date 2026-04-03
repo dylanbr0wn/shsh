@@ -13,7 +13,7 @@ import { ButtonGroup } from '../ui/button-group'
 import { PaneToolbar } from './PaneToolbar'
 import { PaneTypeChooser } from '../workspace/PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
-import { formatShortcutForDisplay } from '../../lib/keybind'
+import { shortcutParts } from '../../lib/keybind'
 import type { SessionStatus } from '../../types'
 
 const typeColors = {
@@ -160,7 +160,7 @@ export function PaneHeader({
           onSelectSFTP={(hId) => onSplit('vertical', 'sftp', hId)}
           onSelectLocal={() => onSplit('vertical', 'local', 'local')}
         >
-          <Button variant="ghost" size="icon-xs" title={`Split vertically (${formatShortcutForDisplay('CmdOrCtrl+d')})`}>
+          <Button variant="ghost" size="icon-xs" title={`Split vertically (${shortcutParts('CmdOrCtrl+d').join(' ')})`}>
             <SplitSquareVertical className="size-3" />
           </Button>
         </PaneTypeChooser>
@@ -170,7 +170,7 @@ export function PaneHeader({
           onSelectSFTP={(hId) => onSplit('horizontal', 'sftp', hId)}
           onSelectLocal={() => onSplit('horizontal', 'local', 'local')}
         >
-          <Button variant="ghost" size="icon-xs" title={`Split horizontally (${formatShortcutForDisplay('CmdOrCtrl+Shift+d')})`}>
+          <Button variant="ghost" size="icon-xs" title={`Split horizontally (${shortcutParts('CmdOrCtrl+Shift+d').join(' ')})`}>
             <SplitSquareHorizontal className="size-3" />
           </Button>
         </PaneTypeChooser>

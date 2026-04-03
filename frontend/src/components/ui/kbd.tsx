@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { shortcutParts } from '@/lib/keybind'
 
 function Kbd({ className, ...props }: React.ComponentProps<'kbd'>) {
   return (
@@ -17,10 +18,28 @@ function KbdGroup({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <kbd
       data-slot="kbd-group"
-      className={cn('inline-flex items-center gap-1', className)}
+      className={cn('inline-flex items-center gap-0.5', className)}
       {...props}
     />
   )
 }
 
-export { Kbd, KbdGroup }
+function ShortcutKbd({
+  shortcut,
+  className,
+}: {
+  shortcut: string
+  className?: string
+}) {
+  const parts = shortcutParts(shortcut)
+  if (parts.length === 0) return <Kbd className={className}>Unbound</Kbd>
+  return (
+    <KbdGroup className={className}>
+      {parts.map((part, i) => (
+        <Kbd key={i}>{part}</Kbd>
+      ))}
+    </KbdGroup>
+  )
+}
+
+export { Kbd, KbdGroup, ShortcutKbd }

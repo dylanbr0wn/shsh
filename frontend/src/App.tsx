@@ -5,6 +5,7 @@ import { usePanelRef } from 'react-resizable-panels'
 import { TooltipProvider } from './components/ui/tooltip'
 import { Toaster } from './components/ui/sonner'
 import { useAppInit } from './store/useAppInit'
+import { useKeybindings } from './hooks/useKeybindings'
 import { Sidebar } from './components/layout/Sidebar'
 import { MainArea } from './components/layout/MainArea'
 import { TitleBar } from './components/layout/TitleBar'
@@ -43,6 +44,7 @@ const SNAP_CLOSE_THRESHOLD = 80
 
 export default function App() {
   useAppInit()
+  useKeybindings()
   const { resolvedTheme } = useTheme()
   const sidebarRef = usePanelRef()
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)

@@ -24,8 +24,8 @@ import {
   ItemMedia,
   ItemTitle,
 } from '../ui/item'
-import { Kbd } from '../ui/kbd'
-import { isMac, formatShortcutForDisplay } from '../../lib/keybind'
+import { Kbd, KbdGroup, ShortcutKbd } from '../ui/kbd'
+import { isMac } from '../../lib/keybind'
 import { Button } from '../ui/button'
 import { Spinner } from '../ui/spinner'
 import { ButtonGroup } from '../ui/button-group'
@@ -112,8 +112,7 @@ export function WelcomeScreen() {
               <ItemTitle>Search...</ItemTitle>
             </ItemContent>
             <ItemActions>
-              <Kbd>{isMac ? '⌘' : 'Ctrl'}</Kbd>
-              <Kbd>K</Kbd>
+              <ShortcutKbd shortcut="CmdOrCtrl+k" />
             </ItemActions>
           </button>
         </Item>
@@ -130,19 +129,7 @@ export function WelcomeScreen() {
                 const latency = health[host.id]
                 const isReachable = latency !== undefined && latency >= 0
                 return (
-                  <Item
-                    key={host.id}
-                    asChild
-                    variant="muted"
-                    // disabled={isConnecting}
-                    // className="host-item-animate bg-card hover:bg-accent focus-visible:ring-ring/50 flex items-center gap-3 rounded-md px-3 py-2 text-left transition-colors focus-visible:ring-3 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50"
-                    // style={{
-                    //   borderLeft: `2.5px solid ${host.color ?? 'transparent'}`,
-                    //   paddingLeft: 9,
-                    //   animation: 'host-item-in 200ms ease-out both',
-                    //   animationDelay: `${Math.min(index, 8) * 40}ms`,
-                    // }}
-                  >
+                  <Item key={host.id} asChild variant="muted">
                     <button type="button" onClick={() => handleConnect(host)}>
                       <ItemContent>
                         <ItemTitle className="truncate text-sm font-medium">{host.label}</ItemTitle>
@@ -170,50 +157,6 @@ export function WelcomeScreen() {
         ) : (
           <p className="text-muted-foreground font-mono text-xs">{'>'} no recent connections</p>
         )}
-
-        {/* Keyboard shortcuts */}
-        <ButtonGroup>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setIsCommandPaletteOpen(true)}
-            size="xs"
-          >
-            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+k')}</Kbd>
-            Search
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setIsQuickConnectOpen(true)}
-            size="xs"
-          >
-            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+Shift+k')}</Kbd>
-            Quick Connect
-          </Button>
-          <Button type="button" variant="ghost" onClick={() => setIsAddHostOpen(true)} size="xs">
-            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+n')}</Kbd>
-            New Host
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => setIsImportHostsOpen(true)}
-            size="xs"
-          >
-            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+i')}</Kbd>
-            Import
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => window.open(DOCS_BASE_URL, '_blank')}
-            size="xs"
-          >
-            <BookOpen className="size-3" />
-            Docs
-          </Button>
-        </ButtonGroup>
       </div>
     </div>
   )

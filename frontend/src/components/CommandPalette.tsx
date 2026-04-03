@@ -2,7 +2,6 @@ import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Settings, Plus, Download, Upload, Zap } from 'lucide-react'
-import { formatShortcutForDisplay } from '../lib/keybind'
 import {
   CommandDialog,
   Command,
@@ -14,6 +13,7 @@ import {
   CommandShortcut,
   CommandSeparator,
 } from './ui/command'
+import { ShortcutKbd } from './ui/kbd'
 import {
   hostsAtom,
   isCommandPaletteOpenAtom,
@@ -102,12 +102,12 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runAction(() => setIsQuickConnectOpen(true))}>
               <Zap />
               Quick Connect
-              <CommandShortcut>{formatShortcutForDisplay('CmdOrCtrl+Shift+k')}</CommandShortcut>
+              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+Shift+k" /></CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsAddHostOpen(true))}>
               <Plus />
               New Host
-              <CommandShortcut>{formatShortcutForDisplay('CmdOrCtrl+n')}</CommandShortcut>
+              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+n" /></CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsSettingsOpen(true))}>
               <Settings />
@@ -116,7 +116,7 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runAction(() => setIsImportHostsOpen(true))}>
               <Download />
               Import Hosts
-              <CommandShortcut>{formatShortcutForDisplay('CmdOrCtrl+i')}</CommandShortcut>
+              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+i" /></CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsExportHostsOpen(true))}>
               <Upload />

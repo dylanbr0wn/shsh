@@ -1,7 +1,7 @@
 import { useAtomValue, useAtom, useSetAtom } from 'jotai'
 import { useAtomCallback } from 'jotai/utils'
 import { useState, useEffect, useCallback } from 'react'
-import { useKeybindings } from '../../hooks/useKeybindings'
+import { setWorkspaceCallbacks } from '../../hooks/useKeybindings'
 import {
   workspacesAtom,
   activeWorkspaceIdAtom,
@@ -329,10 +329,14 @@ export function WorkspaceView() {
     [handleSplit, handleMovePane]
   )
 
-  useKeybindings({
-    splitPane: (workspaceId, paneId, direction) => handleSplit(workspaceId, paneId, direction),
-    setSearchOpen,
-  })
+  // Keep workspace-specific callbacks fresh for the global keybinding handler
+  useEffect(() => {
+    setWorkspaceCallbacks({
+      splitPane: (workspaceId, paneId, direction) => handleSplit(workspaceId, paneId, direction),
+      setSearchOpen,
+    })
+    return () => setWorkspaceCallbacks({})
+  }, [handleSplit, setSearchOpen])
 
   const toggleLogging = useCallback(
     async (channelId: string) => {

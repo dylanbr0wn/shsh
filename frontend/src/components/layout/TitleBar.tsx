@@ -23,8 +23,7 @@ import { vaultEnabledAtom } from '../../atoms/vault'
 import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
-import { Kbd } from '../ui/kbd'
-import { formatShortcutForDisplay } from '../../lib/keybind'
+import { ShortcutKbd } from '../ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
 export function TitleBar() {
@@ -98,7 +97,7 @@ export function TitleBar() {
           >
             <Search className="size-3.5" />
             <span className="text-xs">Search</span>
-            <Kbd>{formatShortcutForDisplay('CmdOrCtrl+k')}</Kbd>
+            <ShortcutKbd shortcut="CmdOrCtrl+k" />
           </Button>
           <Tooltip>
             <TooltipTrigger asChild>

@@ -39,47 +39,29 @@ export function normalizeShortcutForMatch(shortcut: string): string {
 }
 
 /**
- * Converts a CmdOrCtrl+Shift+K shortcut to platform-appropriate display string.
- * Mac: ⌘⇧K, Windows/Linux: Ctrl+Shift+K
+ * Splits a CmdOrCtrl+Shift+K shortcut into platform-appropriate display parts.
+ * Mac: ['⌘', '⇧', 'K'], Windows/Linux: ['Ctrl', 'Shift', 'K']
  */
-export function formatShortcutForDisplay(shortcut: string): string {
-  if (!shortcut) return 'Unbound'
+export function shortcutParts(shortcut: string): string[] {
+  if (!shortcut) return []
   const parts = shortcut.split('+')
   const key = parts[parts.length - 1]
   const modifiers = parts.slice(0, -1)
 
-  if (isMac) {
-    const symbols: string[] = []
-    for (const mod of modifiers) {
-      switch (mod) {
-        case 'CmdOrCtrl':
-          symbols.push('⌘')
-          break
-        case 'Alt':
-          symbols.push('⌥')
-          break
-        case 'Shift':
-          symbols.push('⇧')
-          break
-      }
-    }
-    return symbols.join('') + key.toUpperCase()
-  }
-
-  const labels: string[] = []
+  const result: string[] = []
   for (const mod of modifiers) {
     switch (mod) {
       case 'CmdOrCtrl':
-        labels.push('Ctrl')
+        result.push(isMac ? '⌘' : 'Ctrl')
         break
       case 'Alt':
-        labels.push('Alt')
+        result.push(isMac ? '⌥' : 'Alt')
         break
       case 'Shift':
-        labels.push('Shift')
+        result.push(isMac ? '⇧' : 'Shift')
         break
     }
   }
-  labels.push(key.toUpperCase())
-  return labels.join('+')
+  result.push(key.toUpperCase())
+  return result
 }

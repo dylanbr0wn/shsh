@@ -10,7 +10,7 @@ import {
 import {
   isMac,
   eventToShortcut,
-  formatShortcutForDisplay,
+  shortcutParts,
   normalizeShortcutForMatch,
 } from '../../lib/keybind'
 import { Button } from '../ui/button'
@@ -31,31 +31,6 @@ import { ButtonGroup } from '../ui/button-group'
 import { Dot, RotateCcw, Search } from 'lucide-react'
 import { Card } from '../ui/card'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group'
-
-/** Split a CmdOrCtrl+Shift+K shortcut into display parts for individual Kbd elements */
-function shortcutParts(shortcut: string): string[] {
-  if (!shortcut) return []
-  const parts = shortcut.split('+')
-  const key = parts[parts.length - 1]
-  const modifiers = parts.slice(0, -1)
-
-  const result: string[] = []
-  for (const mod of modifiers) {
-    switch (mod) {
-      case 'CmdOrCtrl':
-        result.push(isMac ? '⌘' : 'Ctrl')
-        break
-      case 'Alt':
-        result.push(isMac ? '⌥' : 'Alt')
-        break
-      case 'Shift':
-        result.push(isMac ? '⇧' : 'Shift')
-        break
-    }
-  }
-  result.push(key.toUpperCase())
-  return result
-}
 
 export function KeybindingsSettings() {
   const keybindings = useAtomValue(keybindingsAtom)
@@ -198,7 +173,7 @@ export function KeybindingsSettings() {
     return (
       kb.label.toLowerCase().includes(q) ||
       kb.shortcut.toLowerCase().includes(q) ||
-      formatShortcutForDisplay(kb.shortcut).toLowerCase().includes(q)
+      shortcutParts(kb.shortcut).join(' ').toLowerCase().includes(q)
     )
   })
 
