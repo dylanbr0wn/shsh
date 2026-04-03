@@ -102,19 +102,16 @@ static int32_t deleteDerivedKey() {
 */
 import "C"
 import (
-	"errors"
 	"fmt"
 	"unsafe"
 )
-
-var ErrUnsupported = errors.New("biometric: not supported on this platform")
 
 func available() bool {
 	return C.checkBiometric() == 1
 }
 
 func storeKey(key []byte) error {
-	if !Available() {
+	if !available() {
 		return ErrUnsupported
 	}
 	status := C.storeDerivedKey(unsafe.Pointer(&key[0]), C.int(len(key)))
@@ -125,7 +122,7 @@ func storeKey(key []byte) error {
 }
 
 func retrieveKey() ([]byte, error) {
-	if !Available() {
+	if !available() {
 		return nil, ErrUnsupported
 	}
 	buf := make([]byte, 64)
