@@ -112,7 +112,9 @@ export function StatusBar() {
               <span>Debug</span>
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">Toggle debug panel <ShortcutKbd shortcut="CmdOrCtrl+j" /></TooltipContent>
+          <TooltipContent side="top">
+            Toggle debug panel <ShortcutKbd shortcut="CmdOrCtrl+j" />
+          </TooltipContent>
         </Tooltip>
       </div>
     </div>

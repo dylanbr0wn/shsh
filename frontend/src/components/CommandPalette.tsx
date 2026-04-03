@@ -102,12 +102,16 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runAction(() => setIsQuickConnectOpen(true))}>
               <Zap />
               Quick Connect
-              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+Shift+k" /></CommandShortcut>
+              <CommandShortcut>
+                <ShortcutKbd shortcut="CmdOrCtrl+Shift+k" />
+              </CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsAddHostOpen(true))}>
               <Plus />
               New Host
-              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+n" /></CommandShortcut>
+              <CommandShortcut>
+                <ShortcutKbd shortcut="CmdOrCtrl+n" />
+              </CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsSettingsOpen(true))}>
               <Settings />
@@ -116,7 +120,9 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runAction(() => setIsImportHostsOpen(true))}>
               <Download />
               Import Hosts
-              <CommandShortcut><ShortcutKbd shortcut="CmdOrCtrl+i" /></CommandShortcut>
+              <CommandShortcut>
+                <ShortcutKbd shortcut="CmdOrCtrl+i" />
+              </CommandShortcut>
             </CommandItem>
             <CommandItem onSelect={() => runAction(() => setIsExportHostsOpen(true))}>
               <Upload />

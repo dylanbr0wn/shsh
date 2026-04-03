@@ -56,7 +56,7 @@ export function PaneToolbar({
 
   const checkOverflow = useCallback(
     (width: number) => {
-      setOverflowing(width < (featureCount * ICON_WIDTH))
+      setOverflowing(width < featureCount * ICON_WIDTH)
     },
     [featureCount]
   )
@@ -95,7 +95,7 @@ export function PaneToolbar({
               <Ellipsis className="size-3" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className='whitespace-nowrap w-44'>
+          <DropdownMenuContent align="end" className="w-44 whitespace-nowrap">
             {kind === 'terminal' && (
               <DropdownMenuItem onSelect={() => setOpenPopover('settings')}>
                 <SlidersHorizontal className="mr-2 size-3" /> Terminal settings

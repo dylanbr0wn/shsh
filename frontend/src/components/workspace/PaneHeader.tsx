@@ -1,10 +1,5 @@
 import { useEffect, useRef } from 'react'
-import {
-  GripVertical,
-  SplitSquareVertical,
-  SplitSquareHorizontal,
-  X,
-} from 'lucide-react'
+import { GripVertical, SplitSquareVertical, SplitSquareHorizontal, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
 import { PaneToolbar } from './PaneToolbar'
@@ -70,9 +65,8 @@ export function PaneHeader({
 
   const typeStyle = typeColors[kind]
 
-
   return (
-    <div className="flex h-8 items-center gap-1 px-1.5 border-b bg-card">
+    <div className="bg-card flex h-8 items-center gap-1 border-b px-1.5">
       <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
       </span>
@@ -108,7 +102,11 @@ export function PaneHeader({
           onSelectSFTP={(hId) => onSplit('vertical', 'sftp', hId)}
           onSelectLocal={() => onSplit('vertical', 'local', 'local')}
         >
-          <Button variant="outline" size="icon-xs" title={`Split vertically (${shortcutParts('CmdOrCtrl+d').join(' ')})`}>
+          <Button
+            variant="outline"
+            size="icon-xs"
+            title={`Split vertically (${shortcutParts('CmdOrCtrl+d').join(' ')})`}
+          >
             <SplitSquareVertical className="size-3" />
           </Button>
         </PaneTypeChooser>
@@ -118,7 +116,11 @@ export function PaneHeader({
           onSelectSFTP={(hId) => onSplit('horizontal', 'sftp', hId)}
           onSelectLocal={() => onSplit('horizontal', 'local', 'local')}
         >
-          <Button variant="outline" size="icon-xs" title={`Split horizontally (${shortcutParts('CmdOrCtrl+Shift+d').join(' ')})`}>
+          <Button
+            variant="outline"
+            size="icon-xs"
+            title={`Split horizontally (${shortcutParts('CmdOrCtrl+Shift+d').join(' ')})`}
+          >
             <SplitSquareHorizontal className="size-3" />
           </Button>
         </PaneTypeChooser>

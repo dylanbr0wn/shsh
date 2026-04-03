@@ -24,13 +24,7 @@ function KbdGroup({ className, ...props }: React.ComponentProps<'div'>) {
   )
 }
 
-function ShortcutKbd({
-  shortcut,
-  className,
-}: {
-  shortcut: string
-  className?: string
-}) {
+function ShortcutKbd({ shortcut, className }: { shortcut: string; className?: string }) {
   const parts = shortcutParts(shortcut)
   if (parts.length === 0) return <Kbd className={className}>Unbound</Kbd>
   return (

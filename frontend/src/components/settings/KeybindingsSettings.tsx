@@ -7,12 +7,7 @@ import {
   ResetAllKeybindings,
   GetKeybindings,
 } from '../../../wailsjs/go/main/KeybindFacade'
-import {
-  isMac,
-  eventToShortcut,
-  shortcutParts,
-  normalizeShortcutForMatch,
-} from '../../lib/keybind'
+import { isMac, eventToShortcut, shortcutParts, normalizeShortcutForMatch } from '../../lib/keybind'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { Kbd, KbdGroup } from '../ui/kbd'
