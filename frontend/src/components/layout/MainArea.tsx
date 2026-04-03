@@ -3,7 +3,7 @@ import { workspacesAtom } from '../../store/workspaces'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { TabBar } from '../sessions/TabBar'
-import { WorkspaceView } from '../terminal/WorkspaceView'
+import { WorkspaceView } from '../workspace/WorkspaceView'
 import { WelcomeScreen } from '../welcome/WelcomeScreen'
 
 export function MainArea() {

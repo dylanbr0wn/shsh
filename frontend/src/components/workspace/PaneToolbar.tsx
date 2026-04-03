@@ -9,7 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
-import { TerminalSettings } from './TerminalSettings'
+import { TerminalSettings } from '../terminal/TerminalSettings'
 import { PortForwardsPanel } from '../portforward/PortForwardsPanel'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
@@ -31,11 +31,11 @@ interface PaneToolbarProps {
 function getFeatureCount(kind: 'terminal' | 'sftp' | 'local'): number {
   switch (kind) {
     case 'terminal':
-      return 3
+      return 9
     case 'sftp':
-      return 1
+      return 7
     case 'local':
-      return 0
+      return 6
   }
 }
 
@@ -56,25 +56,25 @@ export function PaneToolbar({
 
   const checkOverflow = useCallback(
     (width: number) => {
-      setOverflowing(width < featureCount * ICON_WIDTH)
+      setOverflowing(width < (featureCount * ICON_WIDTH))
     },
     [featureCount]
   )
 
   // Re-register observer when overflowing changes, since the ref moves to a different DOM node
   useEffect(() => {
-    const el = containerRef.current
+    const el = containerRef.current?.parentElement
     if (!el || featureCount === 0) return
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
+        console.log('ResizeObserver entry:', entry)
         checkOverflow(entry.contentRect.width)
       }
     })
-
     observer.observe(el)
     return () => observer.disconnect()
-  }, [checkOverflow, featureCount, overflowing])
+  }, [checkOverflow, featureCount])
 
   // Local panes have no features
   if (kind === 'local') return null
@@ -95,7 +95,7 @@ export function PaneToolbar({
               <Ellipsis className="size-3" aria-hidden="true" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
+          <DropdownMenuContent align="end" className='whitespace-nowrap w-44'>
             {kind === 'terminal' && (
               <DropdownMenuItem onSelect={() => setOpenPopover('settings')}>
                 <SlidersHorizontal className="mr-2 size-3" /> Terminal settings

@@ -23,7 +23,7 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { Terminal, FolderOpen, HardDrive } from 'lucide-react'
-import { TerminalSearch } from './TerminalSearch'
+import { TerminalSearch } from '../terminal/TerminalSearch'
 import {
   StartSessionLog,
   StopSessionLog,

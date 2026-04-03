@@ -8,7 +8,7 @@ import { RemovePortForward, ListPortForwards } from '@wailsjs/go/main/SessionFac
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import { PanelHeader } from '../terminal/PanelHeader'
+import { PanelHeader } from '../shared/PanelHeader'
 import type { PortForwardPanelState } from '../../types'
 
 const DEFAULT_PF_STATE: PortForwardPanelState = {

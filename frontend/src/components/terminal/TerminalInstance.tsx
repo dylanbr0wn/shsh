@@ -12,5 +12,5 @@ export function TerminalInstance({ channelId, hostId, isActive }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   useTerminal(containerRef, channelId, hostId, isActive)
 
-  return <div ref={containerRef} className="h-full w-full" />
+  return <div ref={containerRef} className="h-full w-full p-1" />
 }
