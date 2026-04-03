@@ -48,7 +48,7 @@ export function TitleBar() {
     >
       {isMac && (
         <div
-          className="h-full w-[88px] shrink-0"
+          className="h-full w-22 shrink-0"
           style={{ '--wails-draggable': 'no-drag' } as React.CSSProperties}
         />
       )}

@@ -1,14 +1,10 @@
 import { useMemo } from 'react'
 import { toast } from 'sonner'
-import { ArrowRight, BookOpen } from 'lucide-react'
-import { DOCS_BASE_URL } from '../../lib/constants'
+import { ArrowRight } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   connectingHostIdsAtom,
-  isQuickConnectOpenAtom,
-  isAddHostOpenAtom,
-  isImportHostsOpenAtom,
   isCommandPaletteOpenAtom,
   hostHealthAtom,
 } from '../../store/atoms'
@@ -24,11 +20,8 @@ import {
   ItemMedia,
   ItemTitle,
 } from '../ui/item'
-import { Kbd, KbdGroup, ShortcutKbd } from '../ui/kbd'
-import { isMac } from '../../lib/keybind'
-import { Button } from '../ui/button'
+import { ShortcutKbd } from '../ui/kbd'
 import { Spinner } from '../ui/spinner'
-import { ButtonGroup } from '../ui/button-group'
 
 export function WelcomeScreen() {
   const hosts = useAtomValue(hostsAtom)
@@ -36,9 +29,6 @@ export function WelcomeScreen() {
   const setConnectingIds = useSetAtom(connectingHostIdsAtom)
   const setWorkspaces = useSetAtom(workspacesAtom)
   const setActiveWorkspaceId = useSetAtom(activeWorkspaceIdAtom)
-  const setIsQuickConnectOpen = useSetAtom(isQuickConnectOpenAtom)
-  const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
-  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
   const setIsCommandPaletteOpen = useSetAtom(isCommandPaletteOpenAtom)
   const health = useAtomValue(hostHealthAtom)
 
