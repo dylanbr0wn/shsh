@@ -1,0 +1,65 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: Option C
+    - 'button "V1: Segmented" [ref=e4] [cursor=pointer]'
+    - 'button "V2: Icon Tabs" [active] [ref=e5] [cursor=pointer]'
+    - 'button "V3: Both Visible" [ref=e6] [cursor=pointer]'
+    - 'button "V4: Underline Tabs" [ref=e7] [cursor=pointer]'
+    - generic [ref=e8]: "V2: Pill-style icon tabs, compact single-line workspace items — most space efficient"
+  - generic [ref=e91]:
+    - generic [ref=e92]:
+      - generic [ref=e97]: shsh
+      - generic [ref=e98]:
+        - button "⌘K" [ref=e99] [cursor=pointer]
+        - button "⚙" [ref=e100] [cursor=pointer]
+    - generic [ref=e101]:
+      - generic [ref=e102]:
+        - generic [ref=e103]:
+          - button "⊞ Hosts" [ref=e104] [cursor=pointer]:
+            - generic [ref=e105]: ⊞
+            - text: Hosts
+          - button "▣ Sessions 3" [ref=e106] [cursor=pointer]:
+            - generic [ref=e107]: ▣
+            - text: Sessions
+            - generic [ref=e108]: "3"
+        - generic [ref=e109]:
+          - generic [ref=e110]:
+            - generic [ref=e111] [cursor=pointer]:
+              - generic [ref=e113]: prod-api
+              - generic [ref=e114]: "2"
+              - button "✕" [ref=e115]
+            - generic [ref=e116] [cursor=pointer]:
+              - generic [ref=e118]: staging-api
+              - generic [ref=e120]: "1"
+              - button "✕" [ref=e121]
+            - generic [ref=e122] [cursor=pointer]:
+              - generic [ref=e124]: db-tunnel
+              - generic [ref=e125]: "1"
+              - button "✕" [ref=e126]
+          - button "+ New Session" [ref=e128] [cursor=pointer]
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e135]: prod-api-01
+            - generic [ref=e136]: terminal
+          - generic [ref=e137]:
+            - generic [ref=e138]: deploy@prod-api-01:~$ docker ps
+            - generic [ref=e139]: CONTAINER ID IMAGE STATUS
+            - generic [ref=e140]: a1b2c3d4e5f6 api:v2.4.1 Up 3 days
+            - generic [ref=e141]: f6e5d4c3b2a1 nginx:1.25 Up 3 days
+            - generic [ref=e142]: deploy@prod-api-01:~$
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e147]: prod-db-primary
+            - generic [ref=e148]: terminal
+          - generic [ref=e149]:
+            - generic [ref=e150]: admin@prod-db:~$ pg_stat_activity
+            - generic [ref=e151]: pid | state | query
+            - generic [ref=e152]: "-------+--------+------------------"
+            - generic [ref=e153]: 12045 | active | SELECT * FROM...
+            - generic [ref=e154]: admin@prod-db:~$
+    - generic [ref=e156]:
+      - generic [ref=e157]:
+        - generic [ref=e158]: 3 sessions
+        - generic [ref=e160]: prod-api-01
+      - generic [ref=e162]: 🔒 vault unlocked

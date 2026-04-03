@@ -1,0 +1,75 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: Option C
+    - 'button "V1: Segmented" [ref=e4] [cursor=pointer]'
+    - 'button "V2: Icon Tabs" [ref=e5] [cursor=pointer]'
+    - 'button "V3: Both Visible" [ref=e6] [cursor=pointer]'
+    - 'button "V4: Underline Tabs" [active] [ref=e7] [cursor=pointer]'
+    - generic [ref=e8]: "V4: Underline tab toggle, detailed cards showing each individual pane inside the workspace"
+  - generic [ref=e281]:
+    - generic [ref=e282]:
+      - generic [ref=e287]: shsh
+      - generic [ref=e288]:
+        - button "⌘K" [ref=e289] [cursor=pointer]
+        - button "⚙" [ref=e290] [cursor=pointer]
+    - generic [ref=e291]:
+      - generic [ref=e292]:
+        - generic [ref=e293]:
+          - button "⊞ Hosts" [ref=e294] [cursor=pointer]
+          - button "▣ Sessions 3" [ref=e295] [cursor=pointer]:
+            - text: ▣ Sessions
+            - generic [ref=e296]: "3"
+        - generic [ref=e297]:
+          - generic [ref=e298]:
+            - generic [ref=e299] [cursor=pointer]:
+              - generic [ref=e300]:
+                - generic [ref=e301]: prod-api
+                - button "✕" [ref=e302]
+              - generic [ref=e303]:
+                - generic [ref=e304]:
+                  - generic [ref=e306]: prod-api-01
+                  - generic [ref=e307]: term
+                - generic [ref=e308]:
+                  - generic [ref=e310]: prod-db-primary
+                  - generic [ref=e311]: term
+            - generic [ref=e312] [cursor=pointer]:
+              - generic [ref=e314]:
+                - generic [ref=e315]: staging-api
+                - button "✕" [ref=e316]
+              - generic [ref=e318]:
+                - generic [ref=e320]: staging-api
+                - generic [ref=e321]: term
+            - generic [ref=e322] [cursor=pointer]:
+              - generic [ref=e323]:
+                - generic [ref=e324]: db-tunnel
+                - button "✕" [ref=e325]
+              - generic [ref=e327]:
+                - generic [ref=e329]: prod-db-primary
+                - generic [ref=e330]: tunnel
+          - button "+ New Session" [ref=e332] [cursor=pointer]
+      - generic [ref=e335]:
+        - generic [ref=e336]:
+          - generic [ref=e337]:
+            - generic [ref=e339]: prod-api-01
+            - generic [ref=e340]: terminal
+          - generic [ref=e341]:
+            - generic [ref=e342]: deploy@prod-api-01:~$ docker ps
+            - generic [ref=e343]: CONTAINER ID IMAGE STATUS
+            - generic [ref=e344]: a1b2c3d4e5f6 api:v2.4.1 Up 3 days
+            - generic [ref=e345]: f6e5d4c3b2a1 nginx:1.25 Up 3 days
+            - generic [ref=e346]: deploy@prod-api-01:~$
+        - generic [ref=e348]:
+          - generic [ref=e349]:
+            - generic [ref=e351]: prod-db-primary
+            - generic [ref=e352]: terminal
+          - generic [ref=e353]:
+            - generic [ref=e354]: admin@prod-db:~$ pg_stat_activity
+            - generic [ref=e355]: pid | state | query
+            - generic [ref=e356]: "-------+--------+------------------"
+            - generic [ref=e357]: 12045 | active | SELECT * FROM...
+            - generic [ref=e358]: admin@prod-db:~$
+    - generic [ref=e360]:
+      - generic [ref=e361]:
+        - generic [ref=e362]: 3 sessions
+        - generic [ref=e364]: prod-api-01
+      - generic [ref=e366]: 🔒 vault unlocked

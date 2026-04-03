@@ -12,7 +12,22 @@
       "Bash(pnpm lint:*)",
       "Bash(xargs grep:*)",
       "Bash(grep -E \"\\\\.go$\")",
-      "Bash(grep -l \"GetKeybindings\" \"F:\\\\holo\\\\shsh\\\\.claude\\\\worktrees\\\\feat+better-ghost-buttons\"/*.go)"
+      "Bash(grep -l \"GetKeybindings\" \"F:\\\\holo\\\\shsh\\\\.claude\\\\worktrees\\\\feat+better-ghost-buttons\"/*.go)",
+      "Bash(npm ls:*)",
+      "Bash(pnpm info:*)",
+      "WebFetch(domain:docs.warp.dev)",
+      "WebFetch(domain:help.figma.com)",
+      "WebFetch(domain:code.visualstudio.com)",
+      "WebFetch(domain:www.royalapps.com)",
+      "WebFetch(domain:termius.com)",
+      "WebFetch(domain:www.techrepublic.com)",
+      "WebFetch(domain:mobaxterm.mobatek.net)",
+      "Bash(pnpm ls:*)",
+      "Bash(npx tsc:*)",
+      "mcp__plugin_playwright_playwright__browser_navigate",
+      "mcp__plugin_playwright_playwright__browser_take_screenshot",
+      "mcp__plugin_playwright_playwright__browser_snapshot",
+      "mcp__plugin_playwright_playwright__browser_click"
     ]
   }
 }

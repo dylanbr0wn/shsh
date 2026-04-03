@@ -1,0 +1,70 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: Compare
+    - button "Current" [ref=e4] [cursor=pointer]
+    - 'button "A: Sidebar List" [ref=e5] [cursor=pointer]'
+    - 'button "B: Activity Rail" [ref=e6] [cursor=pointer]'
+    - 'button "C: Unified Toggle" [ref=e7] [cursor=pointer]'
+    - generic [ref=e8]: Option C — Single sidebar with Hosts/Sessions toggle. Richest workspace cards.
+  - generic [ref=e323]:
+    - generic [ref=e324]:
+      - generic [ref=e329]: shsh
+      - generic [ref=e330]:
+        - button "⌘K" [ref=e331] [cursor=pointer]
+        - button "⚙" [ref=e332] [cursor=pointer]
+    - generic [ref=e333]:
+      - generic [ref=e334]:
+        - generic [ref=e335]:
+          - button "Hosts" [ref=e336] [cursor=pointer]
+          - button "Sessions 3" [active] [ref=e337] [cursor=pointer]:
+            - text: Sessions
+            - generic [ref=e338]: "3"
+        - generic [ref=e417]:
+          - generic [ref=e418] [cursor=pointer]:
+            - generic [ref=e419]:
+              - generic [ref=e423]: prod-api
+              - button "✕" [ref=e424]
+            - generic [ref=e425]:
+              - generic [ref=e426]: ⊞ 2 panes
+              - generic [ref=e427]: · 3h 12m
+          - generic [ref=e428] [cursor=pointer]:
+            - generic [ref=e430]:
+              - generic [ref=e433]: staging-api
+              - button "✕" [ref=e434]
+            - generic [ref=e435]:
+              - generic [ref=e436]: ⊞ 1 pane
+              - generic [ref=e437]: · 45m
+          - generic [ref=e438] [cursor=pointer]:
+            - generic [ref=e439]:
+              - generic [ref=e442]: db-tunnel
+              - button "✕" [ref=e443]
+            - generic [ref=e444]:
+              - generic [ref=e445]: ⊞ 1 pane
+              - generic [ref=e446]: · 1h 08m
+          - button "+ New Session" [ref=e448] [cursor=pointer]
+      - generic [ref=e385]:
+        - generic [ref=e386]:
+          - generic [ref=e387]:
+            - generic [ref=e389]: prod-api-01
+            - generic [ref=e390]: terminal
+          - generic [ref=e391]:
+            - generic [ref=e392]: deploy@prod-api-01:~$ docker ps
+            - generic [ref=e393]: CONTAINER ID IMAGE STATUS
+            - generic [ref=e394]: a1b2c3d4e5f6 api:v2.4.1 Up 3 days
+            - generic [ref=e395]: f6e5d4c3b2a1 nginx:1.25 Up 3 days
+            - generic [ref=e396]: deploy@prod-api-01:~$
+        - generic [ref=e398]:
+          - generic [ref=e399]:
+            - generic [ref=e401]: prod-db-primary
+            - generic [ref=e402]: terminal
+          - generic [ref=e403]:
+            - generic [ref=e404]: admin@prod-db:~$ pg_stat_activity
+            - generic [ref=e405]: pid | state | query
+            - generic [ref=e406]: "-------+--------+------------------"
+            - generic [ref=e407]: 12045 | active | SELECT * FROM...
+            - generic [ref=e408]: admin@prod-db:~$
+    - generic [ref=e410]:
+      - generic [ref=e411]:
+        - generic [ref=e412]: 3 sessions
+        - generic [ref=e414]: prod-api-01
+      - generic [ref=e416]: 🔒 vault unlocked

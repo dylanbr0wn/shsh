@@ -1,0 +1,86 @@
+- generic [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]: Compare
+    - button "Current" [ref=e4] [cursor=pointer]
+    - 'button "A: Sidebar List" [ref=e5] [cursor=pointer]'
+    - 'button "B: Activity Rail" [active] [ref=e6] [cursor=pointer]'
+    - 'button "C: Unified Toggle" [ref=e7] [cursor=pointer]'
+    - generic [ref=e8]: Option B — 48px icon rail for workspaces (always visible). Sidebar stays for hosts.
+  - generic [ref=e222]:
+    - generic [ref=e223]:
+      - generic [ref=e228]: shsh
+      - generic [ref=e229]:
+        - button "⌘K" [ref=e230] [cursor=pointer]
+        - button "⚙" [ref=e231] [cursor=pointer]
+    - generic [ref=e232]:
+      - generic [ref=e233]:
+        - button "⊞" [ref=e234] [cursor=pointer]:
+          - generic [ref=e235]: ⊞
+        - button "P" [ref=e237] [cursor=pointer]:
+          - generic [ref=e238]: P
+        - button "S" [ref=e239] [cursor=pointer]:
+          - generic [ref=e240]: S
+        - button "D" [ref=e242] [cursor=pointer]:
+          - generic [ref=e243]: D
+        - button "+" [ref=e244] [cursor=pointer]
+      - generic [ref=e245]:
+        - generic [ref=e246]:
+          - generic [ref=e247]: ⌕
+          - textbox "Search hosts..." [ref=e248]
+        - generic [ref=e249]:
+          - generic [ref=e250]:
+            - generic [ref=e251] [cursor=pointer]:
+              - generic [ref=e252]: ▾
+              - text: Production
+              - generic [ref=e253]: "3"
+            - generic [ref=e256] [cursor=pointer]:
+              - generic [ref=e257]: prod-api-01
+              - generic [ref=e258]: deploy@10.0.1.15
+            - generic [ref=e261] [cursor=pointer]:
+              - generic [ref=e262]: prod-db-primary
+              - generic [ref=e263]: admin@10.0.1.20
+            - generic [ref=e266] [cursor=pointer]:
+              - generic [ref=e267]: prod-cache
+              - generic [ref=e268]: root@10.0.1.22
+          - generic [ref=e269]:
+            - generic [ref=e270] [cursor=pointer]:
+              - generic [ref=e271]: ▾
+              - text: Staging
+              - generic [ref=e272]: "2"
+            - generic [ref=e275] [cursor=pointer]:
+              - generic [ref=e276]: staging-api
+              - generic [ref=e277]: deploy@staging.example.com
+            - generic [ref=e280] [cursor=pointer]:
+              - generic [ref=e281]: staging-db
+              - generic [ref=e282]: admin@staging-db.example.com
+          - generic [ref=e284] [cursor=pointer]:
+            - generic [ref=e285]: ▸
+            - text: Development
+            - generic [ref=e286]: "4"
+        - generic [ref=e287]:
+          - button "+ Add Host" [ref=e288] [cursor=pointer]
+          - button "Import" [ref=e289] [cursor=pointer]
+      - generic [ref=e292]:
+        - generic [ref=e293]:
+          - generic [ref=e294]:
+            - generic [ref=e296]: prod-api-01
+            - generic [ref=e297]: terminal
+          - generic [ref=e298]:
+            - generic [ref=e299]: deploy@prod-api-01:~$ docker ps
+            - generic [ref=e300]: CONTAINER ID IMAGE STATUS
+            - generic [ref=e301]: a1b2c3d4e5f6 api:v2.4.1 Up 3 days
+            - generic [ref=e302]: f6e5d4c3b2a1 nginx:1.25 Up 3 days
+            - generic [ref=e303]: deploy@prod-api-01:~$
+        - generic [ref=e305]:
+          - generic [ref=e306]:
+            - generic [ref=e308]: prod-db-primary
+            - generic [ref=e309]: terminal
+          - generic [ref=e310]:
+            - generic [ref=e311]: admin@prod-db:~$ pg_stat_activity
+            - generic [ref=e312]: pid | state | query
+            - generic [ref=e313]: "-------+--------+------------------"
+            - generic [ref=e314]: 12045 | active | SELECT * FROM...
+            - generic [ref=e315]: admin@prod-db:~$
+    - generic [ref=e317]:
+      - generic [ref=e319]: 3 sessions
+      - generic [ref=e322]: 🔒 vault unlocked
