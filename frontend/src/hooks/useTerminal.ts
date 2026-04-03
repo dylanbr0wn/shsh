@@ -5,7 +5,6 @@ import { useTheme } from 'next-themes'
 import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import { WebLinksAddon } from '@xterm/addon-web-links'
-import { WebglAddon } from '@xterm/addon-webgl'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { SearchAddon } from '@xterm/addon-search'
 import { EventsOn, EventsEmit } from '@wailsjs/runtime/runtime'
@@ -86,7 +85,6 @@ export function useTerminal(
     const theme = resolveTheme(colorTheme, resolvedTheme ?? 'dark')
 
     const term = new Terminal({
-      allowTransparency: true,
       allowProposedApi: true,
       cursorBlink: settings.cursorBlink,
       cursorStyle: settings.cursorStyle,
@@ -109,16 +107,6 @@ export function useTerminal(
     term.unicode.activeVersion = '11'
     fitAddon.fit()
 
-    // WebGL renderer with canvas fallback
-    try {
-      const webglAddon = new WebglAddon()
-      webglAddon.onContextLoss(() => {
-        webglAddon.dispose()
-      })
-      term.loadAddon(webglAddon)
-    } catch {
-      // WebGL unavailable — xterm falls back to canvas renderer
-    }
 
     termRef.current = term
     fitRef.current = fitAddon
