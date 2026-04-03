@@ -57,7 +57,7 @@ export function useTerminal(
   }, [isActive])
 
   // Clear activity flag whenever this channel becomes active (handles programmatic
-  // activation from useAppInit in addition to user tab clicks in TabBar)
+  // activation from useAppInit in addition to user clicks in sidebar)
   useEffect(() => {
     if (!isActive) return
     setChannelActivity((prev) => {

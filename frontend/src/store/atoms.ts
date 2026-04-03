@@ -80,7 +80,7 @@ export const deployKeyHostAtom = atom<Host | null>(null)
 
 export const sidebarCollapsedAtom = atom<boolean>(false)
 
-// Pending template to open — set by TabBar, consumed by WorkspaceView
+// Pending template to open — set by SessionList, consumed by WorkspaceView
 import type { WorkspaceTemplate } from '../types'
 export const pendingTemplateAtom = atom<WorkspaceTemplate | null>(null)
 

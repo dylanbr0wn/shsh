@@ -8,6 +8,8 @@ import { SidebarFooter } from '../sidebar/SidebarFooter'
 import { Separator } from '../ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 import { Badge } from '../ui/badge'
+import { ErrorBoundary } from '../ErrorBoundary'
+import { reportUIError } from '../../lib/reportUIError'
 
 export function Sidebar() {
   const workspaces = useAtomValue(workspacesAtom)
@@ -61,7 +63,13 @@ export function Sidebar() {
           <SidebarFooter />
         </>
       ) : (
-        <SessionList />
+        <ErrorBoundary
+          fallback="inline"
+          zone="session-list"
+          onError={(e, i) => reportUIError(e, i, 'session-list')}
+        >
+          <SessionList />
+        </ErrorBoundary>
       )}
     </div>
   )
