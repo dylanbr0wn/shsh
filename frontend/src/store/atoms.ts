@@ -1,7 +1,7 @@
 import { atom } from 'jotai'
 import { atomWithStorage } from 'jotai/utils'
 import type { SearchAddon } from '@xterm/addon-search'
-import type { Host, Group, SFTPState, PortForwardPanelState, TerminalProfile } from '../types'
+import type { Host, Group, FSState, PortForwardPanelState, TerminalProfile } from '../types'
 import { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
 import { collectLeaves } from '../lib/paneTree'
 
@@ -30,8 +30,8 @@ export const isEditHostOpenAtom = atom<boolean>(false)
 export const isSettingsOpenAtom = atom<boolean>(false)
 export const editingHostAtom = atom<Host | null>(null)
 
-// Map of channelId → SFTPState
-export const sftpStateAtom = atom<Record<string, SFTPState>>({})
+// Map of channelId → FSState
+export const fsPanelStateAtom = atom<Record<string, FSState>>({})
 
 // Map of connectionId → PortForwardPanelState (ephemeral, connection-scoped)
 export const portForwardsAtom = atom<Record<string, PortForwardPanelState>>({})

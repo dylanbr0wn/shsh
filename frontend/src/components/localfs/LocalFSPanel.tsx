@@ -1,9 +1,9 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
 import { Folder, File, RefreshCw, FolderPlus, MoveRight } from 'lucide-react'
 import { toast } from 'sonner'
-import { sftpStateAtom } from '../../store/atoms'
+import { fsPanelStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
-import type { SFTPEntry, SFTPState } from '../../types'
+import type { FSEntry, FSState } from '../../types'
 import {
   LocalListDir,
   LocalMkdir,
@@ -39,7 +39,7 @@ import {
 } from '../ui/context-menu'
 import { FilePreviewModal } from '../sftp/FilePreviewModal'
 
-const DEFAULT_LOCAL_STATE: SFTPState = {
+const DEFAULT_LOCAL_STATE: FSState = {
   currentPath: '/',
   entries: [],
   isLoading: false,
@@ -53,17 +53,17 @@ interface Props {
 type Modal =
   | { type: 'none' }
   | { type: 'mkdir'; value: string }
-  | { type: 'rename'; entry: SFTPEntry; value: string }
-  | { type: 'delete'; entry: SFTPEntry }
+  | { type: 'rename'; entry: FSEntry; value: string }
+  | { type: 'delete'; entry: FSEntry }
 
 export function LocalFSPanel({ channelId }: Props) {
-  const [state, setState] = useChannelPanelState(sftpStateAtom, channelId, DEFAULT_LOCAL_STATE)
+  const [state, setState] = useChannelPanelState(fsPanelStateAtom, channelId, DEFAULT_LOCAL_STATE)
   const { currentPath, entries, isLoading, error } = state
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
   const [isDragOver, setIsDragOver] = useState(false)
   const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
-  const draggedEntryRef = useRef<SFTPEntry | null>(null)
+  const draggedEntryRef = useRef<FSEntry | null>(null)
   const [previewPath, setPreviewPath] = useState<string | null>(null)
   const dragCounterRef = useRef(0)
 
@@ -131,7 +131,7 @@ export function LocalFSPanel({ channelId }: Props) {
 
   if (!currentPath) return null
 
-  function handleRowDoubleClick(entry: SFTPEntry) {
+  function handleRowDoubleClick(entry: FSEntry) {
     if (entry.isDir) {
       listDir(entry.path)
     } else {
@@ -149,7 +149,7 @@ export function LocalFSPanel({ channelId }: Props) {
     }
   }
 
-  async function handleRenameConfirm(entry: SFTPEntry, newName: string) {
+  async function handleRenameConfirm(entry: FSEntry, newName: string) {
     setModal({ type: 'none' })
     if (!newName || newName === entry.name) return
     try {
@@ -160,7 +160,7 @@ export function LocalFSPanel({ channelId }: Props) {
     }
   }
 
-  async function handleDeleteConfirm(entry: SFTPEntry) {
+  async function handleDeleteConfirm(entry: FSEntry) {
     setModal({ type: 'none' })
     try {
       await LocalDelete(channelId, entry.path)

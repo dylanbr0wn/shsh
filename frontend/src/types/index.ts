@@ -124,7 +124,7 @@ export interface UpdateHostInput {
   keepAliveMaxMissed?: number
 }
 
-export interface SFTPEntry {
+export interface FSEntry {
   name: string
   path: string
   isDir: boolean
@@ -133,9 +133,9 @@ export interface SFTPEntry {
   mode: string
 }
 
-export interface SFTPState {
+export interface FSState {
   currentPath: string
-  entries: SFTPEntry[]
+  entries: FSEntry[]
   isLoading: boolean
   error: string | null
 }
