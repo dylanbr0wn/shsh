@@ -125,6 +125,7 @@ export function WorkspaceCard({
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <Item asChild size="xs" variant="outline" className={cn(
+          'group',
           isActive && 'border-accent-foreground bg-accent',
           !isActive && 'hover:bg-muted/40',
         )}>
@@ -203,9 +204,9 @@ export function WorkspaceCard({
             <ItemActions>
               <Button
                 variant="ghost"
-                size="icon"
+                size="icon-xs"
                 aria-label="Close workspace"
-                className="size-4 shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100!"
+                className="shrink-0 opacity-0 group-hover:opacity-60 hover:opacity-100!"
                 onClick={(e) => {
                   e.stopPropagation()
                   onClose()
@@ -214,10 +215,6 @@ export function WorkspaceCard({
                 <X className="size-3" />
               </Button>
             </ItemActions>
-
-            {/* Header: name + close */}
-
-            {/* Pane list */}
           </div>
         </Item>
       </ContextMenuTrigger>
