@@ -31,3 +31,5 @@ export const LocalListDir = (..._args: any[]): Promise<any> => Promise.resolve([
 export const LocalMkdir = (..._args: any[]): Promise<any> => Promise.resolve()
 export const LocalDelete = (..._args: any[]): Promise<any> => Promise.resolve()
 export const LocalRename = (..._args: any[]): Promise<any> => Promise.resolve()
+export const SFTPPreviewFile = (..._args: any[]): Promise<any> => Promise.resolve({ name: '', size: 0, mimeType: 'text/plain', content: '' })
+export const LocalPreviewFile = (..._args: any[]): Promise<any> => Promise.resolve({ name: '', size: 0, mimeType: 'text/plain', content: '' })
