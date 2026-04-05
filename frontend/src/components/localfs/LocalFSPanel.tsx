@@ -1,4 +1,4 @@
-import { MoveRight } from 'lucide-react'
+import { RefreshCw, FolderPlus, MoveRight } from 'lucide-react'
 import {
   LocalListDir,
   LocalMkdir,
@@ -8,10 +8,11 @@ import {
 } from '@wailsjs/go/main/SessionFacade'
 import { GetHomeDir } from '@wailsjs/go/main/ToolsFacade'
 import { PathBreadcrumb } from '../shared/PathBreadcrumb'
+import { Button } from '../ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { ContextMenuItem, ContextMenuSeparator } from '../ui/context-menu'
 import { useFilePanelState } from '../filepanel/useFilePanelState'
 import { useFilePanelDrag } from '../filepanel/useFilePanelDrag'
-import { FilePanelToolbar } from '../filepanel/FilePanelToolbar'
 import { FilePanelModals } from '../filepanel/FilePanelModals'
 import { FileList } from '../filepanel/FileList'
 import { FilePreviewModal } from '../filepanel/FilePreviewModal'
@@ -45,13 +46,36 @@ export function LocalFSPanel({ channelId }: Props) {
       className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
       {...drag.panelDragHandlers}
     >
-      <FilePanelToolbar
-        onRefresh={() => panel.listDir(panel.currentPath)}
-        onNewFolder={() => panel.setModal({ type: 'mkdir', value: '' })}
-      />
-
-      <div className="border-border flex shrink-0 items-center overflow-x-auto border-b px-1.5 py-1">
-        <PathBreadcrumb path={panel.currentPath} onNavigate={panel.listDir} />
+      {/* Toolbar */}
+      <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
+        <PathBreadcrumb path={panel.currentPath} onNavigate={panel.listDir} maxVisible={3} />
+        <div className="grow" />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Refresh"
+              onClick={() => panel.listDir(panel.currentPath)}
+            >
+              <RefreshCw aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Refresh</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="New folder"
+              onClick={() => panel.setModal({ type: 'mkdir', value: '' })}
+            >
+              <FolderPlus aria-hidden="true" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>New folder</TooltipContent>
+        </Tooltip>
       </div>
 
       <FileList
