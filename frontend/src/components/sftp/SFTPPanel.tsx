@@ -74,6 +74,7 @@ export function SFTPPanel({ channelId }: Props) {
       await panel.listDir(panel.currentPath)
     })
     return () => EventsOff('window:filedrop')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [channelId, panel.currentPath, panel.listDir, drag.isDragOverRef])
 
   if (!panel.currentPath) return null
