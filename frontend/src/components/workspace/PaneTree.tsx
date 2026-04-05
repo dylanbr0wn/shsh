@@ -219,7 +219,7 @@ function PaneLeafView({
             onError={(e, i) => reportUIError(e, i, `sftp-${leaf.channelId}`)}
             resetKeys={[leaf.channelId]}
           >
-            <SFTPPanel channelId={leaf.channelId} connectionId={leaf.connectionId} />
+            <SFTPPanel channelId={leaf.channelId} />
           </ErrorBoundary>
         ) : leaf.kind === 'local' ? (
           <LocalFSPanel channelId={leaf.channelId} />

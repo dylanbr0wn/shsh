@@ -37,7 +37,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
 } from '../ui/context-menu'
-import { FilePreviewModal } from '../sftp/FilePreviewModal'
+import { FilePreviewModal } from '../filepanel/FilePreviewModal'
 
 const DEFAULT_LOCAL_STATE: FSState = {
   currentPath: '/',
