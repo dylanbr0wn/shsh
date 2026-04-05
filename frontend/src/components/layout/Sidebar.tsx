@@ -23,17 +23,6 @@ export function Sidebar() {
     if (workspaces.length === 0) setView('hosts')
   }, [workspaces.length, setView])
 
-  // Zero-state: no workspaces, just show hosts (no toggle)
-  if (workspaces.length === 0) {
-    return (
-      <div className="bg-sidebar flex h-full flex-col">
-        <HostList />
-        <Separator />
-        <SidebarFooter />
-      </div>
-    )
-  }
-
   return (
     <div className="bg-sidebar flex h-full flex-col">
       <Tabs
@@ -44,11 +33,11 @@ export function Sidebar() {
           <TabsTrigger value="hosts" className="gap-1 text-xs">
             ⊞ Hosts
           </TabsTrigger>
-          <TabsTrigger value="sessions" className="gap-1 text-xs">
+          <TabsTrigger value="sessions" disabled={workspaces.length <= 0} className="gap-1 text-xs">
             ▣ Sessions
             <Badge
-              variant="default"
-              className="ml-0.5 h-4 min-w-4 px-1 text-[9px]"
+              variant="link"
+              className="shrink-0 block text-[10px] text-muted-foreground/70"
             >
               {workspaces.length}
             </Badge>

@@ -7,6 +7,8 @@ import { collectLeaves } from '../lib/paneTree'
 
 export { workspacesAtom, activeWorkspaceIdAtom } from './workspaces'
 
+export const UNGROUPED_GROUP_ID = 'ungrouped'
+
 export const hostsAtom = atom<Host[]>([])
 export const groupsAtom = atom<Group[]>([])
 export const terminalProfilesAtom = atom<TerminalProfile[]>([])

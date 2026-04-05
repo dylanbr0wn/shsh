@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
+import { groupExpandedAtom, groupsAtom, hostsAtom, UNGROUPED_GROUP_ID } from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -95,15 +95,15 @@ export function HostGroupSection({
       <Collapsible
         open={isExpanded}
         onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [group.id]: open }))}
-        className="bg-accent/40 flex flex-col gap-1 rounded-lg"
+        className="bg-muted/50 flex flex-col rounded-lg"
       >
         {/* Group header */}
 
         <ContextMenu>
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
-              <Item asChild variant="outline" size="xs">
-                <button>
+              <Item asChild size="xs" className="p-1">
+                <div role="button" className='hover:bg-muted'>
                   <ItemMedia>
                     <ChevronRight
                       className={cn(
@@ -113,17 +113,19 @@ export function HostGroupSection({
                     />
                   </ItemMedia>
                   <ItemContent>
-                    <ItemTitle>{group.name}</ItemTitle>
+                    <ItemTitle>
+                      <span>{group.name}</span>
+                      <span className="text-muted-foreground/50 text-xs">{hosts.length} hosts</span>
+                    </ItemTitle>
                   </ItemContent>
                   <ItemActions>
-                    <Badge variant="ghost">{hosts.length} hosts</Badge>
                     <ButtonGroup>
                       {/* Dropdown */}
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
-                            variant="outline"
-                            size="icon-sm"
+                            variant="ghost-muted"
+                            size="icon-xs"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <MoreHorizontal className="size-3.5" />
@@ -153,7 +155,7 @@ export function HostGroupSection({
                     </ButtonGroup>
                     {/* Connect All button */}
                   </ItemActions>
-                </button>
+                </div>
               </Item>
             </CollapsibleTrigger>
           </ContextMenuTrigger>
@@ -168,7 +170,7 @@ export function HostGroupSection({
 
         {/* Hosts */}
         <CollapsibleContent>
-          <ItemGroup>
+          <ItemGroup className="p-1 gap-1!">
             {hosts.map((host, index) => (
               <div
                 key={host.id}

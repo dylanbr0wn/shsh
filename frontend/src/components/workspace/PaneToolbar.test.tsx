@@ -6,7 +6,7 @@ import { TooltipProvider } from '../ui/tooltip'
 
 // jsdom does not implement ResizeObserver — stub it out
 beforeAll(() => {
-  global.ResizeObserver = class ResizeObserver {
+  globalThis.ResizeObserver = class ResizeObserver {
     observe() {}
     unobserve() {}
     disconnect() {}

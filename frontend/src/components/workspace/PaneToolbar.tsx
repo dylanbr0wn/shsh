@@ -68,7 +68,6 @@ export function PaneToolbar({
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        console.log('ResizeObserver entry:', entry)
         checkOverflow(entry.contentRect.width)
       }
     })

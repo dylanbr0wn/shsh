@@ -10,6 +10,7 @@ import {
   isAddHostOpenAtom,
   isDeployKeyOpenAtom,
   deployKeyHostAtom,
+  UNGROUPED_GROUP_ID,
 } from '../../store/atoms'
 import {
   workspacesAtom,
@@ -34,6 +35,7 @@ import { collectLeaves } from '../../lib/paneTree'
 import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group'
 import { ButtonGroup } from '../ui/button-group'
+import { UngroupedHostSection } from './UngroupedHostSection'
 
 type SortMode = 'az' | 'za' | 'recent'
 
@@ -437,44 +439,21 @@ export function HostList() {
                 />
               ))}
 
+
               {/* Ungrouped hosts */}
               {ungrouped.length > 0 && (
-                <div className="flex flex-col gap-0.5">
-                  {sortedGroups.length > 0 && (
-                    <span className="text-muted-foreground/50 px-1.5 pt-1 pb-0.5 text-[10px] font-semibold tracking-wider uppercase">
-                      Ungrouped
-                    </span>
-                  )}
-                  {ungrouped.map((host, index) => (
-                    <div
-                      key={host.id}
-                      className="host-item-animate"
-                      style={{
-                        animation: 'host-item-in 200ms ease-out both',
-                        animationDelay: `${Math.min(index, 8) * 40}ms`,
-                      }}
-                    >
-                      <ErrorBoundary
-                        fallback="inline"
-                        zone={`host-${host.id}`}
-                        onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
-                        resetKeys={[host.id]}
-                      >
-                        <HostListItem
-                          host={host}
-                          isConnected={connectedHostIds.has(host.id)}
-                          isConnecting={connectingHostIds.has(host.id)}
-                          onConnect={() => handleConnect(host.id, host.label)}
-                          onDelete={() => handleDelete(host.id)}
-                          onEdit={() => handleEdit(host)}
-                          onDeployKey={() => handleDeployKey(host)}
-                          onMoveToGroup={handleMoveToGroup}
-                          onOpenFiles={() => handleOpenFiles(host.id, host.label)}
-                        />
-                      </ErrorBoundary>
-                    </div>
-                  ))}
-                </div>
+                <UngroupedHostSection
+                  key={UNGROUPED_GROUP_ID}
+                  hosts={ungrouped}
+                  connectedHostIds={connectedHostIds}
+                  connectingHostIds={connectingHostIds}
+                  onConnect={handleConnect}
+                  onDelete={handleDelete}
+                  onEdit={handleEdit}
+                  onDeployKey={handleDeployKey}
+                  onMoveToGroup={handleMoveToGroup}
+                  onOpenFiles={handleOpenFiles}
+                />
               )}
             </>
           )}

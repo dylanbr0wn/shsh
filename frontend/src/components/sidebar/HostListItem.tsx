@@ -29,7 +29,7 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from '../ui/context-menu'
-import { Item, ItemActions, ItemContent, ItemDescription, ItemTitle } from '../ui/item'
+import { Item, ItemActions, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item'
 import { Spinner } from '../ui/spinner'
 import { ButtonGroup } from '../ui/button-group'
 
@@ -75,8 +75,10 @@ export function HostListItem({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item asChild size="xs">
-          <button
+        <Item asChild size="xs"
+        className="hover:bg-muted relative h-14.5">
+          <div
+            role="button"
             draggable
             onDragStart={(e) => {
               e.dataTransfer.effectAllowed = 'copy'
@@ -97,11 +99,39 @@ export function HostListItem({
             className={cn(isConnecting && 'animate-pulse')}
             tabIndex={0}
           >
+            <ItemMedia className="h-full">
+              <span
+                className="h-full w-1 rounded-full"
+                style={{ backgroundColor: host.color || 'var(--muted-foreground)' }}
+              />
+            </ItemMedia>
             {/* Center: host identity */}
-            <ItemContent>
-              <ItemTitle style={{ color: host.color }}>{host.label}</ItemTitle>
+            <ItemContent className="h-full">
+              <ItemTitle style={{ color: host.color }}>
+                <span>{host.label}</span>
+                {host.tags && host.tags.length > 0 && (
+                  <HoverCard openDelay={300} closeDelay={100}>
+                    <HoverCardTrigger asChild>
+                      <Badge
+                        variant="ghost"
+                        className="m-0 flex items-center gap-1 p-0 opacity-30 hover:opacity-100"
+                      >
+                        <TagIcon className="size-3" />
+                        <span>{host.tags.length}</span>
+                      </Badge>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="bottom" align="start" className="w-auto p-2">
+                      <div className="flex w-42 flex-wrap gap-1">
+                        {host.tags.map((t) => (
+                          <Tag key={t} label={t} />
+                        ))}
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                )}
+              </ItemTitle>
               <ItemDescription className="h-5">
-                <div className="flex w-full shrink-0 items-center gap-1">
+                <span className="flex w-full shrink-0 items-center gap-1">
                   <span>
                     {host.username}@{host.hostname}:{host.port}
                   </span>
@@ -109,66 +139,16 @@ export function HostListItem({
                     {' '}
                     · {latency ? <span className={cn(color)}>{latency}</span> : '...'}
                   </span>
-                </div>
+                </span>
               </ItemDescription>
-              {host.tags && host.tags.length > 0 && (
-                <HoverCard openDelay={300} closeDelay={100}>
-                  <HoverCardTrigger asChild>
-                    <Badge variant="link" className="flex items-center gap-1">
-                      <TagIcon className="size-3" />
-                      <span>
-                        {host.tags.length} {host.tags.length === 1 ? 'tag' : 'tags'}
-                      </span>
-                    </Badge>
-                  </HoverCardTrigger>
-                  <HoverCardContent side="bottom" align="start" className="w-auto p-2">
-                    <div className="flex w-42 flex-wrap gap-1">
-                      {host.tags.map((t) => (
-                        <Tag key={t} label={t} />
-                      ))}
-                    </div>
-                  </HoverCardContent>
-                </HoverCard>
-              )}
             </ItemContent>
 
             {/* Right: action buttons */}
             <ItemActions>
               <ButtonGroup>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="default"
-                      size="icon"
-                      onClick={onConnect}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? <Spinner /> : <SquareTerminal />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {isConnecting ? 'Connecting…' : 'New SSH Session'}
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={onOpenFiles}
-                      disabled={isConnecting}
-                    >
-                      {isConnecting ? <Spinner /> : <FolderOpen />}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {isConnecting ? 'Connecting…' : 'New SFTP Session'}
-                  </TooltipContent>
-                </Tooltip>
-
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon">
+                    <Button variant="ghost-muted" size="icon">
                       <MoreHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
@@ -177,10 +157,7 @@ export function HostListItem({
                       {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
                     </DropdownMenuItem>
                     {onOpenFiles && (
-                      <DropdownMenuItem onClick={onOpenFiles}>
-                        <FolderOpen className="mr-2 size-4" />
-                        Open Files
-                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={onOpenFiles}>Open Files</DropdownMenuItem>
                     )}
                     {onMoveToGroup && groups.length > 0 && (
                       <>
@@ -216,8 +193,40 @@ export function HostListItem({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </ButtonGroup>
+               <ButtonGroup>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onConnect}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? <Spinner /> : <SquareTerminal />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isConnecting ? 'Connecting…' : 'New SSH Session'}
+                  </TooltipContent>
+                </Tooltip>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={onOpenFiles}
+                      disabled={isConnecting}
+                    >
+                      {isConnecting ? <Spinner /> : <FolderOpen />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {isConnecting ? 'Connecting…' : 'New SFTP Session'}
+                  </TooltipContent>
+                </Tooltip>
+              </ButtonGroup>
             </ItemActions>
-          </button>
+          </div>
         </Item>
       </ContextMenuTrigger>
       {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
@@ -237,12 +246,7 @@ export function HostListItem({
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
         </ContextMenuItem>
-        {onOpenFiles && (
-          <ContextMenuItem onClick={onOpenFiles}>
-            <FolderOpen className="mr-2 size-4" />
-            Open Files
-          </ContextMenuItem>
-        )}
+        {onOpenFiles && <ContextMenuItem onClick={onOpenFiles}>Open Files</ContextMenuItem>}
         <ContextMenuSeparator />
         {onMoveToGroup && groups.length > 0 && (
           <ContextMenuSub>

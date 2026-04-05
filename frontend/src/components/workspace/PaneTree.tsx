@@ -174,11 +174,6 @@ function PaneLeafView({
       className={cn('group/pane relative flex h-full w-full flex-col', isDragging && 'opacity-30')}
       {...dropHandlers}
       onMouseDown={() => setFocused(leaf.paneId)}
-      style={
-        isFocused
-          ? { boxShadow: `inset 0 0 0 1px ${host?.color ?? 'hsl(var(--border))'}` }
-          : undefined
-      }
     >
       <PaneHeader
         hostLabel={leaf.hostLabel}
