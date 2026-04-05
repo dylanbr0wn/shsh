@@ -147,6 +147,13 @@ export function useFilePanelDrag(options: FilePanelDragOptions) {
     }
   }
 
+  /** Reset all drag state — call after handling OS file drops */
+  function resetDrag() {
+    dragCounterRef.current = 0
+    isDragOverRef.current = false
+    setIsDragOver(false)
+  }
+
   return {
     isDragOver,
     isDragOverRef,
@@ -155,5 +162,6 @@ export function useFilePanelDrag(options: FilePanelDragOptions) {
     draggedEntryRef,
     panelDragHandlers,
     makeRowDragHandlers,
+    resetDrag,
   }
 }

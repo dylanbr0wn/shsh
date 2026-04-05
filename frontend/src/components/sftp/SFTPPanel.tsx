@@ -61,7 +61,7 @@ export function SFTPPanel({ channelId }: Props) {
   useEffect(() => {
     EventsOn('window:filedrop', async (data: { paths: string[] }) => {
       if (!drag.isDragOverRef.current) return
-      drag.isDragOverRef.current = false
+      drag.resetDrag()
       const paths = data.paths ?? []
       if (!paths.length) return
       const results = await Promise.allSettled(

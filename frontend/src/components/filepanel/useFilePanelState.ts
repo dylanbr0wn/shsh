@@ -52,7 +52,8 @@ export function useFilePanelState(
         setState({ isLoading: false, error: String(err) })
       }
     },
-    [channelId, setState, options]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [channelId, setState, options.listDirFn, options.resolvePath]
   )
 
   // Mount init + progress toasts
