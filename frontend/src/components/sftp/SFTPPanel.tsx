@@ -298,6 +298,8 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     >
       {/* Toolbar */}
       <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
+        <PathBreadcrumb path={currentPath} onNavigate={listDir} maxVisible={3} />
+        <div className='grow' />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -348,9 +350,9 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       </div>
 
       {/* Breadcrumb */}
-      <div className="border-border flex shrink-0 items-center overflow-x-auto overflow-y-hidden border-b px-1.5 py-1">
-        <PathBreadcrumb path={currentPath} onNavigate={listDir} />
-      </div>
+      {/* <div className="border-border flex shrink-0 items-center overflow-x-auto overflow-y-hidden border-b px-1.5 py-1">
+
+      </div> */}
 
       {/* File list */}
       <ScrollArea className="@container min-h-0 w-full flex-1">
