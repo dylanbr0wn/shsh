@@ -4,8 +4,6 @@ import { workspacesAtom } from '../../store/workspaces'
 import { sidebarViewAtom } from '../../store/sidebarView'
 import { HostList } from '../sidebar/HostList'
 import { SessionList } from '../sidebar/SessionList'
-import { SidebarFooter } from '../sidebar/SidebarFooter'
-import { Separator } from '../ui/separator'
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
 import { Badge } from '../ui/badge'
 import { ErrorBoundary } from '../ErrorBoundary'
@@ -25,20 +23,14 @@ export function Sidebar() {
 
   return (
     <div className="bg-sidebar flex h-full flex-col">
-      <Tabs
-        value={view}
-        onValueChange={(v) => setView(v as 'hosts' | 'sessions')}
-      >
-        <TabsList variant="line" className="w-full border-b border-sidebar-border px-2">
+      <Tabs value={view} onValueChange={(v) => setView(v as 'hosts' | 'sessions')}>
+        <TabsList variant="line" className="border-sidebar-border w-full border-b px-2">
           <TabsTrigger value="hosts" className="gap-1 text-xs">
             ⊞ Hosts
           </TabsTrigger>
           <TabsTrigger value="sessions" disabled={workspaces.length <= 0} className="gap-1 text-xs">
             ▣ Sessions
-            <Badge
-              variant="link"
-              className="shrink-0 block text-[10px] text-muted-foreground/70"
-            >
+            <Badge variant="link" className="text-muted-foreground/70 block shrink-0 text-[10px]">
               {workspaces.length}
             </Badge>
           </TabsTrigger>
@@ -46,11 +38,13 @@ export function Sidebar() {
       </Tabs>
 
       {view === 'hosts' ? (
-        <>
+        <ErrorBoundary
+          fallback="inline"
+          zone="host-list"
+          onError={(e, i) => reportUIError(e, i, 'host-list')}
+        >
           <HostList />
-          <Separator />
-          <SidebarFooter />
-        </>
+        </ErrorBoundary>
       ) : (
         <ErrorBoundary
           fallback="inline"
