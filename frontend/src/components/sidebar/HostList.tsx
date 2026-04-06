@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useAtomValue, useSetAtom } from 'jotai'
+import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   groupsAtom,
@@ -8,6 +8,8 @@ import {
   isEditHostOpenAtom,
   editingHostAtom,
   isAddHostOpenAtom,
+  isImportHostsOpenAtom,
+  isNewGroupOpenAtom,
   isDeployKeyOpenAtom,
   deployKeyHostAtom,
   UNGROUPED_GROUP_ID,
@@ -20,21 +22,41 @@ import {
   type SFTPLeaf,
 } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
-import { DeleteHost, UpdateHost, ListHosts } from '@wailsjs/go/main/HostFacade'
+import { DeleteHost, UpdateHost, ListHosts, AddGroup } from '@wailsjs/go/main/HostFacade'
 import { ConnectHost, ConnectForSFTP } from '@wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
-import { X, Server, Plus, ArrowUpAZ, ArrowDownAZ, Clock, Search } from 'lucide-react'
+import {
+  X,
+  Server,
+  Plus,
+  ArrowUpAZ,
+  ArrowDownAZ,
+  Clock,
+  Search,
+  FileInput,
+  FolderPlus,
+} from 'lucide-react'
 import { HostListItem } from './HostListItem'
 import { HostGroupSection } from './HostGroupSection'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import type { Host } from '../../types'
+import type { Group, Host } from '../../types'
 import { collectLeaves } from '../../lib/paneTree'
 import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group'
 import { ButtonGroup } from '../ui/button-group'
+import { Separator } from '../ui/separator'
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverDescription,
+} from '../ui/popover'
+import { Input } from '../ui/input'
 import { UngroupedHostSection } from './UngroupedHostSection'
 
 type SortMode = 'az' | 'za' | 'recent'
@@ -83,7 +105,7 @@ function comparator(sortMode: SortMode) {
 
 export function HostList() {
   const hosts = useAtomValue(hostsAtom)
-  const groups = useAtomValue(groupsAtom)
+  const [groups, setGroups] = useAtom(groupsAtom)
   const workspaces = useAtomValue(workspacesAtom)
   const connectingHostIds = useAtomValue(connectingHostIdsAtom)
   const setHosts = useSetAtom(hostsAtom)
@@ -95,6 +117,27 @@ export function HostList() {
   const setIsAddHostOpen = useSetAtom(isAddHostOpenAtom)
   const setIsDeployKeyOpen = useSetAtom(isDeployKeyOpenAtom)
   const setDeployKeyHost = useSetAtom(deployKeyHostAtom)
+  const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
+  const [newGroupOpen, setNewGroupOpen] = useAtom(isNewGroupOpenAtom)
+  const [newGroupName, setNewGroupName] = useState('')
+  const [creatingGroup, setCreatingGroup] = useState(false)
+  const newGroupInputRef = useRef<HTMLInputElement>(null)
+
+  async function handleCreateGroup() {
+    const name = newGroupName.trim()
+    if (!name) return
+    setCreatingGroup(true)
+    try {
+      const group = await AddGroup({ name })
+      setGroups((prev) => [...prev, group as unknown as Group])
+      setNewGroupName('')
+      setNewGroupOpen(false)
+    } catch (err) {
+      toast.error('Failed to create group', { description: String(err) })
+    } finally {
+      setCreatingGroup(false)
+    }
+  }
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('az')
@@ -315,12 +358,82 @@ export function HostList() {
 
   if (hosts.length === 0) {
     return (
-      <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
-        <Server className="text-muted-foreground/40 size-8" />
-        <p className="text-muted-foreground text-center text-xs">No saved hosts yet</p>
-        <Button size="sm" variant="outline" onClick={() => setIsAddHostOpen(true)}>
-          <Plus data-icon="inline-start" /> Add Host
-        </Button>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4">
+          <Server className="text-muted-foreground/40 size-8" />
+          <p className="text-muted-foreground text-center text-xs">No saved hosts yet</p>
+          <Button size="sm" variant="outline" onClick={() => setIsAddHostOpen(true)}>
+            <Plus data-icon="inline-start" /> Add Host
+          </Button>
+        </div>
+        <Separator />
+        <div className="p-1">
+          <ButtonGroup className="w-full">
+            <ButtonGroup className="grow">
+              <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
+                <Plus data-icon="inline-start" />
+                Add Host
+              </Button>
+            </ButtonGroup>
+            <ButtonGroup>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => setIsImportHostsOpen(true)}
+                  >
+                    <FileInput />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="top">Import Hosts</TooltipContent>
+              </Tooltip>
+              <Popover
+                open={newGroupOpen}
+                onOpenChange={(open) => {
+                  setNewGroupOpen(open)
+                  if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
+                }}
+              >
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <FolderPlus />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">New Group</TooltipContent>
+                </Tooltip>
+                <PopoverContent side="bottom" align="end">
+                  <PopoverHeader>
+                    <PopoverTitle>New Group</PopoverTitle>
+                    <PopoverDescription>Enter a name for the new group</PopoverDescription>
+                  </PopoverHeader>
+                  <Input
+                    ref={newGroupInputRef}
+                    placeholder="Group name"
+                    value={newGroupName}
+                    onChange={(e) => setNewGroupName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateGroup()
+                      if (e.key === 'Escape') setNewGroupOpen(false)
+                    }}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleCreateGroup}
+                    disabled={creatingGroup || !newGroupName.trim()}
+                  >
+                    <Plus data-icon="inline-start" />
+                    Create
+                  </Button>
+                </PopoverContent>
+              </Popover>
+            </ButtonGroup>
+          </ButtonGroup>
+        </div>
       </div>
     )
   }
@@ -328,137 +441,206 @@ export function HostList() {
   const isSearching = searchQuery.trim().length > 0
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2">
-      {/* Search */}
-      <ButtonGroup className="w-full">
-        <ButtonGroup className="grow">
-          <InputGroup>
-            <InputGroupInput
-              placeholder="Search..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              autoComplete="off"
-              autoCorrect="off"
-              autoCapitalize="off"
-              spellCheck={false}
-            />
-            <InputGroupAddon>
-              <Search />
-            </InputGroupAddon>
-            {searchQuery && (
-              <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-xs"
-                  title="Clear"
-                  aria-label="Clear"
-                  onClick={() => setSearchQuery('')}
-                >
-                  <X />
-                </InputGroupButton>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+        {/* Search */}
+        <ButtonGroup className="w-full">
+          <ButtonGroup className="grow">
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+              />
+              <InputGroupAddon>
+                <Search />
               </InputGroupAddon>
-            )}
-          </InputGroup>
-        </ButtonGroup>
-        <ButtonGroup>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="outline" size="icon" onClick={cycleSortMode}>
-                {sortIcon}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
-          </Tooltip>
-        </ButtonGroup>
-      </ButtonGroup>
-      <ScrollArea className="min-h-0 flex-1 select-none">
-        <ItemGroup>
-          {isSearching ? (
-            // Flat filtered list with optional group badge
-            filteredHosts.length === 0 ? (
-              <Item>
-                <ItemContent>
-                  <ItemDescription>No matching hosts</ItemDescription>
-                </ItemContent>
-              </Item>
-            ) : (
-              filteredHosts.map((host, index) => {
-                const group = host.groupId ? groups.find((g) => g.id === host.groupId) : undefined
-                return (
-                  <div
-                    key={host.id}
-                    className="host-item-animate flex flex-col"
-                    style={{
-                      animation: 'host-item-in 200ms ease-out both',
-                      animationDelay: `${Math.min(index, 8) * 40}ms`,
-                    }}
+              {searchQuery && (
+                <InputGroupAddon align="inline-end">
+                  <InputGroupButton
+                    size="icon-xs"
+                    title="Clear"
+                    aria-label="Clear"
+                    onClick={() => setSearchQuery('')}
                   >
-                    {group && (
-                      <span className="text-muted-foreground/50 px-3 pt-0.5 text-[10px]">
-                        · {group.name}
-                      </span>
-                    )}
-                    <ErrorBoundary
-                      fallback="inline"
-                      zone={`host-${host.id}`}
-                      onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
-                      resetKeys={[host.id]}
-                    >
-                      <HostListItem
-                        host={host}
-                        isConnected={connectedHostIds.has(host.id)}
-                        isConnecting={connectingHostIds.has(host.id)}
-                        onConnect={() => handleConnect(host.id, host.label)}
-                        onDelete={() => handleDelete(host.id)}
-                        onEdit={() => handleEdit(host)}
-                        onDeployKey={() => handleDeployKey(host)}
-                        onMoveToGroup={handleMoveToGroup}
-                        onOpenFiles={() => handleOpenFiles(host.id, host.label)}
-                      />
-                    </ErrorBoundary>
-                  </div>
-                )
-              })
-            )
-          ) : (
-            // Grouped view
-            <>
-              {sortedGroups.map((group) => (
-                <HostGroupSection
-                  key={group.id}
-                  group={group}
-                  hosts={groupMap.get(group.id) ?? []}
-                  connectedHostIds={connectedHostIds}
-                  connectingHostIds={connectingHostIds}
-                  onConnect={handleConnect}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                  onDeployKey={handleDeployKey}
-                  onMoveToGroup={handleMoveToGroup}
-                  onGroupDeleted={handleGroupDeleted}
-                  onOpenFiles={handleOpenFiles}
-                />
-              ))}
-
-
-              {/* Ungrouped hosts */}
-              {ungrouped.length > 0 && (
-                <UngroupedHostSection
-                  key={UNGROUPED_GROUP_ID}
-                  hosts={ungrouped}
-                  connectedHostIds={connectedHostIds}
-                  connectingHostIds={connectingHostIds}
-                  onConnect={handleConnect}
-                  onDelete={handleDelete}
-                  onEdit={handleEdit}
-                  onDeployKey={handleDeployKey}
-                  onMoveToGroup={handleMoveToGroup}
-                  onOpenFiles={handleOpenFiles}
-                />
+                    <X />
+                  </InputGroupButton>
+                </InputGroupAddon>
               )}
-            </>
-          )}
-        </ItemGroup>
-      </ScrollArea>
+            </InputGroup>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={cycleSortMode}>
+                  {sortIcon}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
+            </Tooltip>
+          </ButtonGroup>
+        </ButtonGroup>
+        <ScrollArea className="min-h-0 flex-1 select-none">
+          <ItemGroup>
+            {isSearching ? (
+              // Flat filtered list with optional group badge
+              filteredHosts.length === 0 ? (
+                <Item>
+                  <ItemContent>
+                    <ItemDescription>No matching hosts</ItemDescription>
+                  </ItemContent>
+                </Item>
+              ) : (
+                filteredHosts.map((host, index) => {
+                  const group = host.groupId ? groups.find((g) => g.id === host.groupId) : undefined
+                  return (
+                    <div
+                      key={host.id}
+                      className="host-item-animate flex flex-col"
+                      style={{
+                        animation: 'host-item-in 200ms ease-out both',
+                        animationDelay: `${Math.min(index, 8) * 40}ms`,
+                      }}
+                    >
+                      {group && (
+                        <span className="text-muted-foreground/50 px-3 pt-0.5 text-[10px]">
+                          · {group.name}
+                        </span>
+                      )}
+                      <ErrorBoundary
+                        fallback="inline"
+                        zone={`host-${host.id}`}
+                        onError={(e, i) => reportUIError(e, i, `host-${host.id}`)}
+                        resetKeys={[host.id]}
+                      >
+                        <HostListItem
+                          host={host}
+                          isConnected={connectedHostIds.has(host.id)}
+                          isConnecting={connectingHostIds.has(host.id)}
+                          onConnect={() => handleConnect(host.id, host.label)}
+                          onDelete={() => handleDelete(host.id)}
+                          onEdit={() => handleEdit(host)}
+                          onDeployKey={() => handleDeployKey(host)}
+                          onMoveToGroup={handleMoveToGroup}
+                          onOpenFiles={() => handleOpenFiles(host.id, host.label)}
+                        />
+                      </ErrorBoundary>
+                    </div>
+                  )
+                })
+              )
+            ) : (
+              // Grouped view
+              <>
+                {sortedGroups.map((group) => (
+                  <HostGroupSection
+                    key={group.id}
+                    group={group}
+                    hosts={groupMap.get(group.id) ?? []}
+                    connectedHostIds={connectedHostIds}
+                    connectingHostIds={connectingHostIds}
+                    onConnect={handleConnect}
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                    onDeployKey={handleDeployKey}
+                    onMoveToGroup={handleMoveToGroup}
+                    onGroupDeleted={handleGroupDeleted}
+                    onOpenFiles={handleOpenFiles}
+                  />
+                ))}
+
+                {/* Ungrouped hosts */}
+                {ungrouped.length > 0 && (
+                  <UngroupedHostSection
+                    key={UNGROUPED_GROUP_ID}
+                    hosts={ungrouped}
+                    connectedHostIds={connectedHostIds}
+                    connectingHostIds={connectingHostIds}
+                    onConnect={handleConnect}
+                    onDelete={handleDelete}
+                    onEdit={handleEdit}
+                    onDeployKey={handleDeployKey}
+                    onMoveToGroup={handleMoveToGroup}
+                    onOpenFiles={handleOpenFiles}
+                  />
+                )}
+              </>
+            )}
+          </ItemGroup>
+        </ScrollArea>
+      </div>
+      <Separator />
+      <div className="p-1">
+        <ButtonGroup className="w-full">
+          <ButtonGroup className="grow">
+            <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
+              <Plus data-icon="inline-start" />
+              Add Host
+            </Button>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setIsImportHostsOpen(true)}
+                >
+                  <FileInput />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Import Hosts</TooltipContent>
+            </Tooltip>
+            <Popover
+              open={newGroupOpen}
+              onOpenChange={(open) => {
+                setNewGroupOpen(open)
+                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <FolderPlus />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New Group</TooltipContent>
+              </Tooltip>
+              <PopoverContent side="bottom" align="end">
+                <PopoverHeader>
+                  <PopoverTitle>New Group</PopoverTitle>
+                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
+                </PopoverHeader>
+                <Input
+                  ref={newGroupInputRef}
+                  placeholder="Group name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateGroup()
+                    if (e.key === 'Escape') setNewGroupOpen(false)
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreateGroup}
+                  disabled={creatingGroup || !newGroupName.trim()}
+                >
+                  <Plus data-icon="inline-start" />
+                  Create
+                </Button>
+              </PopoverContent>
+            </Popover>
+          </ButtonGroup>
+        </ButtonGroup>
+      </div>
     </div>
   )
 }
