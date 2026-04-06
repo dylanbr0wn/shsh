@@ -57,11 +57,41 @@ func (f *HostFacade) UpdateHost(input store.UpdateHostInput) (store.Host, error)
 	if err := f.checkVaultUnlocked(); err != nil {
 		return store.Host{}, err
 	}
+	if err := f.checkNotRegistry(input.ID); err != nil {
+		return store.Host{}, err
+	}
 	return f.d.Store.UpdateHost(input)
 }
 
 func (f *HostFacade) DeleteHost(id string) error {
+	if err := f.checkNotRegistry(id); err != nil {
+		return err
+	}
 	return f.d.Store.DeleteHost(id)
+}
+
+// checkNotRegistry returns an error if the host has a registry origin (read-only).
+func (f *HostFacade) checkNotRegistry(hostID string) error {
+	origin, err := f.d.Store.GetHostOrigin(hostID)
+	if err != nil {
+		return err
+	}
+	if origin != "" && origin != "local" {
+		return fmt.Errorf("cannot modify registry host (read-only)")
+	}
+	return nil
+}
+
+// checkGroupNotRegistry returns an error if the group has a registry origin (read-only).
+func (f *HostFacade) checkGroupNotRegistry(groupID string) error {
+	origin, err := f.d.Store.GetGroupOrigin(groupID)
+	if err != nil {
+		return err
+	}
+	if origin != "" && origin != "local" {
+		return fmt.Errorf("cannot modify registry group (read-only)")
+	}
+	return nil
 }
 
 // --- Terminal Profile CRUD ---
@@ -93,10 +123,16 @@ func (f *HostFacade) AddGroup(input store.CreateGroupInput) (store.Group, error)
 }
 
 func (f *HostFacade) UpdateGroup(input store.UpdateGroupInput) (store.Group, error) {
+	if err := f.checkGroupNotRegistry(input.ID); err != nil {
+		return store.Group{}, err
+	}
 	return f.d.Store.UpdateGroup(input)
 }
 
 func (f *HostFacade) DeleteGroup(id string) error {
+	if err := f.checkGroupNotRegistry(id); err != nil {
+		return err
+	}
 	return f.d.Store.DeleteGroup(id)
 }
 

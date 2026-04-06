@@ -63,6 +63,7 @@ type Group struct {
 	SortOrder         int     `json:"sortOrder"`
 	CreatedAt         string  `json:"createdAt"`
 	TerminalProfileID *string `json:"terminalProfileId,omitempty"`
+	Origin            string  `json:"origin"` // "local" or "registry:<registry>/<ns>/<bundle>"
 }
 
 // CreateGroupInput is the payload for adding a new group.
@@ -102,6 +103,7 @@ type Host struct {
 	ReconnectMaxDelaySeconds     *int             `json:"reconnectMaxDelaySeconds,omitempty"`
 	KeepAliveIntervalSeconds     *int             `json:"keepAliveIntervalSeconds,omitempty"`
 	KeepAliveMaxMissed           *int             `json:"keepAliveMaxMissed,omitempty"`
+	Origin                       string           `json:"origin"` // "local" or "registry:<registry>/<ns>/<bundle>"
 }
 
 // CreateHostInput is the payload for adding a new host.
@@ -254,6 +256,8 @@ func New(dbPath string, creds CredentialResolver) (*Store, error) {
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN reconnect_max_delay_seconds INTEGER`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN keep_alive_interval_seconds INTEGER`)
 	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN keep_alive_max_missed INTEGER`)
+	_, _ = db.Exec(`ALTER TABLE hosts ADD COLUMN origin TEXT NOT NULL DEFAULT 'local'`)
+	_, _ = db.Exec(`ALTER TABLE groups ADD COLUMN origin TEXT NOT NULL DEFAULT 'local'`)
 
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS workspace_templates (
     id TEXT PRIMARY KEY,
@@ -470,7 +474,7 @@ func (s *Store) DeleteProfile(id string) error {
 // ListHosts returns all saved hosts.
 func (s *Store) ListHosts() ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed, origin FROM hosts ORDER BY created_at ASC`,
 	)
 	if err != nil {
 		return nil, err
@@ -482,7 +486,7 @@ func (s *Store) ListHosts() ([]Host, error) {
 		var h Host
 		var lastConn, groupID, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
 		var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed); err != nil {
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &groupID, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed, &h.Origin); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -705,8 +709,8 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	var lastConn, gid, color, tags, profileID, keyPath, credSrcCol, credRefCol, jumpHostID sql.NullString
 	var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
 	err = s.db.QueryRow(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE id=?`, input.ID,
-	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrcCol, &credRefCol, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed)
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed, origin FROM hosts WHERE id=?`, input.ID,
+	).Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrcCol, &credRefCol, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed, &h.Origin)
 	if err != nil {
 		return Host{}, err
 	}
@@ -893,6 +897,26 @@ func (s *Store) HostExists(hostname string, port int, username string) (bool, er
 	return exists, err
 }
 
+// GetHostOrigin returns the origin of a host by ID, or empty string if not found.
+func (s *Store) GetHostOrigin(id string) (string, error) {
+	var origin string
+	err := s.db.QueryRow(`SELECT origin FROM hosts WHERE id = ?`, id).Scan(&origin)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return origin, err
+}
+
+// GetGroupOrigin returns the origin of a group by ID, or empty string if not found.
+func (s *Store) GetGroupOrigin(id string) (string, error) {
+	var origin string
+	err := s.db.QueryRow(`SELECT origin FROM groups WHERE id = ?`, id).Scan(&origin)
+	if err == sql.ErrNoRows {
+		return "", nil
+	}
+	return origin, err
+}
+
 // FindHostID returns the ID of a host matching the given hostname, port, and username,
 // or "" if no match exists.
 func (s *Store) FindHostID(hostname string, port int, username string) (string, error) {
@@ -911,7 +935,7 @@ func (s *Store) FindHostID(hostname string, port int, username string) (string, 
 
 // ListGroups returns all groups ordered by sort_order, created_at.
 func (s *Store) ListGroups() ([]Group, error) {
-	rows, err := s.db.Query(`SELECT id, name, sort_order, created_at, terminal_profile_id FROM groups ORDER BY sort_order ASC, created_at ASC`)
+	rows, err := s.db.Query(`SELECT id, name, sort_order, created_at, terminal_profile_id, origin FROM groups ORDER BY sort_order ASC, created_at ASC`)
 	if err != nil {
 		return nil, err
 	}
@@ -921,7 +945,7 @@ func (s *Store) ListGroups() ([]Group, error) {
 	for rows.Next() {
 		var g Group
 		var profileID sql.NullString
-		if err := rows.Scan(&g.ID, &g.Name, &g.SortOrder, &g.CreatedAt, &profileID); err != nil {
+		if err := rows.Scan(&g.ID, &g.Name, &g.SortOrder, &g.CreatedAt, &profileID, &g.Origin); err != nil {
 			return nil, err
 		}
 		if profileID.Valid {
@@ -967,8 +991,8 @@ func (s *Store) UpdateGroup(input UpdateGroupInput) (Group, error) {
 	}
 	var g Group
 	var profileID sql.NullString
-	err = s.db.QueryRow(`SELECT id, name, sort_order, created_at, terminal_profile_id FROM groups WHERE id=?`, input.ID).
-		Scan(&g.ID, &g.Name, &g.SortOrder, &g.CreatedAt, &profileID)
+	err = s.db.QueryRow(`SELECT id, name, sort_order, created_at, terminal_profile_id, origin FROM groups WHERE id=?`, input.ID).
+		Scan(&g.ID, &g.Name, &g.SortOrder, &g.CreatedAt, &profileID, &g.Origin)
 	if err != nil {
 		return Group{}, err
 	}
@@ -1049,7 +1073,7 @@ func (s *Store) DeleteWorkspaceTemplate(id string) error {
 // GetHostsByGroup returns all hosts belonging to the given group.
 func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 	rows, err := s.db.Query(
-		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
+		`SELECT id, label, hostname, port, username, auth_method, created_at, last_connected_at, group_id, color, tags, terminal_profile_id, key_path, credential_source, credential_ref, jump_host_id, reconnect_enabled, reconnect_max_retries, reconnect_initial_delay_seconds, reconnect_max_delay_seconds, keep_alive_interval_seconds, keep_alive_max_missed, origin FROM hosts WHERE group_id = ? ORDER BY created_at ASC`,
 		groupID,
 	)
 	if err != nil {
@@ -1062,7 +1086,7 @@ func (s *Store) GetHostsByGroup(groupID string) ([]Host, error) {
 		var h Host
 		var lastConn, gid, color, tags, profileID, keyPath, credSrc, credRef, jumpHostID sql.NullString
 		var reconnectEnabled, reconnectMaxRetries, reconnectInitialDelay, reconnectMaxDelay, keepAliveInterval, keepAliveMaxMissed sql.NullInt64
-		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed); err != nil {
+		if err := rows.Scan(&h.ID, &h.Label, &h.Hostname, &h.Port, &h.Username, &h.AuthMethod, &h.CreatedAt, &lastConn, &gid, &color, &tags, &profileID, &keyPath, &credSrc, &credRef, &jumpHostID, &reconnectEnabled, &reconnectMaxRetries, &reconnectInitialDelay, &reconnectMaxDelay, &keepAliveInterval, &keepAliveMaxMissed, &h.Origin); err != nil {
 			return nil, err
 		}
 		if lastConn.Valid {
@@ -1229,4 +1253,67 @@ func (s *Store) ListInlinePasswordHostIDs() ([]string, error) {
 // GetCredentials returns the credential resolver.
 func (s *Store) GetCredentials() CredentialResolver {
 	return s.credentials
+}
+
+// --- Registry Sync ---
+
+// SyncRegistryBundle performs a full replace of hosts and groups for a given registry origin.
+// It deletes all existing hosts/groups with that origin, then inserts the new ones.
+func (s *Store) SyncRegistryBundle(origin string, groups []Group, hosts []Host) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Delete existing hosts and groups for this origin.
+	if _, err := tx.Exec(`DELETE FROM hosts WHERE origin = ?`, origin); err != nil {
+		return fmt.Errorf("delete old registry hosts: %w", err)
+	}
+	if _, err := tx.Exec(`DELETE FROM groups WHERE origin = ?`, origin); err != nil {
+		return fmt.Errorf("delete old registry groups: %w", err)
+	}
+
+	// Insert new groups.
+	for _, g := range groups {
+		_, err := tx.Exec(
+			`INSERT INTO groups (id, name, sort_order, created_at, origin) VALUES (?, ?, ?, ?, ?)`,
+			g.ID, g.Name, g.SortOrder, g.CreatedAt, origin,
+		)
+		if err != nil {
+			return fmt.Errorf("insert registry group %q: %w", g.Name, err)
+		}
+	}
+
+	// Insert new hosts.
+	for _, h := range hosts {
+		tagsJSON, _ := json.Marshal(h.Tags)
+		_, err := tx.Exec(
+			`INSERT INTO hosts (id, label, hostname, port, username, auth_method, created_at, group_id, color, tags, key_path, origin) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			h.ID, h.Label, h.Hostname, h.Port, h.Username, h.AuthMethod, h.CreatedAt,
+			nullStrPtr(h.GroupID), nullStr(h.Color), nullStr(string(tagsJSON)), nullStrPtr(h.KeyPath), origin,
+		)
+		if err != nil {
+			return fmt.Errorf("insert registry host %q: %w", h.Label, err)
+		}
+	}
+
+	return tx.Commit()
+}
+
+// DeleteRegistryBundle removes all hosts and groups with the given origin.
+func (s *Store) DeleteRegistryBundle(origin string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if _, err := tx.Exec(`DELETE FROM hosts WHERE origin = ?`, origin); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(`DELETE FROM groups WHERE origin = ?`, origin); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
