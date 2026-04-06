@@ -1,5 +1,6 @@
-import { useEffect, useCallback, useState } from 'react'
-import { RefreshCw, Upload, FolderPlus } from 'lucide-react'
+import { useEffect, useCallback, useState, useRef } from 'react'
+import { Folder, File, RefreshCw, Upload, FolderPlus, HelpCircle } from 'lucide-react'
+import { DOCS_BASE_URL } from '../../lib/constants'
 import { toast } from 'sonner'
 import { fsPanelStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -13,6 +14,7 @@ import {
   SFTPMkdir,
   SFTPDelete,
   SFTPRename,
+  TransferBetweenChannels,
 } from '@wailsjs/go/main/SessionFacade'
 import { EventsOn, EventsOff } from '@wailsjs/runtime/runtime'
 import { PathBreadcrumb } from '../shared/PathBreadcrumb'
@@ -28,10 +30,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog'
-import { ContextMenuItem, ContextMenuSeparator } from '../ui/context-menu'
+import { ScrollArea } from '../ui/scroll-area'
+import { Skeleton } from '../ui/skeleton'
+import { cn } from '../../lib/utils'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from '../ui/context-menu'
 import { FilePreviewModal } from '../filepanel/FilePreviewModal'
-import { FileList } from '../filepanel/FileList'
-import { useFileDrag } from '../../hooks/useFileDrag'
 
 const DEFAULT_SFTP_STATE: FSState = {
   currentPath: '~',
@@ -56,7 +65,12 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
   const { currentPath, entries, isLoading, error } = state
   const [selected, setSelected] = useState<string | null>(null)
   const [modal, setModal] = useState<Modal>({ type: 'none' })
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [dragTargetPath, setDragTargetPath] = useState<string | null>(null)
+  const draggedEntryRef = useRef<FSEntry | null>(null)
   const [previewPath, setPreviewPath] = useState<string | null>(null)
+  const dragCounterRef = useRef(0)
+  const isDragOverRef = useRef(false)
 
   const listDir = useCallback(
     async (path: string) => {
@@ -79,14 +93,6 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     },
     [channelId, setState]
   )
-
-  const drag = useFileDrag({
-    channelId,
-    currentPath,
-    listDir,
-    renameFn: SFTPRename,
-    acceptOSDrops: true,
-  })
 
   // List home dir on mount (channel lifecycle managed externally)
   useEffect(() => {
@@ -139,8 +145,10 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
   // Handle OS file drops — paths come from Go's runtime.OnFileDrop via Wails event
   useEffect(() => {
     EventsOn('window:filedrop', async (data: { paths: string[] }) => {
-      if (!drag.isDragOverRef.current) return
-      drag.isDragOverRef.current = false
+      if (!isDragOverRef.current) return
+      isDragOverRef.current = false
+      dragCounterRef.current = 0
+      setIsDragOver(false)
       const paths = data.paths ?? []
       if (!paths.length) return
       const results = await Promise.allSettled(
@@ -205,15 +213,93 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
     }
   }
 
+  function formatSize(bytes: number, isDir: boolean): string {
+    if (isDir) return '—'
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  function formatDate(iso: string): string {
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+      }).format(new Date(iso))
+    } catch {
+      return iso
+    }
+  }
+
   return (
     <div
-      ref={drag.panelRef}
       className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
+      onDragEnter={(e) => {
+        if (
+          e.dataTransfer.types.includes('Files') ||
+          e.dataTransfer.types.includes('application/x-shsh-transfer')
+        ) {
+          e.preventDefault()
+          dragCounterRef.current++
+          if (dragCounterRef.current === 1) {
+            isDragOverRef.current = true
+            setIsDragOver(true)
+          }
+        }
+      }}
+      onDragOver={(e) => {
+        if (
+          e.dataTransfer.types.includes('Files') ||
+          e.dataTransfer.types.includes('application/x-shsh-transfer')
+        ) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = e.dataTransfer.types.includes('Files') ? 'copy' : 'move'
+        }
+      }}
+      onDragLeave={() => {
+        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+        if (dragCounterRef.current === 0) {
+          isDragOverRef.current = false
+          setIsDragOver(false)
+        }
+      }}
+      onDrop={async (e) => {
+        e.preventDefault()
+        dragCounterRef.current = 0
+        isDragOverRef.current = false
+        setIsDragOver(false)
+
+        // Handle SFTP cross-panel drops onto the panel background (into currentPath)
+        const raw = e.dataTransfer.getData('application/x-shsh-transfer')
+        if (raw) {
+          const payload: { channelId: string; path: string } = JSON.parse(raw)
+          const draggedName = payload.path.split('/').pop() ?? payload.path
+          draggedEntryRef.current = null
+
+          try {
+            if (payload.channelId === channelId) {
+              await SFTPRename(channelId, payload.path, currentPath + '/' + draggedName)
+            } else {
+              await TransferBetweenChannels(
+                payload.channelId,
+                payload.path,
+                channelId,
+                currentPath + '/' + draggedName
+              )
+            }
+            await listDir(currentPath)
+          } catch (err) {
+            toast.error(String(err))
+          }
+        }
+        // OS file drops handled via window:filedrop Wails event
+      }}
     >
       {/* Toolbar */}
       <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
         <PathBreadcrumb path={currentPath} onNavigate={listDir} maxVisible={3} />
-        <div className="grow" />
+        <div className='grow' />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -249,48 +335,159 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
           <TooltipContent>New folder</TooltipContent>
         </Tooltip>
       </div>
-
-      <FileList
-        entries={entries}
-        isLoading={isLoading}
-        error={error}
-        selected={selected}
-        channelId={channelId}
-        dragTargetPath={drag.dragTargetPath}
-        onSetDragTarget={drag.setDragTargetPath}
-        onFileDrop={drag.handleFileDrop}
-        onSelect={setSelected}
-        onDoubleClick={handleRowDoubleClick}
-        contextMenuContent={(entry) => (
+      {/* File list */}
+      <ScrollArea className="@container min-h-0 w-full flex-1">
+        {isLoading && (
+          <div className="flex flex-col gap-1 p-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2 px-2 py-1.5">
+                <Skeleton className="size-4 rounded" />
+                <Skeleton className="h-3.5 flex-1 rounded" />
+                <Skeleton className="h-3 w-16 rounded" />
+              </div>
+            ))}
+          </div>
+        )}
+        {error && !isLoading && (
+          <div className="border-destructive/30 bg-destructive/10 text-destructive m-3 rounded-md border px-3 py-2 text-xs">
+            {error}
+          </div>
+        )}
+        {!isLoading && !error && entries.length === 0 && (
+          <div className="text-muted-foreground flex flex-col items-center justify-center gap-2 py-10 text-xs">
+            <Folder className="size-6 opacity-25" />
+            <span>Empty directory</span>
+          </div>
+        )}
+        {!isLoading && !error && (
           <>
-            {!entry.isDir && (
-              <ContextMenuItem onSelect={() => setPreviewPath(entry.path)}>Preview</ContextMenuItem>
-            )}
-            <ContextMenuItem
-              onSelect={() => {
-                const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
-                fn(channelId, entry.path).catch((err) => toast.error(String(err)))
-              }}
-            >
-              Download
-            </ContextMenuItem>
-            <ContextMenuItem
-              onSelect={() => setModal({ type: 'rename', entry, value: entry.name })}
-            >
-              Rename
-            </ContextMenuItem>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              variant="destructive"
-              onSelect={() => setModal({ type: 'delete', entry })}
-            >
-              Delete
-            </ContextMenuItem>
+            {entries.map((entry) => (
+              <ContextMenu key={entry.path}>
+                <ContextMenuTrigger asChild>
+                  <button
+                    className={cn(
+                      'flex w-full cursor-default items-center gap-2 px-3 py-1.5 text-left transition-colors select-none',
+                      'hover:bg-accent/60 focus-visible:ring-ring focus-visible:ring-1 focus-visible:outline-none focus-visible:ring-inset',
+                      selected === entry.path && 'bg-accent text-accent-foreground',
+                      dragTargetPath === entry.path &&
+                        'ring-primary bg-primary/10 ring-1 ring-inset'
+                    )}
+                    draggable
+                    onClick={() => setSelected(entry.path)}
+                    onDoubleClick={() => handleRowDoubleClick(entry)}
+                    onDragStart={(e) => {
+                      draggedEntryRef.current = entry
+                      e.dataTransfer.effectAllowed = 'move'
+                      e.dataTransfer.setData(
+                        'application/x-shsh-transfer',
+                        JSON.stringify({ channelId, path: entry.path })
+                      )
+                    }}
+                    onDragOver={(e) => {
+                      if (
+                        entry.isDir &&
+                        e.dataTransfer.types.includes('application/x-shsh-transfer')
+                      ) {
+                        // For same-panel drags, skip if hovering over the dragged item itself
+                        if (draggedEntryRef.current?.path === entry.path) return
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDragTargetPath(entry.path)
+                      }
+                    }}
+                    onDragLeave={() => setDragTargetPath(null)}
+                    onDrop={async (e) => {
+                      if (!entry.isDir) return
+                      e.preventDefault()
+                      e.stopPropagation()
+                      setDragTargetPath(null)
+
+                      // Parse drag payload from dataTransfer (works across panels)
+                      const raw = e.dataTransfer.getData('application/x-shsh-transfer')
+                      if (!raw) return
+                      const payload: { channelId: string; path: string } = JSON.parse(raw)
+                      const draggedName = payload.path.split('/').pop() ?? payload.path
+
+                      // Clear local ref if this was a same-panel drag
+                      draggedEntryRef.current = null
+
+                      if (payload.path === entry.path) return
+                      if (entry.path.startsWith(payload.path + '/')) {
+                        toast.error('Cannot move a folder into itself.')
+                        return
+                      }
+
+                      try {
+                        if (payload.channelId === channelId) {
+                          // Same channel — rename/move
+                          await SFTPRename(channelId, payload.path, entry.path + '/' + draggedName)
+                        } else {
+                          // Cross-channel transfer
+                          await TransferBetweenChannels(
+                            payload.channelId,
+                            payload.path,
+                            channelId,
+                            entry.path + '/' + draggedName
+                          )
+                        }
+                        await listDir(currentPath)
+                      } catch (err) {
+                        toast.error(String(err))
+                      }
+                    }}
+                    onDragEnd={() => {
+                      draggedEntryRef.current = null
+                      setDragTargetPath(null)
+                    }}
+                  >
+                    {entry.isDir ? (
+                      <Folder className="text-primary/70 size-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <File className="text-muted-foreground size-4 shrink-0" aria-hidden="true" />
+                    )}
+                    <span className="min-w-0 flex-1 truncate text-sm">{entry.name}</span>
+                    <span className="text-muted-foreground hidden w-16 shrink-0 text-right text-xs tabular-nums @sm:block">
+                      {formatSize(entry.size, entry.isDir)}
+                    </span>
+                    <span className="text-muted-foreground hidden w-24 shrink-0 text-right text-xs tabular-nums @md:block">
+                      {formatDate(entry.modTime)}
+                    </span>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  {!entry.isDir && (
+                    <ContextMenuItem onSelect={() => setPreviewPath(entry.path)}>
+                      Preview
+                    </ContextMenuItem>
+                  )}
+                  <ContextMenuItem
+                    onSelect={() => {
+                      const fn = entry.isDir ? SFTPDownloadDir : SFTPDownload
+                      fn(channelId, entry.path).catch((err) => toast.error(String(err)))
+                    }}
+                  >
+                    Download
+                  </ContextMenuItem>
+                  <ContextMenuItem
+                    onSelect={() => setModal({ type: 'rename', entry, value: entry.name })}
+                  >
+                    Rename
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    onSelect={() => setModal({ type: 'delete', entry })}
+                  >
+                    Delete
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            ))}
           </>
         )}
-      />
+      </ScrollArea>
 
-      {drag.isDragOver && (
+      {isDragOver && (
         <div className="border-primary bg-primary/10 text-primary pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed text-sm">
           <Upload className="size-6" />
           <span>Drop to upload</span>

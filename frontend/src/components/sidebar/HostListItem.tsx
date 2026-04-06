@@ -1,7 +1,4 @@
-import { useEffect, useRef } from 'react'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview'
-import type { HostDragData } from '../../lib/dragTypes'
+import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
@@ -46,6 +43,7 @@ interface Props {
   onDeployKey: () => void
   onMoveToGroup?: (hostId: string, groupId: string | null) => void
   onOpenFiles?: () => void
+  readOnly?: boolean
 }
 
 function latencyValue(latencyMs: number | undefined): { latency: string; color: string } {
@@ -70,46 +68,34 @@ export function HostListItem({
   onDeployKey,
   onMoveToGroup,
   onOpenFiles,
+  readOnly,
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
   const { latency, color } = latencyValue(health[host.id])
-  const dragRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = dragRef.current
-    if (!el) return
-    return draggable({
-      element: el,
-      getInitialData: (): HostDragData => ({ type: 'host', hostId: host.id }),
-      onGenerateDragPreview: ({ nativeSetDragImage }) => {
-        setCustomNativeDragPreview({
-          nativeSetDragImage,
-          render: ({ container }) => {
-            const wrapper = document.createElement('div')
-            wrapper.className =
-              'bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md'
-            if (host.color) {
-              const dot = document.createElement('span')
-              dot.className = 'size-2 rounded-full'
-              dot.style.backgroundColor = host.color
-              wrapper.appendChild(dot)
-            }
-            wrapper.appendChild(document.createTextNode(host.label))
-            container.appendChild(wrapper)
-          },
-        })
-      },
-    })
-  }, [host.id, host.color, host.label])
-
+  const previewRef = useRef<HTMLDivElement>(null)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <Item asChild size="xs" className="hover:bg-muted relative h-14.5">
           <div
-            ref={dragRef}
             role="button"
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.effectAllowed = 'copy'
+              e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
+              if (previewRef.current) {
+                previewRef.current.style.left = '0px'
+                previewRef.current.style.top = '0px'
+                e.dataTransfer.setDragImage(previewRef.current, 0, 0)
+                requestAnimationFrame(() => {
+                  if (previewRef.current) {
+                    previewRef.current.style.left = '-9999px'
+                    previewRef.current.style.top = '-9999px'
+                  }
+                })
+              }
+            }}
             onDoubleClick={onConnect}
             className={cn(isConnecting && 'animate-pulse')}
             tabIndex={0}
@@ -174,7 +160,7 @@ export function HostListItem({
                     {onOpenFiles && (
                       <DropdownMenuItem onClick={onOpenFiles}>Open Files</DropdownMenuItem>
                     )}
-                    {onMoveToGroup && groups.length > 0 && (
+                    {!readOnly && onMoveToGroup && groups.length > 0 && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuSub>
@@ -199,12 +185,18 @@ export function HostListItem({
                         </DropdownMenuSub>
                       </>
                     )}
-                    <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem onClick={onDeployKey}>Deploy Public Key…</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                      Delete
-                    </DropdownMenuItem>
+                    {!readOnly && (
+                      <>
+                        <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={onDeployKey}>
+                          Deploy Public Key…
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </ButtonGroup>
@@ -244,13 +236,36 @@ export function HostListItem({
           </div>
         </Item>
       </ContextMenuTrigger>
+      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
+      <div
+        ref={previewRef}
+        className="pointer-events-none fixed"
+        style={{ left: '-9999px', top: '-9999px' }}
+      >
+        <Item size="xs" variant="outline" className="bg-popover w-fit shadow-md">
+          <ItemMedia>
+            <span
+              className="h-8 w-1 rounded-full"
+              style={{ backgroundColor: host.color || 'var(--muted-foreground)' }}
+            />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle style={{ color: host.color }}>
+              <span>{host.label}</span>
+            </ItemTitle>
+            <ItemDescription>
+              {host.username}@{host.hostname}:{host.port}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
+      </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
         </ContextMenuItem>
         {onOpenFiles && <ContextMenuItem onClick={onOpenFiles}>Open Files</ContextMenuItem>}
         <ContextMenuSeparator />
-        {onMoveToGroup && groups.length > 0 && (
+        {!readOnly && onMoveToGroup && groups.length > 0 && (
           <ContextMenuSub>
             <ContextMenuSubTrigger>Move to Group</ContextMenuSubTrigger>
             <ContextMenuSubContent>
@@ -269,12 +284,16 @@ export function HostListItem({
             </ContextMenuSubContent>
           </ContextMenuSub>
         )}
-        <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
-        <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onClick={onDelete}>
-          Delete
-        </ContextMenuItem>
+        {!readOnly && (
+          <>
+            <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
+            <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem variant="destructive" onClick={onDelete}>
+              Delete
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

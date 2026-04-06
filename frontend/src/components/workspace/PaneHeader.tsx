@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { GripVertical, SplitSquareVertical, SplitSquareHorizontal, X } from 'lucide-react'
-import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
-import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item'
 import { PaneToolbar } from './PaneToolbar'
 import { PaneTypeChooser } from './PaneTypeChooser'
+import { usePaneDrag } from '../../hooks/usePaneDrag'
 import { shortcutParts } from '../../lib/keybind'
-import type { PaneDragData } from '../../lib/dragTypes'
 import type { SessionStatus } from '../../types'
 
 const typeColors = {
@@ -19,6 +18,7 @@ const typeColors = {
 interface Props {
   hostLabel: string
   hostColor?: string
+  hostConnection?: string
   hostId: string
   kind: 'terminal' | 'sftp' | 'local'
   paneId: string
@@ -43,6 +43,7 @@ interface Props {
 export function PaneHeader({
   hostLabel,
   hostColor,
+  hostConnection,
   hostId,
   kind,
   paneId,
@@ -56,48 +57,18 @@ export function PaneHeader({
   onToggleLogging,
   onDragStateChange,
 }: Props) {
-  const gripRef = useRef<HTMLSpanElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-
-  const typeStyle = typeColors[kind]
-
-  useEffect(() => {
-    const el = gripRef.current
-    if (!el) return
-    return draggable({
-      element: el,
-      getInitialData: (): PaneDragData => ({ type: 'pane', paneId, workspaceId }),
-      onGenerateDragPreview: ({ nativeSetDragImage }) => {
-        setCustomNativeDragPreview({
-          nativeSetDragImage,
-          render: ({ container }) => {
-            const wrapper = document.createElement('div')
-            wrapper.className =
-              'bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md'
-            wrapper.style.borderLeft = `2px solid ${hostColor ?? 'hsl(var(--border))'}`
-            const badge = document.createElement('span')
-            badge.className = 'rounded px-1 text-[9px] font-semibold tracking-wide uppercase'
-            badge.style.backgroundColor = typeStyle.bg
-            badge.style.color = typeStyle.text
-            badge.textContent = kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'
-            wrapper.appendChild(badge)
-            wrapper.appendChild(document.createTextNode(hostLabel))
-            container.appendChild(wrapper)
-          },
-        })
-      },
-      onDragStart: () => setIsDragging(true),
-      onDrop: () => setIsDragging(false),
-    })
-  }, [paneId, workspaceId, hostColor, hostLabel, kind, typeStyle.bg, typeStyle.text])
+  const previewRef = useRef<HTMLDivElement>(null)
+  const { isDragging, gripProps } = usePaneDrag({ paneId, workspaceId, previewRef })
 
   useEffect(() => {
     onDragStateChange?.(isDragging)
   }, [isDragging, onDragStateChange])
 
+  const typeStyle = typeColors[kind]
+
   return (
     <div className="bg-card flex h-8 items-center gap-1 border-b px-1.5">
-      <span ref={gripRef} className="cursor-grab active:cursor-grabbing">
+      <span {...gripProps} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
       </span>
       <span
@@ -160,6 +131,38 @@ export function PaneHeader({
           <X className="size-3" />
         </Button>
       </ButtonGroup>
+      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
+      <div
+        ref={previewRef}
+        className="pointer-events-none fixed"
+        style={{ left: '-9999px', top: '-9999px' }}
+      >
+        <Item size="xs" variant="outline" className="bg-popover w-fit shadow-md">
+          <ItemMedia>
+            <span
+              className="h-8 w-1 rounded-full"
+              style={{ backgroundColor: hostColor || 'var(--muted-foreground)' }}
+            />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle style={{ color: hostColor }}>
+              <span>{hostLabel}</span>
+              <span
+                className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
+                style={{
+                  backgroundColor: typeStyle.bg,
+                  color: typeStyle.text,
+                }}
+              >
+                {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
+              </span>
+            </ItemTitle>
+            {hostConnection && (
+              <ItemDescription>{hostConnection}</ItemDescription>
+            )}
+          </ItemContent>
+        </Item>
+      </div>
     </div>
   )
 }

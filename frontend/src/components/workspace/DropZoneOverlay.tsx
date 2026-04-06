@@ -1,25 +1,25 @@
-import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import type { DropEdge } from '../../hooks/useDropZone'
 
 interface Props {
-  edge: Edge
+  edge: DropEdge
   color?: string // host color tint, or undefined for neutral
 }
 
-const edgeStyles: Record<Edge, React.CSSProperties> = {
+const edgeStyles: Record<DropEdge, React.CSSProperties> = {
   top: { top: 0, left: 0, right: 0, height: 4 },
   bottom: { bottom: 0, left: 0, right: 0, height: 4 },
   left: { top: 0, left: 0, bottom: 0, width: 4 },
   right: { top: 0, right: 0, bottom: 0, width: 4 },
 }
 
-const arrowChar: Record<Edge, string> = {
+const arrowChar: Record<DropEdge, string> = {
   top: '↑',
   bottom: '↓',
   left: '←',
   right: '→',
 }
 
-const arrowPosition: Record<Edge, React.CSSProperties> = {
+const arrowPosition: Record<DropEdge, React.CSSProperties> = {
   top: { top: 12, left: '50%', transform: 'translateX(-50%)' },
   bottom: { bottom: 12, left: '50%', transform: 'translateX(-50%)' },
   left: { left: 12, top: '50%', transform: 'translateY(-50%)' },

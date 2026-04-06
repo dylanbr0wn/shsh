@@ -48,6 +48,7 @@ import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group'
 import { ButtonGroup } from '../ui/button-group'
 import { Separator } from '../ui/separator'
+import { RegistrySection } from './RegistrySection'
 import { UngroupedHostSection } from './UngroupedHostSection'
 
 type SortMode = 'az' | 'za' | 'recent'
@@ -126,10 +127,30 @@ export function HostList() {
 
   useHostHealth(hosts)
 
-  // Grouped data (no search)
+  // Split hosts by origin: local vs registry
+  const { localHosts, registryHostsByOrigin } = useMemo(() => {
+    const local: Host[] = []
+    const byOrigin = new Map<string, Host[]>()
+    for (const host of hosts) {
+      if (!host.origin || host.origin === 'local') {
+        local.push(host)
+      } else {
+        if (!byOrigin.has(host.origin)) byOrigin.set(host.origin, [])
+        byOrigin.get(host.origin)!.push(host)
+      }
+    }
+    return { localHosts: local, registryHostsByOrigin: byOrigin }
+  }, [hosts])
+
+  // Registry groups (non-local origin)
+  const registryGroups = useMemo(() => {
+    return groups.filter((g) => g.origin && g.origin !== 'local')
+  }, [groups])
+
+  // Grouped data (no search) — local hosts only
   const { groupMap, ungrouped } = useMemo(() => {
     const cmp = comparator(sortMode)
-    const sorted = [...hosts].sort(cmp)
+    const sorted = [...localHosts].sort(cmp)
     const map = new Map<string, Host[]>()
     const ungrouped: Host[] = []
     for (const host of sorted) {
@@ -141,7 +162,7 @@ export function HostList() {
       }
     }
     return { groupMap: map, ungrouped }
-  }, [hosts, sortMode])
+  }, [localHosts, sortMode])
 
   // Flat filtered list (search active)
   const filteredHosts = useMemo(() => {
@@ -185,9 +206,9 @@ export function HostList() {
 
   const sortedGroups = useMemo(
     () =>
-      [...groups].sort(
-        (a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)
-      ),
+      groups
+        .filter((g) => !g.origin || g.origin === 'local')
+        .sort((a, b) => a.sortOrder - b.sortOrder || a.createdAt.localeCompare(b.createdAt)),
     [groups]
   )
 
@@ -514,6 +535,20 @@ export function HostList() {
                     onOpenFiles={handleOpenFiles}
                   />
                 )}
+
+                {/* Registry hosts */}
+                {Array.from(registryHostsByOrigin.entries()).map(([origin, regHosts]) => (
+                  <RegistrySection
+                    key={origin}
+                    origin={origin}
+                    hosts={regHosts}
+                    groups={registryGroups}
+                    connectedHostIds={connectedHostIds}
+                    connectingHostIds={connectingHostIds}
+                    onConnect={handleConnect}
+                    onOpenFiles={handleOpenFiles}
+                  />
+                ))}
               </>
             )}
           </ItemGroup>

@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
-import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
 import type { Host } from '../../types'
 import type { PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
-import { isPaneDrag } from '../../lib/dragTypes'
 import { Button } from '../ui/button'
 import {
   ContextMenu,
@@ -78,58 +76,67 @@ export function WorkspaceCard({
     }
   }, [])
 
-  const cardRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const el = cardRef.current
-    if (!el) return
-    return dropTargetForElements({
-      element: el,
-      canDrop: ({ source }) => isPaneDrag(source.data),
-      onDragEnter: () => {
-        if (hoverTimerRef.current !== null) return
-        hoverTimerRef.current = setTimeout(() => {
-          hoverTimerRef.current = null
-          onActivate()
-        }, 300)
-      },
-      onDragLeave: () => {
-        if (hoverTimerRef.current !== null) {
-          clearTimeout(hoverTimerRef.current)
-          hoverTimerRef.current = null
-        }
-      },
-      onDrop: ({ source }) => {
-        if (hoverTimerRef.current !== null) {
-          clearTimeout(hoverTimerRef.current)
-          hoverTimerRef.current = null
-        }
-        if (isPaneDrag(source.data)) {
-          onPaneDrop?.(source.data.paneId, source.data.workspaceId)
-        }
-      },
-    })
-  }, [onActivate, onPaneDrop])
-
   function handleDoubleClick() {
     setRenameValue(displayName)
     setIsRenaming(true)
   }
 
+  function handleDragEnter(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+    if (hoverTimerRef.current !== null) return
+    hoverTimerRef.current = setTimeout(() => {
+      hoverTimerRef.current = null
+      onActivate()
+    }, 300)
+  }
+
+  function handleDragLeave() {
+    if (hoverTimerRef.current !== null) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+  }
+
+  function handleDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-pane')) return
+    e.preventDefault()
+    if (hoverTimerRef.current !== null) {
+      clearTimeout(hoverTimerRef.current)
+      hoverTimerRef.current = null
+    }
+    try {
+      const data = JSON.parse(e.dataTransfer.getData('application/x-shsh-pane')) as {
+        paneId: string
+        workspaceId: string
+      }
+      onPaneDrop?.(data.paneId, data.workspaceId)
+    } catch {
+      /* ignore */
+    }
+  }
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item
-          asChild
-          size="xs"
-          variant="outline"
-          className={cn(
-            'group',
-            isActive && 'border-accent-foreground bg-accent',
-            !isActive && 'hover:bg-muted/40'
-          )}
-        >
-          <div ref={cardRef} role="button" onClick={onActivate}>
+        <Item asChild size="xs" variant="outline" className={cn(
+          'group',
+          isActive && 'border-accent-foreground bg-accent',
+          !isActive && 'hover:bg-muted/40',
+        )}>
+          <div
+            role="button"
+            onClick={onActivate}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
             <ItemMedia>
               {hasActivity && !isActive && (
                 <span className="absolute top-2 right-2 size-1.5 rounded-full bg-orange-400" />
