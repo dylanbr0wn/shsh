@@ -28,7 +28,19 @@
       "mcp__plugin_playwright_playwright__browser_take_screenshot",
       "mcp__plugin_playwright_playwright__browser_snapshot",
       "mcp__plugin_playwright_playwright__browser_click",
-      "Bash(go test:*)"
+      "Bash(go test:*)",
+      "WebFetch(domain:puckeditor.com)",
+      "WebFetch(domain:zoer.ai)",
+      "WebFetch(domain:docs.dndkit.com)",
+      "WebFetch(domain:dndkit.com)",
+      "WebFetch(domain:blog.logrocket.com)",
+      "WebFetch(domain:atlassian.design)",
+      "WebFetch(domain:app.unpkg.com)",
+      "WebFetch(domain:unpkg.com)"
     ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
   }
 }

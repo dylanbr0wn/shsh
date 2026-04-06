@@ -212,7 +212,7 @@ export function LogViewerModal() {
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => deleteLog(log)}>
+                              <AlertDialogAction variant="destructive" onClick={() => deleteLog(log)}>
                                 Delete
                               </AlertDialogAction>
                             </AlertDialogFooter>
