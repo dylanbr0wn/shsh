@@ -13,7 +13,8 @@ import { collectLeaves, firstLeaf } from '../../lib/paneTree'
 import { splitPaneAtom, closePaneAtom, movePaneAtom } from '../../store/workspaceActions'
 import type { PaneLeaf, PaneNode } from '../../store/workspaces'
 import type { TemplateNode, WorkspaceTemplate } from '../../types'
-import type { DropEdge, DropMime } from '../../hooks/useDropZone'
+import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import type { PaneDragData, HostDragData } from '../../lib/dragTypes'
 import { PaneTree } from './PaneTree'
 import {
   DropdownMenu,
@@ -283,15 +284,14 @@ export function WorkspaceView() {
     (
       workspaceId: string,
       paneId: string,
-      edge: DropEdge,
-      mime: DropMime,
-      data: string,
+      edge: Edge,
+      data: PaneDragData | HostDragData,
       shiftKey: boolean,
       clientX: number,
       clientY: number
     ) => {
       const edgeToSplit: Record<
-        DropEdge,
+        Edge,
         { direction: 'horizontal' | 'vertical'; position: 'before' | 'after' }
       > = {
         top: { direction: 'vertical', position: 'before' },
@@ -301,29 +301,24 @@ export function WorkspaceView() {
       }
       const { direction, position } = edgeToSplit[edge]
 
-      if (mime === 'application/x-shsh-host') {
-        const { hostId } = JSON.parse(data) as { hostId: string }
+      if (data.type === 'host') {
         if (shiftKey) {
           // Shift+drag fast path: directly open SFTP
-          handleSplit(workspaceId, paneId, direction, 'sftp', hostId, position)
+          handleSplit(workspaceId, paneId, direction, 'sftp', data.hostId, position)
         } else {
           // Show type chooser popover
           setPendingHostDrop({
             workspaceId,
             paneId,
-            hostId,
+            hostId: data.hostId,
             direction,
             position,
             x: clientX,
             y: clientY,
           })
         }
-      } else if (mime === 'application/x-shsh-pane') {
-        const { paneId: sourcePaneId, workspaceId: sourceWorkspaceId } = JSON.parse(data) as {
-          paneId: string
-          workspaceId: string
-        }
-        handleMovePane(sourceWorkspaceId, sourcePaneId, workspaceId, paneId, direction, position)
+      } else if (data.type === 'pane') {
+        handleMovePane(data.workspaceId, data.paneId, workspaceId, paneId, direction, position)
       }
     },
     [handleSplit, handleMovePane]
@@ -397,8 +392,8 @@ export function WorkspaceView() {
                   handleSplit(workspace.id, paneId, direction, kind, hostId)
                 }
                 onClose={(paneId) => handleClose(workspace.id, paneId)}
-                onDrop={(paneId, edge, mime, data, shiftKey, clientX, clientY) =>
-                  handleDrop(workspace.id, paneId, edge, mime, data, shiftKey, clientX, clientY)
+                onDrop={(paneId, edge, data, shiftKey, clientX, clientY) =>
+                  handleDrop(workspace.id, paneId, edge, data, shiftKey, clientX, clientY)
                 }
                 onToggleLogging={toggleLogging}
               />

@@ -1,10 +1,16 @@
-import { useLayoutEffect, useRef, useCallback, useState } from 'react'
+import { useLayoutEffect, useRef, useState, useEffect } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
 import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
-import { useDropZone } from '../../hooks/useDropZone'
-import type { DropEdge, DropMime } from '../../hooks/useDropZone'
+import { dropTargetForElements } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import {
+  attachClosestEdge,
+  extractClosestEdge,
+} from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import type { Edge } from '@atlaskit/pragmatic-drag-and-drop-hitbox/closest-edge'
+import { isPaneDrag, isHostDrag } from '../../lib/dragTypes'
+import type { PaneDragData, HostDragData } from '../../lib/dragTypes'
 import { DropZoneOverlay } from './DropZoneOverlay'
 import { TerminalInstance } from '../terminal/TerminalInstance'
 import { SFTPPanel } from '../sftp/SFTPPanel'
@@ -30,9 +36,8 @@ interface PaneTreeProps {
   onClose: (paneId: string) => void
   onDrop: (
     paneId: string,
-    edge: DropEdge,
-    mime: DropMime,
-    data: string,
+    edge: Edge,
+    data: PaneDragData | HostDragData,
     shiftKey: boolean,
     clientX: number,
     clientY: number
@@ -115,9 +120,8 @@ interface PaneLeafViewProps {
   onClose: (paneId: string) => void
   onDrop: (
     paneId: string,
-    edge: DropEdge,
-    mime: DropMime,
-    data: string,
+    edge: Edge,
+    data: PaneDragData | HostDragData,
     shiftKey: boolean,
     clientX: number,
     clientY: number
@@ -151,27 +155,55 @@ function PaneLeafView({
     )
   }
 
-  const handleDrop = useCallback(
-    (
-      edge: DropEdge,
-      mime: DropMime,
-      data: string,
-      shiftKey: boolean,
-      clientX: number,
-      clientY: number
-    ) => onDrop(leaf.paneId, edge, mime, data, shiftKey, clientX, clientY),
-    [onDrop, leaf.paneId]
-  )
+  const dropRef = useRef<HTMLDivElement>(null)
+  const [dropEdge, setDropEdge] = useState<Edge | null>(null)
+  const [dropType, setDropType] = useState<'pane' | 'host' | null>(null)
 
-  const { state: dropState, handlers: dropHandlers } = useDropZone({
-    onDrop: handleDrop,
-  })
+  useEffect(() => {
+    const el = dropRef.current
+    if (!el) return
+    return dropTargetForElements({
+      element: el,
+      canDrop: ({ source }) => isPaneDrag(source.data) || isHostDrag(source.data),
+      getData: ({ input, element }) =>
+        attachClosestEdge(
+          {},
+          {
+            element,
+            input,
+            allowedEdges: ['top', 'bottom', 'left', 'right'],
+          }
+        ),
+      onDragEnter: ({ source, self }) => {
+        setDropEdge(extractClosestEdge(self.data))
+        setDropType(source.data.type as 'pane' | 'host')
+      },
+      onDrag: ({ self }) => {
+        setDropEdge(extractClosestEdge(self.data))
+      },
+      onDragLeave: () => {
+        setDropEdge(null)
+        setDropType(null)
+      },
+      onDrop: ({ source, self, location }) => {
+        const edge = extractClosestEdge(self.data)
+        setDropEdge(null)
+        setDropType(null)
+        if (!edge) return
+        const data = source.data
+        if (isPaneDrag(data) || isHostDrag(data)) {
+          const { shiftKey, clientX, clientY } = location.current.input
+          onDrop(leaf.paneId, edge, data, shiftKey, clientX, clientY)
+        }
+      },
+    })
+  }, [leaf.paneId, onDrop])
 
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
+      ref={dropRef}
       className={cn('group/pane relative flex h-full w-full flex-col', isDragging && 'opacity-30')}
-      {...dropHandlers}
       onMouseDown={() => setFocused(leaf.paneId)}
     >
       <PaneHeader
@@ -203,11 +235,8 @@ function PaneLeafView({
             : undefined
         }
       />
-      {dropState.edge && (
-        <DropZoneOverlay
-          edge={dropState.edge}
-          color={dropState.mime === 'application/x-shsh-host' ? host?.color : undefined}
-        />
+      {dropEdge && (
+        <DropZoneOverlay edge={dropEdge} color={dropType === 'host' ? host?.color : undefined} />
       )}
       <div className="relative min-h-0 flex-1">
         {leaf.kind === 'sftp' ? (
