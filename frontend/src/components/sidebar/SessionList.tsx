@@ -10,9 +10,11 @@ import {
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu'
 import { ScrollArea } from '../ui/scroll-area'
+import { Separator } from '../ui/separator'
 import { WorkspaceCard } from './WorkspaceCard'
 import { CloseConfirmDialog } from '../sessions/CloseConfirmDialog'
 import { SaveTemplateDialog } from '../workspace/SaveTemplateDialog'
+import { Button } from '../ui/button'
 
 export function SessionList() {
   const {
@@ -70,13 +72,18 @@ export function SessionList() {
         </div>
       </ScrollArea>
 
-      <div className="border-sidebar-border border-t p-2">
-        <DropdownMenu onOpenChange={(open) => { if (open) loadTemplates() }}>
+      <Separator />
+      <div className="p-2">
+        <DropdownMenu
+          onOpenChange={(open) => {
+            if (open) loadTemplates()
+          }}
+        >
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border p-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40">
+            <Button size="sm" className="w-full">
               <Plus className="size-3" />
               New Session
-            </button>
+            </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-48">
             <DropdownMenuItem onSelect={() => setIsAddHostOpen(true)}>
@@ -106,7 +113,9 @@ export function SessionList() {
       {saveTemplateWorkspace && (
         <SaveTemplateDialog
           open={!!saveTemplateWorkspaceId}
-          onOpenChange={(open) => { if (!open) setSaveTemplateWorkspaceId(null) }}
+          onOpenChange={(open) => {
+            if (!open) setSaveTemplateWorkspaceId(null)
+          }}
           workspace={saveTemplateWorkspace}
           onSaved={handleTemplateSaved}
         />
