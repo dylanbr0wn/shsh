@@ -360,69 +360,31 @@ export function HostList() {
     <>
       <Separator />
       <div className="p-1">
-        <ButtonGroup className="w-full">
+        <ButtonGroup className="w-full gap-1!">
           <ButtonGroup className="grow">
-            <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
+            <Button
+              variant="default"
+              className="flex-1"
+              onClick={() => setIsAddHostOpen(true)}
+            >
               <Plus data-icon="inline-start" />
               Add Host
             </Button>
           </ButtonGroup>
-          <ButtonGroup>
+          <ButtonGroup className="grow">
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant="outline"
-                  size="icon"
-                  className="shrink-0"
+                  className="flex-1 shrink-0"
                   onClick={() => setIsImportHostsOpen(true)}
                 >
                   <FileInput />
+                  Import
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="top">Import Hosts</TooltipContent>
             </Tooltip>
-            <Popover
-              open={newGroupOpen}
-              onOpenChange={(open) => {
-                setNewGroupOpen(open)
-                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <FolderPlus />
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">New Group</TooltipContent>
-              </Tooltip>
-              <PopoverContent side="bottom" align="end">
-                <PopoverHeader>
-                  <PopoverTitle>New Group</PopoverTitle>
-                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
-                </PopoverHeader>
-                <Input
-                  ref={newGroupInputRef}
-                  placeholder="Group name"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateGroup()
-                    if (e.key === 'Escape') setNewGroupOpen(false)
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreateGroup}
-                  disabled={creatingGroup || !newGroupName.trim()}
-                >
-                  <Plus data-icon="inline-start" />
-                  Create
-                </Button>
-              </PopoverContent>
-            </Popover>
           </ButtonGroup>
         </ButtonGroup>
       </div>
@@ -478,6 +440,50 @@ export function HostList() {
                 </InputGroupAddon>
               )}
             </InputGroup>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Popover
+              open={newGroupOpen}
+              onOpenChange={(open) => {
+                setNewGroupOpen(open)
+                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <FolderPlus />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New Group</TooltipContent>
+              </Tooltip>
+              <PopoverContent side="bottom" align="end">
+                <PopoverHeader>
+                  <PopoverTitle>New Group</PopoverTitle>
+                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
+                </PopoverHeader>
+                <Input
+                  ref={newGroupInputRef}
+                  placeholder="Group name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateGroup()
+                    if (e.key === 'Escape') setNewGroupOpen(false)
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreateGroup}
+                  disabled={creatingGroup || !newGroupName.trim()}
+                >
+                  <Plus data-icon="inline-start" />
+                  Create
+                </Button>
+              </PopoverContent>
+            </Popover>
           </ButtonGroup>
           <ButtonGroup>
             <Tooltip>

@@ -33,7 +33,6 @@ interface Props {
     hostId: string
   ) => void
   onClose: () => void
-  canClose: boolean
   onToggle?: () => void // terminal<->SFTP toggle, undefined for local
   onToggleLogging: () => void
   onDragStateChange?: (isDragging: boolean) => void
@@ -52,7 +51,6 @@ export function PaneHeader({
   logPath,
   onSplit,
   onClose,
-  canClose,
   onToggleLogging,
   onDragStateChange,
 }: Props) {
@@ -124,11 +122,11 @@ export function PaneHeader({
             <SplitSquareHorizontal className="size-3" />
           </Button>
         </PaneTypeChooser>
-        {canClose && (
-          <Button variant="outline" size="icon-xs" title="Close pane" onClick={onClose}>
-            <X className="size-3" />
-          </Button>
-        )}
+      </ButtonGroup>
+      <ButtonGroup>
+        <Button variant="destructive" size="icon-xs" title="Close pane" onClick={onClose}>
+          <X className="size-3" />
+        </Button>
       </ButtonGroup>
       {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
       <div

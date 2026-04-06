@@ -334,26 +334,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
           </TooltipTrigger>
           <TooltipContent>New folder</TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <a
-              href={`${DOCS_BASE_URL}/features/sftp/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-muted-foreground hover:text-foreground inline-flex size-7 items-center justify-center rounded-md transition-colors"
-            >
-              <HelpCircle className="size-3.5" />
-            </a>
-          </TooltipTrigger>
-          <TooltipContent>SFTP documentation</TooltipContent>
-        </Tooltip>
       </div>
-
-      {/* Breadcrumb */}
-      {/* <div className="border-border flex shrink-0 items-center overflow-x-auto overflow-y-hidden border-b px-1.5 py-1">
-
-      </div> */}
-
       {/* File list */}
       <ScrollArea className="@container min-h-0 w-full flex-1">
         {isLoading && (

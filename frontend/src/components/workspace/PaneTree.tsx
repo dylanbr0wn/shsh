@@ -143,7 +143,6 @@ function PaneLeafView({
   const isActive = isWorkspaceActive && isFocused
   const host = hosts.find((h) => h.id === leaf.hostId)
   const totalLeaves = collectLeaves(workspace.layout).length
-  const canClose = totalLeaves > 1
 
   function setFocused(paneId: string) {
     if (paneId === workspace.focusedPaneId) return
@@ -190,7 +189,6 @@ function PaneLeafView({
         logPath={activeLogs.get(leaf.channelId)}
         onSplit={(direction, kind, hostId) => onSplit(leaf.paneId, direction, kind, hostId)}
         onClose={() => onClose(leaf.paneId)}
-        canClose={canClose}
         onToggleLogging={() => onToggleLogging(leaf.channelId)}
         onDragStateChange={setIsDragging}
         onToggle={
