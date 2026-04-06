@@ -1,6 +1,6 @@
-import { useMemo, useRef, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { useAtom, useAtomValue, useSetAtom } from 'jotai'
+import { useAtomValue, useSetAtom } from 'jotai'
 import {
   hostsAtom,
   groupsAtom,
@@ -22,7 +22,7 @@ import {
   type SFTPLeaf,
 } from '../../store/workspaces'
 import { useHostHealth } from '../../store/useHostHealth'
-import { DeleteHost, UpdateHost, ListHosts, AddGroup } from '@wailsjs/go/main/HostFacade'
+import { DeleteHost, UpdateHost, ListHosts } from '@wailsjs/go/main/HostFacade'
 import { ConnectHost, ConnectForSFTP } from '@wailsjs/go/main/SessionFacade'
 import { Button } from '../ui/button'
 import { ScrollArea } from '../ui/scroll-area'
@@ -42,21 +42,12 @@ import { HostGroupSection } from './HostGroupSection'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
-import type { Group, Host } from '../../types'
+import type { Host } from '../../types'
 import { collectLeaves } from '../../lib/paneTree'
 import { Item, ItemContent, ItemDescription, ItemGroup } from '../ui/item'
 import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from '../ui/input-group'
 import { ButtonGroup } from '../ui/button-group'
 import { Separator } from '../ui/separator'
-import {
-  Popover,
-  PopoverTrigger,
-  PopoverContent,
-  PopoverHeader,
-  PopoverTitle,
-  PopoverDescription,
-} from '../ui/popover'
-import { Input } from '../ui/input'
 import { UngroupedHostSection } from './UngroupedHostSection'
 
 type SortMode = 'az' | 'za' | 'recent'
@@ -105,7 +96,7 @@ function comparator(sortMode: SortMode) {
 
 export function HostList() {
   const hosts = useAtomValue(hostsAtom)
-  const [groups, setGroups] = useAtom(groupsAtom)
+  const groups = useAtomValue(groupsAtom)
   const workspaces = useAtomValue(workspacesAtom)
   const connectingHostIds = useAtomValue(connectingHostIdsAtom)
   const setHosts = useSetAtom(hostsAtom)
@@ -118,26 +109,7 @@ export function HostList() {
   const setIsDeployKeyOpen = useSetAtom(isDeployKeyOpenAtom)
   const setDeployKeyHost = useSetAtom(deployKeyHostAtom)
   const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
-  const [newGroupOpen, setNewGroupOpen] = useAtom(isNewGroupOpenAtom)
-  const [newGroupName, setNewGroupName] = useState('')
-  const [creatingGroup, setCreatingGroup] = useState(false)
-  const newGroupInputRef = useRef<HTMLInputElement>(null)
-
-  async function handleCreateGroup() {
-    const name = newGroupName.trim()
-    if (!name) return
-    setCreatingGroup(true)
-    try {
-      const group = await AddGroup({ name })
-      setGroups((prev) => [...prev, group as unknown as Group])
-      setNewGroupName('')
-      setNewGroupOpen(false)
-    } catch (err) {
-      toast.error('Failed to create group', { description: String(err) })
-    } finally {
-      setCreatingGroup(false)
-    }
-  }
+  const setNewGroupOpen = useSetAtom(isNewGroupOpenAtom)
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('az')
@@ -362,11 +334,7 @@ export function HostList() {
       <div className="p-1">
         <ButtonGroup className="w-full gap-1!">
           <ButtonGroup className="grow">
-            <Button
-              variant="default"
-              className="flex-1"
-              onClick={() => setIsAddHostOpen(true)}
-            >
+            <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
               <Plus data-icon="inline-start" />
               Add Host
             </Button>
@@ -442,48 +410,14 @@ export function HostList() {
             </InputGroup>
           </ButtonGroup>
           <ButtonGroup>
-            <Popover
-              open={newGroupOpen}
-              onOpenChange={(open) => {
-                setNewGroupOpen(open)
-                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <FolderPlus />
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">New Group</TooltipContent>
-              </Tooltip>
-              <PopoverContent side="bottom" align="end">
-                <PopoverHeader>
-                  <PopoverTitle>New Group</PopoverTitle>
-                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
-                </PopoverHeader>
-                <Input
-                  ref={newGroupInputRef}
-                  placeholder="Group name"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateGroup()
-                    if (e.key === 'Escape') setNewGroupOpen(false)
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreateGroup}
-                  disabled={creatingGroup || !newGroupName.trim()}
-                >
-                  <Plus data-icon="inline-start" />
-                  Create
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={() => setNewGroupOpen(true)}>
+                  <FolderPlus />
                 </Button>
-              </PopoverContent>
-            </Popover>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">New Group</TooltipContent>
+            </Tooltip>
           </ButtonGroup>
           <ButtonGroup>
             <Tooltip>
