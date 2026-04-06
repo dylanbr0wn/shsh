@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Folder } from 'lucide-react'
 import type { FSEntry } from '../../types'
+import type { FileTransferDragData } from '../../lib/dragTypes'
 import { ScrollArea } from '../ui/scroll-area'
 import { Skeleton } from '../ui/skeleton'
 import { ContextMenu, ContextMenuTrigger, ContextMenuContent } from '../ui/context-menu'
@@ -11,16 +12,12 @@ interface FileListProps {
   isLoading: boolean
   error: string | null
   selected: string | null
+  channelId: string
   dragTargetPath: string | null
+  onSetDragTarget: (path: string | null) => void
+  onFileDrop: (source: FileTransferDragData, targetPath: string) => void
   onSelect: (path: string) => void
   onDoubleClick: (entry: FSEntry) => void
-  makeRowDragHandlers: (entry: FSEntry) => {
-    onDragStart: React.DragEventHandler
-    onDragOver: React.DragEventHandler
-    onDragLeave: React.DragEventHandler
-    onDrop: React.DragEventHandler
-    onDragEnd: React.DragEventHandler
-  }
   contextMenuContent: (entry: FSEntry) => ReactNode
 }
 
@@ -29,10 +26,12 @@ export function FileList({
   isLoading,
   error,
   selected,
+  channelId,
   dragTargetPath,
+  onSetDragTarget,
+  onFileDrop,
   onSelect,
   onDoubleClick,
-  makeRowDragHandlers,
   contextMenuContent,
 }: FileListProps) {
   return (
@@ -68,9 +67,11 @@ export function FileList({
                   entry={entry}
                   isSelected={selected === entry.path}
                   isDragTarget={dragTargetPath === entry.path}
+                  channelId={channelId}
+                  onSetDragTarget={onSetDragTarget}
+                  onFileDrop={onFileDrop}
                   onClick={() => onSelect(entry.path)}
                   onDoubleClick={() => onDoubleClick(entry)}
-                  dragHandlers={makeRowDragHandlers(entry)}
                 />
               </ContextMenuTrigger>
               <ContextMenuContent>{contextMenuContent(entry)}</ContextMenuContent>
