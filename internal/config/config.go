@@ -16,6 +16,15 @@ type Config struct {
 	Debug       DebugConfig       `json:"debug"`
 	Keybindings map[string]string `json:"keybindings,omitempty"`
 	Vault       VaultConfig       `json:"vault"`
+	Registries  []RegistryConfig  `json:"registries,omitempty"`
+}
+
+// RegistryConfig holds connection details for a remote host-configuration registry.
+type RegistryConfig struct {
+	Name    string   `json:"name"`
+	URL     string   `json:"url"`
+	APIKey  string   `json:"apiKey"`
+	Bundles []string `json:"bundles"` // subscribed bundles, e.g. ["myteam/prod-hosts"]
 }
 
 // LogConfig controls application logging behaviour.

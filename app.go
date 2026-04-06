@@ -37,6 +37,7 @@ type App struct {
 	tools    *ToolsFacade
 	keybinds *KeybindFacade
 	vault    *VaultFacade
+	registry *RegistryFacade
 }
 
 // NewApp creates a new App application struct.
@@ -50,6 +51,7 @@ func NewApp(cfg *config.Config) *App {
 		tools:    NewToolsFacade(d),
 		keybinds: NewKeybindFacade(d),
 		vault:    NewVaultFacade(d),
+		registry: NewRegistryFacade(d),
 	}
 }
 
