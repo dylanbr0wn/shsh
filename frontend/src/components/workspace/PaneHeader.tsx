@@ -1,11 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GripVertical, SplitSquareVertical, SplitSquareHorizontal, X } from 'lucide-react'
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
 import { PaneToolbar } from './PaneToolbar'
 import { PaneTypeChooser } from './PaneTypeChooser'
-import { usePaneDrag } from '../../hooks/usePaneDrag'
 import { shortcutParts } from '../../lib/keybind'
+import type { PaneDragData } from '../../lib/dragTypes'
 import type { SessionStatus } from '../../types'
 
 const typeColors = {
@@ -54,18 +56,48 @@ export function PaneHeader({
   onToggleLogging,
   onDragStateChange,
 }: Props) {
-  const previewRef = useRef<HTMLDivElement>(null)
-  const { isDragging, gripProps } = usePaneDrag({ paneId, workspaceId, previewRef })
+  const gripRef = useRef<HTMLSpanElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const typeStyle = typeColors[kind]
+
+  useEffect(() => {
+    const el = gripRef.current
+    if (!el) return
+    return draggable({
+      element: el,
+      getInitialData: (): PaneDragData => ({ type: 'pane', paneId, workspaceId }),
+      onGenerateDragPreview: ({ nativeSetDragImage }) => {
+        setCustomNativeDragPreview({
+          nativeSetDragImage,
+          render: ({ container }) => {
+            const wrapper = document.createElement('div')
+            wrapper.className =
+              'bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md'
+            wrapper.style.borderLeft = `2px solid ${hostColor ?? 'hsl(var(--border))'}`
+            const badge = document.createElement('span')
+            badge.className = 'rounded px-1 text-[9px] font-semibold tracking-wide uppercase'
+            badge.style.backgroundColor = typeStyle.bg
+            badge.style.color = typeStyle.text
+            badge.textContent = kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'
+            wrapper.appendChild(badge)
+            wrapper.appendChild(document.createTextNode(hostLabel))
+            container.appendChild(wrapper)
+          },
+        })
+      },
+      onDragStart: () => setIsDragging(true),
+      onDrop: () => setIsDragging(false),
+    })
+  }, [paneId, workspaceId, hostColor, hostLabel, kind, typeStyle.bg, typeStyle.text])
 
   useEffect(() => {
     onDragStateChange?.(isDragging)
   }, [isDragging, onDragStateChange])
 
-  const typeStyle = typeColors[kind]
-
   return (
     <div className="bg-card flex h-8 items-center gap-1 border-b px-1.5">
-      <span {...gripProps} className="cursor-grab active:cursor-grabbing">
+      <span ref={gripRef} className="cursor-grab active:cursor-grabbing">
         <GripVertical className="text-muted-foreground size-3 shrink-0" />
       </span>
       <span
@@ -128,28 +160,6 @@ export function PaneHeader({
           <X className="size-3" />
         </Button>
       </ButtonGroup>
-      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
-      <div
-        ref={previewRef}
-        className="pointer-events-none fixed"
-        style={{ left: '-9999px', top: '-9999px' }}
-      >
-        <div
-          className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
-          style={{ borderLeft: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
-        >
-          <span
-            className="rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
-            style={{
-              backgroundColor: typeStyle.bg,
-              color: typeStyle.text,
-            }}
-          >
-            {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
-          </span>
-          {hostLabel}
-        </div>
-      </div>
     </div>
   )
 }
