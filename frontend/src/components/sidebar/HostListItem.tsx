@@ -1,4 +1,7 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
+import { draggable } from '@atlaskit/pragmatic-drag-and-drop/element/adapter'
+import { setCustomNativeDragPreview } from '@atlaskit/pragmatic-drag-and-drop/element/set-custom-native-drag-preview'
+import type { HostDragData } from '../../lib/dragTypes'
 import { cn } from '../../lib/utils'
 import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
@@ -71,30 +74,42 @@ export function HostListItem({
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
   const { latency, color } = latencyValue(health[host.id])
-  const previewRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = dragRef.current
+    if (!el) return
+    return draggable({
+      element: el,
+      getInitialData: (): HostDragData => ({ type: 'host', hostId: host.id }),
+      onGenerateDragPreview: ({ nativeSetDragImage }) => {
+        setCustomNativeDragPreview({
+          nativeSetDragImage,
+          render: ({ container }) => {
+            const wrapper = document.createElement('div')
+            wrapper.className =
+              'bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md'
+            if (host.color) {
+              const dot = document.createElement('span')
+              dot.className = 'size-2 rounded-full'
+              dot.style.backgroundColor = host.color
+              wrapper.appendChild(dot)
+            }
+            wrapper.appendChild(document.createTextNode(host.label))
+            container.appendChild(wrapper)
+          },
+        })
+      },
+    })
+  }, [host.id, host.color, host.label])
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item asChild size="xs"
-        className="hover:bg-muted relative h-14.5">
+        <Item asChild size="xs" className="hover:bg-muted relative h-14.5">
           <div
+            ref={dragRef}
             role="button"
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.effectAllowed = 'copy'
-              e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
-              if (previewRef.current) {
-                previewRef.current.style.left = '0px'
-                previewRef.current.style.top = '0px'
-                e.dataTransfer.setDragImage(previewRef.current, 0, 0)
-                requestAnimationFrame(() => {
-                  if (previewRef.current) {
-                    previewRef.current.style.left = '-9999px'
-                    previewRef.current.style.top = '-9999px'
-                  }
-                })
-              }
-            }}
             onDoubleClick={onConnect}
             className={cn(isConnecting && 'animate-pulse')}
             tabIndex={0}
@@ -193,7 +208,7 @@ export function HostListItem({
                   </DropdownMenuContent>
                 </DropdownMenu>
               </ButtonGroup>
-               <ButtonGroup>
+              <ButtonGroup>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -229,19 +244,6 @@ export function HostListItem({
           </div>
         </Item>
       </ContextMenuTrigger>
-      {/* Custom drag preview — hidden off-screen until setDragImage captures it */}
-      <div
-        ref={previewRef}
-        className="pointer-events-none fixed"
-        style={{ left: '-9999px', top: '-9999px' }}
-      >
-        <div className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md">
-          {host.color && (
-            <span className="size-2 rounded-full" style={{ backgroundColor: host.color }} />
-          )}
-          {host.label}
-        </div>
-      </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
           {isConnecting ? 'Connecting…' : isConnected ? 'New tab' : 'Connect'}
