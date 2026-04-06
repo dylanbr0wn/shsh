@@ -12,7 +12,7 @@ import { Button } from '../ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { ContextMenuItem, ContextMenuSeparator } from '../ui/context-menu'
 import { useFilePanelState } from '../filepanel/useFilePanelState'
-import { useFilePanelDrag } from '../filepanel/useFilePanelDrag'
+import { useFileDrag } from '../../hooks/useFileDrag'
 import { FilePanelModals } from '../filepanel/FilePanelModals'
 import { FileList } from '../filepanel/FileList'
 import { FilePreviewModal } from '../filepanel/FilePreviewModal'
@@ -31,20 +31,19 @@ export function LocalFSPanel({ channelId }: Props) {
     { mkdir: LocalMkdir, rename: LocalRename, delete: LocalDelete }
   )
 
-  const drag = useFilePanelDrag({
+  const drag = useFileDrag({
     channelId,
     currentPath: panel.currentPath,
     listDir: panel.listDir,
     renameFn: LocalRename,
-    acceptMimeTypes: ['application/x-shsh-transfer'],
   })
 
   if (!panel.currentPath) return null
 
   return (
     <div
+      ref={drag.panelRef}
       className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
-      {...drag.panelDragHandlers}
     >
       {/* Toolbar */}
       <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
@@ -83,10 +82,12 @@ export function LocalFSPanel({ channelId }: Props) {
         isLoading={panel.isLoading}
         error={panel.error}
         selected={panel.selected}
+        channelId={channelId}
         dragTargetPath={drag.dragTargetPath}
+        onSetDragTarget={drag.setDragTargetPath}
+        onFileDrop={drag.handleFileDrop}
         onSelect={panel.setSelected}
         onDoubleClick={panel.handleRowDoubleClick}
-        makeRowDragHandlers={drag.makeRowDragHandlers}
         contextMenuContent={(entry) => (
           <>
             {!entry.isDir && (
