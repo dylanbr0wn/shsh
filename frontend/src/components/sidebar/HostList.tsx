@@ -356,6 +356,79 @@ export function HostList() {
     }
   }
 
+  const footer = (
+    <>
+      <Separator />
+      <div className="p-1">
+        <ButtonGroup className="w-full">
+          <ButtonGroup className="grow">
+            <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
+              <Plus data-icon="inline-start" />
+              Add Host
+            </Button>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="shrink-0"
+                  onClick={() => setIsImportHostsOpen(true)}
+                >
+                  <FileInput />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top">Import Hosts</TooltipContent>
+            </Tooltip>
+            <Popover
+              open={newGroupOpen}
+              onOpenChange={(open) => {
+                setNewGroupOpen(open)
+                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <FolderPlus />
+                    </Button>
+                  </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New Group</TooltipContent>
+              </Tooltip>
+              <PopoverContent side="bottom" align="end">
+                <PopoverHeader>
+                  <PopoverTitle>New Group</PopoverTitle>
+                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
+                </PopoverHeader>
+                <Input
+                  ref={newGroupInputRef}
+                  placeholder="Group name"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateGroup()
+                    if (e.key === 'Escape') setNewGroupOpen(false)
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreateGroup}
+                  disabled={creatingGroup || !newGroupName.trim()}
+                >
+                  <Plus data-icon="inline-start" />
+                  Create
+                </Button>
+              </PopoverContent>
+            </Popover>
+          </ButtonGroup>
+        </ButtonGroup>
+      </div>
+    </>
+  )
+
   if (hosts.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -366,74 +439,7 @@ export function HostList() {
             <Plus data-icon="inline-start" /> Add Host
           </Button>
         </div>
-        <Separator />
-        <div className="p-1">
-          <ButtonGroup className="w-full">
-            <ButtonGroup className="grow">
-              <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
-                <Plus data-icon="inline-start" />
-                Add Host
-              </Button>
-            </ButtonGroup>
-            <ButtonGroup>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0"
-                    onClick={() => setIsImportHostsOpen(true)}
-                  >
-                    <FileInput />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top">Import Hosts</TooltipContent>
-              </Tooltip>
-              <Popover
-                open={newGroupOpen}
-                onOpenChange={(open) => {
-                  setNewGroupOpen(open)
-                  if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
-                }}
-              >
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <FolderPlus />
-                      </Button>
-                    </PopoverTrigger>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">New Group</TooltipContent>
-                </Tooltip>
-                <PopoverContent side="bottom" align="end">
-                  <PopoverHeader>
-                    <PopoverTitle>New Group</PopoverTitle>
-                    <PopoverDescription>Enter a name for the new group</PopoverDescription>
-                  </PopoverHeader>
-                  <Input
-                    ref={newGroupInputRef}
-                    placeholder="Group name"
-                    value={newGroupName}
-                    onChange={(e) => setNewGroupName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleCreateGroup()
-                      if (e.key === 'Escape') setNewGroupOpen(false)
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleCreateGroup}
-                    disabled={creatingGroup || !newGroupName.trim()}
-                  >
-                    <Plus data-icon="inline-start" />
-                    Create
-                  </Button>
-                </PopoverContent>
-              </Popover>
-            </ButtonGroup>
-          </ButtonGroup>
-        </div>
+        {footer}
       </div>
     )
   }
@@ -573,74 +579,7 @@ export function HostList() {
           </ItemGroup>
         </ScrollArea>
       </div>
-      <Separator />
-      <div className="p-1">
-        <ButtonGroup className="w-full">
-          <ButtonGroup className="grow">
-            <Button variant="default" className="flex-1" onClick={() => setIsAddHostOpen(true)}>
-              <Plus data-icon="inline-start" />
-              Add Host
-            </Button>
-          </ButtonGroup>
-          <ButtonGroup>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="shrink-0"
-                  onClick={() => setIsImportHostsOpen(true)}
-                >
-                  <FileInput />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="top">Import Hosts</TooltipContent>
-            </Tooltip>
-            <Popover
-              open={newGroupOpen}
-              onOpenChange={(open) => {
-                setNewGroupOpen(open)
-                if (open) setTimeout(() => newGroupInputRef.current?.focus(), 0)
-              }}
-            >
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="icon">
-                      <FolderPlus />
-                    </Button>
-                  </PopoverTrigger>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">New Group</TooltipContent>
-              </Tooltip>
-              <PopoverContent side="bottom" align="end">
-                <PopoverHeader>
-                  <PopoverTitle>New Group</PopoverTitle>
-                  <PopoverDescription>Enter a name for the new group</PopoverDescription>
-                </PopoverHeader>
-                <Input
-                  ref={newGroupInputRef}
-                  placeholder="Group name"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateGroup()
-                    if (e.key === 'Escape') setNewGroupOpen(false)
-                  }}
-                />
-                <Button
-                  size="sm"
-                  onClick={handleCreateGroup}
-                  disabled={creatingGroup || !newGroupName.trim()}
-                >
-                  <Plus data-icon="inline-start" />
-                  Create
-                </Button>
-              </PopoverContent>
-            </Popover>
-          </ButtonGroup>
-        </ButtonGroup>
-      </div>
+      {footer}
     </div>
   )
 }
