@@ -41,8 +41,8 @@ const (
 	StatusFailed       Status = "failed"
 )
 
-// SFTPEntry represents a single file or directory in an SFTP listing.
-type SFTPEntry struct {
+// FSEntry represents a single file or directory in an SFTP listing.
+type FSEntry struct {
 	Name    string `json:"name"`
 	Path    string `json:"path"`
 	IsDir   bool   `json:"isDir"`
@@ -51,8 +51,8 @@ type SFTPEntry struct {
 	Mode    string `json:"mode"`
 }
 
-// SFTPProgressEvent is emitted during file transfers.
-type SFTPProgressEvent struct {
+// TransferProgressEvent is emitted during file transfers.
+type TransferProgressEvent struct {
 	Path  string `json:"path"`
 	Bytes int64  `json:"bytes"`
 	Total int64  `json:"total"`

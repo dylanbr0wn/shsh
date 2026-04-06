@@ -1,11 +1,9 @@
 package session
 
 import (
-	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
-	"path/filepath"
 	"strings"
 )
 
@@ -90,16 +88,9 @@ func formatBytes(b int64) string {
 
 // SFTPPreviewFile reads a remote file for in-app preview.
 func (m *Manager) SFTPPreviewFile(channelId string, path string) (*FilePreview, error) {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return nil, err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return nil, fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	info, err := sc.Stat(path)
@@ -110,39 +101,15 @@ func (m *Manager) SFTPPreviewFile(channelId string, path string) (*FilePreview, 
 		return nil, fmt.Errorf("cannot preview a directory")
 	}
 
-	ext := strings.ToLower(filepath.Ext(info.Name()))
-	kind := classifyExtension(ext)
-	// Fall back to text for unknown extensions (dotfiles, extensionless configs, etc.).
-	// Binary content is caught by the frontend's replacement-character check.
-	if kind == fileKindUnknown {
-		kind = fileKindText
-	}
-
-	limit := maxPreviewSize(kind)
-	if info.Size() > limit {
-		return nil, fmt.Errorf("file too large to preview (%s, max %s for %s files)",
-			formatBytes(info.Size()), formatBytes(limit), kind)
-	}
-
-	f, err := sc.Open(path)
+	preview, err := buildPreview(path, info.Name(), info.Size(), func() (io.ReadCloser, error) {
+		return sc.Open(path)
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	buf, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
 
 	m.emitDebug("sftp", "debug", channelId, m.connLabel(sftpCh.connectionID),
-		"preview file", map[string]any{"path": path, "size": len(buf), "kind": string(kind)})
+		"preview file", map[string]any{"path": path, "size": info.Size()})
 
-	return &FilePreview{
-		Name:     info.Name(),
-		Path:     path,
-		Size:     info.Size(),
-		MimeType: mimeForExtension(ext),
-		Content:  base64.StdEncoding.EncodeToString(buf),
-	}, nil
+	return preview, nil
 }

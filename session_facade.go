@@ -133,8 +133,8 @@ func (f *SessionFacade) QuickConnect(input QuickConnectInput) (session.ConnectHo
 	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
 }
 
-// ConnectHost dials SSH for the given host and returns a connection+channel result.
-func (f *SessionFacade) ConnectHost(hostID string) (session.ConnectHostResult, error) {
+// connectAndOpen dials SSH for the given host and opens a channel using openFn.
+func (f *SessionFacade) connectAndOpen(hostID string, openFn func(connID string) (string, error)) (session.ConnectHostResult, error) {
 	if err := f.checkVaultUnlocked(); err != nil {
 		return session.ConnectHostResult{}, err
 	}
@@ -151,34 +151,21 @@ func (f *SessionFacade) ConnectHost(hostID string) (session.ConnectHostResult, e
 	if err != nil {
 		return session.ConnectHostResult{}, err
 	}
-	channelID, err := f.d.Manager.OpenTerminal(connResult.ConnectionID)
+	channelID, err := openFn(connResult.ConnectionID)
 	if err != nil {
 		return session.ConnectHostResult{}, err
 	}
 	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
 }
 
+// ConnectHost dials SSH for the given host and returns a connection+channel result.
+func (f *SessionFacade) ConnectHost(hostID string) (session.ConnectHostResult, error) {
+	return f.connectAndOpen(hostID, f.d.Manager.OpenTerminal)
+}
+
 // ConnectForSFTP dials SSH for the given host and opens an SFTP channel.
 func (f *SessionFacade) ConnectForSFTP(hostID string) (session.ConnectHostResult, error) {
-	if err := f.checkVaultUnlocked(); err != nil {
-		return session.ConnectHostResult{}, err
-	}
-	host, password, jumpHost, jumpPassword, err := f.resolveWithJump(hostID)
-	if err != nil {
-		return session.ConnectHostResult{}, err
-	}
-
-	connResult, err := f.d.Manager.Connect(host, password, jumpHost, jumpPassword, func() {
-		f.d.Store.TouchLastConnected(hostID)
-	})
-	if err != nil {
-		return session.ConnectHostResult{}, err
-	}
-	channelID, err := f.d.Manager.OpenSFTPChannel(connResult.ConnectionID)
-	if err != nil {
-		return session.ConnectHostResult{}, err
-	}
-	return session.ConnectHostResult{ConnectionID: connResult.ConnectionID, ChannelID: channelID}, nil
+	return f.connectAndOpen(hostID, f.d.Manager.OpenSFTPChannel)
 }
 
 // --- Terminal I/O ---
@@ -222,7 +209,7 @@ func (f *SessionFacade) RespondHostKey(connectionID string, accepted bool) {
 
 // --- Local FS ---
 
-func (f *SessionFacade) LocalListDir(channelID string, path string) ([]session.SFTPEntry, error) {
+func (f *SessionFacade) LocalListDir(channelID string, path string) ([]session.FSEntry, error) {
 	return f.d.Manager.LocalListDir(channelID, path)
 }
 
@@ -244,7 +231,7 @@ func (f *SessionFacade) LocalPreviewFile(channelID string, path string) (*sessio
 
 // --- SFTP ---
 
-func (f *SessionFacade) SFTPListDir(channelID string, path string) ([]session.SFTPEntry, error) {
+func (f *SessionFacade) SFTPListDir(channelID string, path string) ([]session.FSEntry, error) {
 	return f.d.Manager.SFTPListDir(channelID, path)
 }
 

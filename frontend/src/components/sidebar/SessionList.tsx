@@ -15,6 +15,7 @@ import { WorkspaceCard } from './WorkspaceCard'
 import { CloseConfirmDialog } from '../sessions/CloseConfirmDialog'
 import { SaveTemplateDialog } from '../workspace/SaveTemplateDialog'
 import { Button } from '../ui/button'
+import { ButtonGroup } from '../ui/button-group'
 
 export function SessionList() {
   const {
@@ -73,8 +74,9 @@ export function SessionList() {
       </ScrollArea>
 
       <Separator />
-      <div className="p-2">
-        <DropdownMenu
+      <div className="p-1">
+        <ButtonGroup className="w-full gap-1!">
+          <DropdownMenu
           onOpenChange={(open) => {
             if (open) loadTemplates()
           }}
@@ -102,6 +104,8 @@ export function SessionList() {
             )}
           </DropdownMenuContent>
         </DropdownMenu>
+        </ButtonGroup>
+
       </div>
 
       <CloseConfirmDialog

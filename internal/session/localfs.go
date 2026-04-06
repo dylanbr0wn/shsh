@@ -2,13 +2,10 @@ package session
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -97,7 +94,7 @@ func (m *Manager) getLocalFSChannel(channelID string) (*LocalFSChannel, error) {
 
 // LocalListDir lists the contents of path, returning entries sorted with
 // directories first and then alphabetically by name within each group.
-func (m *Manager) LocalListDir(channelID, path string) ([]SFTPEntry, error) {
+func (m *Manager) LocalListDir(channelID, path string) ([]FSEntry, error) {
 	if _, err := m.getLocalFSChannel(channelID); err != nil {
 		return nil, err
 	}
@@ -107,13 +104,13 @@ func (m *Manager) LocalListDir(channelID, path string) ([]SFTPEntry, error) {
 		return nil, fmt.Errorf("LocalListDir: %w", err)
 	}
 
-	entries := make([]SFTPEntry, 0, len(dirEntries))
+	entries := make([]FSEntry, 0, len(dirEntries))
 	for _, de := range dirEntries {
 		info, err := de.Info()
 		if err != nil {
 			continue
 		}
-		entries = append(entries, SFTPEntry{
+		entries = append(entries, FSEntry{
 			Name:    de.Name(),
 			Path:    filepath.Join(path, de.Name()),
 			IsDir:   de.IsDir(),
@@ -123,12 +120,7 @@ func (m *Manager) LocalListDir(channelID, path string) ([]SFTPEntry, error) {
 		})
 	}
 
-	sort.SliceStable(entries, func(i, j int) bool {
-		if entries[i].IsDir != entries[j].IsDir {
-			return entries[i].IsDir
-		}
-		return entries[i].Name < entries[j].Name
-	})
+	sortFSEntries(entries)
 
 	return entries, nil
 }
@@ -180,34 +172,7 @@ func (m *Manager) LocalPreviewFile(channelID, path string) (*FilePreview, error)
 		return nil, fmt.Errorf("cannot preview a directory")
 	}
 
-	ext := strings.ToLower(filepath.Ext(info.Name()))
-	kind := classifyExtension(ext)
-	if kind == fileKindUnknown {
-		kind = fileKindText
-	}
-
-	limit := maxPreviewSize(kind)
-	if info.Size() > limit {
-		return nil, fmt.Errorf("file too large to preview (%s, max %s for %s files)",
-			formatBytes(info.Size()), formatBytes(limit), kind)
-	}
-
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
-	buf, err := io.ReadAll(io.LimitReader(f, limit+1))
-	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
-	}
-
-	return &FilePreview{
-		Name:     info.Name(),
-		Path:     path,
-		Size:     info.Size(),
-		MimeType: mimeForExtension(ext),
-		Content:  base64.StdEncoding.EncodeToString(buf),
-	}, nil
+	return buildPreview(path, info.Name(), info.Size(), func() (io.ReadCloser, error) {
+		return os.Open(path)
+	})
 }

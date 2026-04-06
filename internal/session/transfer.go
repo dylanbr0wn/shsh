@@ -256,7 +256,7 @@ func (m *Manager) TransferBetweenChannels(srcChannelID, srcPath, dstChannelID, d
 			nw, werr := writer.Write(buf[:nr])
 			written += int64(nw)
 
-			m.emitter.Emit("channel:transfer-progress:"+dstChannelID, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+dstChannelID, TransferProgressEvent{
 				Path:  srcPath,
 				Bytes: written,
 				Total: total,

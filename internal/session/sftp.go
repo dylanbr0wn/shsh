@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -16,17 +15,10 @@ import (
 )
 
 // SFTPListDir lists entries in the given remote directory, dirs first then files.
-func (m *Manager) SFTPListDir(channelId string, path string) ([]SFTPEntry, error) {
-	sftpCh, err := m.getSFTPChannel(channelId)
+func (m *Manager) SFTPListDir(channelId string, path string) ([]FSEntry, error) {
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return nil, err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return nil, fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	if path == "~" {
@@ -44,10 +36,10 @@ func (m *Manager) SFTPListDir(channelId string, path string) ([]SFTPEntry, error
 	}
 	m.emitDebug("sftp", "debug", channelId, m.connLabel(sftpCh.connectionID), "readdir", map[string]any{"path": path, "entries": len(infos)})
 
-	entries := make([]SFTPEntry, 0, len(infos))
+	entries := make([]FSEntry, 0, len(infos))
 	for _, fi := range infos {
 		fullPath := path + "/" + fi.Name()
-		entries = append(entries, SFTPEntry{
+		entries = append(entries, FSEntry{
 			Name:    fi.Name(),
 			Path:    fullPath,
 			IsDir:   fi.IsDir(),
@@ -57,12 +49,7 @@ func (m *Manager) SFTPListDir(channelId string, path string) ([]SFTPEntry, error
 		})
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		if entries[i].IsDir != entries[j].IsDir {
-			return entries[i].IsDir
-		}
-		return entries[i].Name < entries[j].Name
-	})
+	sortFSEntries(entries)
 
 	return entries, nil
 }
@@ -73,16 +60,9 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 		return nil
 	}
 
-	sftpCh, err := m.getSFTPChannel(channelId)
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	remoteFile, err := sc.Open(remotePath)
@@ -113,7 +93,7 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 		if nr > 0 {
 			nw, werr := localFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, TransferProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -137,16 +117,9 @@ func (m *Manager) SFTPDownload(channelId string, remotePath string, localPath st
 
 // SFTPDownloadDir tars a remote directory, downloads it, and unpacks it locally.
 func (m *Manager) SFTPDownloadDir(channelId string, remotePath string, localDir string) error {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	// Get the goph.Client from the connection for running remote commands.
@@ -194,7 +167,7 @@ func (m *Manager) SFTPDownloadDir(channelId string, remotePath string, localDir 
 		if nr > 0 {
 			nw, werr := localTmp.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit(eventKey, SFTPProgressEvent{
+			m.emitter.Emit(eventKey, TransferProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -225,16 +198,9 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 		return nil
 	}
 
-	sftpCh, err := m.getSFTPChannel(channelId)
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	localFile, err := os.Open(localPath)
@@ -266,7 +232,7 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, TransferProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -290,16 +256,9 @@ func (m *Manager) SFTPUpload(channelId string, remoteDir string, localPath strin
 
 // SFTPUploadPath uploads a local file at localPath to the given remotePath.
 func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath string) error {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	sftpCh, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
-	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
 	}
 
 	info, err := os.Stat(localPath)
@@ -334,7 +293,7 @@ func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath 
 		if nr > 0 {
 			nw, werr := remoteFile.Write(buf[:nr])
 			written += int64(nw)
-			m.emitter.Emit("channel:transfer-progress:"+channelId, SFTPProgressEvent{
+			m.emitter.Emit("channel:transfer-progress:"+channelId, TransferProgressEvent{
 				Path:  remotePath,
 				Bytes: written,
 				Total: total,
@@ -358,35 +317,19 @@ func (m *Manager) SFTPUploadPath(channelId string, localPath string, remotePath 
 
 // SFTPMkdir creates a directory at the given remote path.
 func (m *Manager) SFTPMkdir(channelId string, path string) error {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	_, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
 	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
-	}
-
 	return sc.Mkdir(path)
 }
 
 // SFTPDelete removes a file or directory at the given remote path.
 func (m *Manager) SFTPDelete(channelId string, path string) error {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	_, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
 	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
-	}
-
 	fi, err := sc.Stat(path)
 	if err != nil {
 		return err
@@ -399,18 +342,10 @@ func (m *Manager) SFTPDelete(channelId string, path string) error {
 
 // SFTPRename renames/moves a remote file or directory.
 func (m *Manager) SFTPRename(channelId string, oldPath string, newPath string) error {
-	sftpCh, err := m.getSFTPChannel(channelId)
+	_, sc, err := m.withSFTPClient(channelId)
 	if err != nil {
 		return err
 	}
-
-	sftpCh.mu.Lock()
-	sc := sftpCh.client
-	sftpCh.mu.Unlock()
-	if sc == nil {
-		return fmt.Errorf("sftp client closed for channel %s", channelId)
-	}
-
 	return sc.Rename(oldPath, newPath)
 }
 
