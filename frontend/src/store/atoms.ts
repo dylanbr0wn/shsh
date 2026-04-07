@@ -82,6 +82,9 @@ export const deployKeyHostAtom = atom<Host | null>(null)
 
 export const sidebarCollapsedAtom = atom<boolean>(false)
 
+// Platform detection — initialised once in useAppInit via Environment()
+export const isMacAtom = atom<boolean>(false)
+
 // Pending template to open — set by SessionList, consumed by WorkspaceView
 import type { WorkspaceTemplate } from '../types'
 export const pendingTemplateAtom = atom<WorkspaceTemplate | null>(null)

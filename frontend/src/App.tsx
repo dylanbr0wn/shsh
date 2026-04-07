@@ -8,7 +8,7 @@ import { useAppInit } from './store/useAppInit'
 import { useKeybindings } from './hooks/useKeybindings'
 import { Sidebar } from './components/layout/Sidebar'
 import { MainArea } from './components/layout/MainArea'
-import { TitleBar } from './components/layout/TitleBar'
+import { PaneTopBar } from './components/layout/PaneTopBar'
 import { AddGroupModal } from './components/modals/AddGroupModal'
 import { AddHostModal } from './components/modals/AddHostModal'
 import { EditHostModal } from './components/modals/EditHostModal'
@@ -141,13 +141,6 @@ export default function App() {
           <VaultLockOverlay />
           <ErrorBoundary
             fallback="inline"
-            zone="titlebar"
-            onError={(e, i) => reportUIError(e, i, 'titlebar')}
-          >
-            <TitleBar />
-          </ErrorBoundary>
-          <ErrorBoundary
-            fallback="inline"
             zone="command-palette"
             onError={(e, i) => reportUIError(e, i, 'command-palette')}
           >
@@ -174,55 +167,58 @@ export default function App() {
             </ResizablePanel>
             <ResizableHandle className="z-20" />
             <ResizablePanel defaultSize="82%" className="min-h-0 overflow-hidden">
-              <div ref={containerRef} className="relative h-full">
-                <ErrorBoundary
-                  fallback="panel"
-                  zone="main"
-                  onError={(e, i) => reportUIError(e, i, 'main')}
-                >
-                  <MainArea />
-                </ErrorBoundary>
-                {/* Snap guide — shows at bottom edge when dragging into close zone */}
-                {inSnapZone && (
-                  <div className="border-muted-foreground/30 pointer-events-none absolute inset-x-0 bottom-0 z-20 border-b" />
-                )}
-                {debugPanelOpen && (
-                  <div
-                    className={cn(
-                      'absolute inset-x-0 bottom-0 z-10 flex flex-col transition-opacity',
-                      inSnapZone ? 'opacity-40' : 'opacity-100'
-                    )}
-                    style={{ height: debugHeight }}
+              <div className="flex h-full min-h-0 flex-col">
+                <PaneTopBar />
+                <div ref={containerRef} className="relative min-h-0 flex-1">
+                  <ErrorBoundary
+                    fallback="panel"
+                    zone="main"
+                    onError={(e, i) => reportUIError(e, i, 'main')}
                   >
-                    {/* Drag handle — horizontal, matches ResizableHandle style */}
+                    <MainArea />
+                  </ErrorBoundary>
+                  {/* Snap guide — shows at bottom edge when dragging into close zone */}
+                  {inSnapZone && (
+                    <div className="border-muted-foreground/30 pointer-events-none absolute inset-x-0 bottom-0 z-20 border-b" />
+                  )}
+                  {debugPanelOpen && (
                     <div
-                      aria-hidden
-                      onMouseDown={onDragStart}
                       className={cn(
-                        'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
-                        dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
+                        'absolute inset-x-0 bottom-0 z-10 flex flex-col transition-opacity',
+                        inSnapZone ? 'opacity-40' : 'opacity-100'
                       )}
+                      style={{ height: debugHeight }}
                     >
+                      {/* Drag handle — horizontal, matches ResizableHandle style */}
                       <div
+                        aria-hidden
+                        onMouseDown={onDragStart}
                         className={cn(
-                          'z-10 flex w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                          dragging
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
+                          'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
+                          dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
                         )}
                       >
-                        <GripHorizontal className="size-3 shrink-0" />
+                        <div
+                          className={cn(
+                            'z-10 flex w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+                            dragging
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
+                          )}
+                        >
+                          <GripHorizontal className="size-3 shrink-0" />
+                        </div>
                       </div>
+                      <ErrorBoundary
+                        fallback="inline"
+                        zone="debug"
+                        onError={(e, i) => reportUIError(e, i, 'debug')}
+                      >
+                        <DebugPanel />
+                      </ErrorBoundary>
                     </div>
-                    <ErrorBoundary
-                      fallback="inline"
-                      zone="debug"
-                      onError={(e, i) => reportUIError(e, i, 'debug')}
-                    >
-                      <DebugPanel />
-                    </ErrorBoundary>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </ResizablePanel>
           </ResizablePanelGroup>
