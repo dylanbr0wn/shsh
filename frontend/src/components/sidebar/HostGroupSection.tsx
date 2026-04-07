@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useAtom, useSetAtom } from 'jotai'
 import { toast } from 'sonner'
-import { ChevronRight, MoreHorizontal } from 'lucide-react'
+import { ChevronRight, Globe, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
 import {
@@ -122,6 +122,9 @@ export function HostGroupSection({
                   <ItemContent>
                     <ItemTitle>
                       <span>{group.name}</span>
+                      {group.origin !== 'local' && (
+                        <Globe className="text-muted-foreground/50 size-3 shrink-0" />
+                      )}
                       <span className="text-muted-foreground/50 text-xs">{hosts.length} hosts</span>
                     </ItemTitle>
                   </ItemContent>
