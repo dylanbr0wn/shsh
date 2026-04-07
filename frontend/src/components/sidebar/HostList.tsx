@@ -406,59 +406,61 @@ export function HostList() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex min-h-0 flex-1 flex-col gap-2">
-        {/* Search */}
-        <ButtonGroup className="w-full">
-          <ButtonGroup className="grow">
-            <InputGroup>
-              <InputGroupInput
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="off"
-                spellCheck={false}
-              />
-              <InputGroupAddon>
-                <Search />
-              </InputGroupAddon>
-              {searchQuery && (
-                <InputGroupAddon align="inline-end">
-                  <InputGroupButton
-                    size="icon-xs"
-                    title="Clear"
-                    aria-label="Clear"
-                    onClick={() => setSearchQuery('')}
-                  >
-                    <X />
-                  </InputGroupButton>
+        <div className="px-2 pt-2">
+          {/* Search */}
+          <ButtonGroup className="w-full">
+            <ButtonGroup className="grow">
+              <InputGroup>
+                <InputGroupInput
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                />
+                <InputGroupAddon>
+                  <Search />
                 </InputGroupAddon>
-              )}
-            </InputGroup>
+                {searchQuery && (
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupButton
+                      size="icon-xs"
+                      title="Clear"
+                      aria-label="Clear"
+                      onClick={() => setSearchQuery('')}
+                    >
+                      <X />
+                    </InputGroupButton>
+                  </InputGroupAddon>
+                )}
+              </InputGroup>
+            </ButtonGroup>
+            <ButtonGroup>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={() => setNewGroupOpen(true)}>
+                    <FolderPlus />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">New Group</TooltipContent>
+              </Tooltip>
+            </ButtonGroup>
+            <ButtonGroup>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" onClick={cycleSortMode}>
+                    {sortIcon}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
+              </Tooltip>
+            </ButtonGroup>
           </ButtonGroup>
-          <ButtonGroup>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={() => setNewGroupOpen(true)}>
-                  <FolderPlus />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">New Group</TooltipContent>
-            </Tooltip>
-          </ButtonGroup>
-          <ButtonGroup>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={cycleSortMode}>
-                  {sortIcon}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{sortTooltip}</TooltipContent>
-            </Tooltip>
-          </ButtonGroup>
-        </ButtonGroup>
-        <ScrollArea className="min-h-0 flex-1 select-none rounded-md p-2">
-          <ItemGroup className='p-px'>
+        </div>
+        <ScrollArea className="min-h-0 flex-1 rounded-md p-2 select-none">
+          <ItemGroup className="p-px">
             {isSearching ? (
               // Flat filtered list with optional group badge
               filteredHosts.length === 0 ? (

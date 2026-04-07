@@ -1,17 +1,22 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type CSSProperties } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
+import { PanelLeftClose } from 'lucide-react'
 import { workspacesAtom } from '../../store/workspaces'
 import { sidebarViewAtom } from '../../store/sidebarView'
+import { sidebarCollapsedAtom } from '../../store/atoms'
 import { HostList } from '../sidebar/HostList'
 import { SessionList } from '../sidebar/SessionList'
-import { Tabs, TabsList, TabsTrigger } from '../ui/tabs'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs'
 import { Badge } from '../ui/badge'
+import { Button } from '../ui/button'
+import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { ErrorBoundary } from '../ErrorBoundary'
 import { reportUIError } from '../../lib/reportUIError'
 
 export function Sidebar() {
   const workspaces = useAtomValue(workspacesAtom)
   const [view, setView] = useAtom(sidebarViewAtom)
+  const [, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const prevCount = useRef(workspaces.length)
 
   useEffect(() => {
@@ -22,8 +27,32 @@ export function Sidebar() {
   }, [workspaces.length, setView])
 
   return (
-    <div className="bg-sidebar flex h-full flex-col">
-      <Tabs value={view} onValueChange={(v) => setView(v as 'hosts' | 'sessions')}>
+    <div className="bg-sidebar flex h-full min-h-0 flex-col overflow-hidden">
+      <div
+        className="flex h-9 shrink-0 items-center justify-end px-0.5"
+        style={{ '--wails-draggable': 'drag' } as CSSProperties}
+      >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-8 w-8"
+              style={{ '--wails-draggable': 'no-drag' } as CSSProperties}
+              onClick={() => setSidebarCollapsed(true)}
+              aria-label="Hide sidebar"
+            >
+              <PanelLeftClose className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Hide sidebar</TooltipContent>
+        </Tooltip>
+      </div>
+      <Tabs
+        value={view}
+        onValueChange={(v) => setView(v as 'hosts' | 'sessions')}
+        className="min-h-0 flex-1 gap-0 overflow-hidden"
+      >
         <TabsList variant="line" className="border-sidebar-border w-full border-b px-2">
           <TabsTrigger value="hosts" className="gap-1 text-xs">
             ⊞ Hosts
@@ -35,25 +64,25 @@ export function Sidebar() {
             </Badge>
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="hosts" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ErrorBoundary
+            fallback="inline"
+            zone="host-list"
+            onError={(e, i) => reportUIError(e, i, 'host-list')}
+          >
+            <HostList />
+          </ErrorBoundary>
+        </TabsContent>
+        <TabsContent value="sessions" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ErrorBoundary
+            fallback="inline"
+            zone="session-list"
+            onError={(e, i) => reportUIError(e, i, 'session-list')}
+          >
+            <SessionList />
+          </ErrorBoundary>
+        </TabsContent>
       </Tabs>
-
-      {view === 'hosts' ? (
-        <ErrorBoundary
-          fallback="inline"
-          zone="host-list"
-          onError={(e, i) => reportUIError(e, i, 'host-list')}
-        >
-          <HostList />
-        </ErrorBoundary>
-      ) : (
-        <ErrorBoundary
-          fallback="inline"
-          zone="session-list"
-          onError={(e, i) => reportUIError(e, i, 'session-list')}
-        >
-          <SessionList />
-        </ErrorBoundary>
-      )}
     </div>
   )
 }
