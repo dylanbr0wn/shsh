@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { GripVertical, SplitSquareVertical, SplitSquareHorizontal, X } from 'lucide-react'
 import { Button } from '../ui/button'
 import { ButtonGroup } from '../ui/button-group'
+import { Item, ItemContent, ItemDescription, ItemMedia, ItemTitle } from '../ui/item'
 import { PaneToolbar } from './PaneToolbar'
 import { PaneTypeChooser } from './PaneTypeChooser'
 import { usePaneDrag } from '../../hooks/usePaneDrag'
@@ -17,6 +18,7 @@ const typeColors = {
 interface Props {
   hostLabel: string
   hostColor?: string
+  hostConnection?: string
   hostId: string
   kind: 'terminal' | 'sftp' | 'local'
   paneId: string
@@ -41,6 +43,7 @@ interface Props {
 export function PaneHeader({
   hostLabel,
   hostColor,
+  hostConnection,
   hostId,
   kind,
   paneId,
@@ -134,21 +137,29 @@ export function PaneHeader({
         className="pointer-events-none fixed"
         style={{ left: '-9999px', top: '-9999px' }}
       >
-        <div
-          className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md"
-          style={{ borderLeft: `2px solid ${hostColor ?? 'hsl(var(--border))'}` }}
-        >
-          <span
-            className="rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
-            style={{
-              backgroundColor: typeStyle.bg,
-              color: typeStyle.text,
-            }}
-          >
-            {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
-          </span>
-          {hostLabel}
-        </div>
+        <Item size="xs" variant="outline" className="bg-popover w-fit shadow-md">
+          <ItemMedia>
+            <span
+              className="h-8 w-1 rounded-full"
+              style={{ backgroundColor: hostColor || 'var(--muted-foreground)' }}
+            />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle style={{ color: hostColor }}>
+              <span>{hostLabel}</span>
+              <span
+                className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
+                style={{
+                  backgroundColor: typeStyle.bg,
+                  color: typeStyle.text,
+                }}
+              >
+                {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
+              </span>
+            </ItemTitle>
+            {hostConnection && <ItemDescription>{hostConnection}</ItemDescription>}
+          </ItemContent>
+        </Item>
       </div>
     </div>
   )

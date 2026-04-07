@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Folder, File, RefreshCw, Upload, FolderPlus, HelpCircle } from 'lucide-react'
-import { DOCS_BASE_URL } from '../../lib/constants'
+import { Folder, File, RefreshCw, Upload, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { fsPanelStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
