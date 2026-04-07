@@ -145,7 +145,7 @@ export function WelcomeScreen() {
     if (!isHostDropActive) setIsHostDropActive(true)
   }
 
-  function handleHostDragLeave(e: React.DragEvent<HTMLDivElement>) {
+  function handleHostDragLeave(_e: React.DragEvent<HTMLDivElement>) {
     dragDepthRef.current--
     if (dragDepthRef.current <= 0) {
       dragDepthRef.current = 0
@@ -202,6 +202,7 @@ export function WelcomeScreen() {
       }
     } catch (err) {
       toast.error('Invalid drag payload', { description: String(err) })
+    } finally {
       setDropConnecting(null)
     }
   }

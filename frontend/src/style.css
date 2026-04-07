@@ -285,3 +285,8 @@ html {
   position: relative;
   overflow: hidden;
 }
+
+.welcome-drop-zone-active {
+  background-color: color-mix(in oklch, var(--foreground) 4%, transparent);
+  border-style: solid;
+}
