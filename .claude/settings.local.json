@@ -39,7 +39,14 @@
       "WebFetch(domain:unpkg.com)",
       "Bash(pnpm install:*)",
       "WebFetch(domain:api.github.com)",
-      "Bash(wails generate:*)"
+      "Bash(wails generate:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(pnpm test:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr:*)",
+      "Bash(/Users/dylan/.claude/skills/brainstorming/scripts/start-server.sh:*)"
     ]
   },
   "sandbox": {

@@ -181,7 +181,7 @@ export function KeybindingsSettings() {
   const sortedCategories = Object.keys(grouped).sort()
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 h-full relative">
       <ButtonGroup className="w-full">
         <ButtonGroup className="flex-1">
           <InputGroup>
@@ -206,8 +206,8 @@ export function KeybindingsSettings() {
         </ButtonGroup>
       </ButtonGroup>
 
-      <ScrollArea className="h-[50vh]">
-        <div className="flex flex-col gap-4">
+      <ScrollArea className="rounded h-[calc(100%-44px)]">
+        <div className="flex flex-col gap-4 pr-3 h-full">
           {sortedCategories.map((category) => (
             <FieldSet key={category} className="p-px">
               <FieldLegend>{category}</FieldLegend>
