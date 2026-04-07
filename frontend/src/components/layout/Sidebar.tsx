@@ -1,6 +1,7 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { PanelLeftClose } from 'lucide-react'
+import { WindowToggleMaximise } from '@wailsjs/runtime/runtime'
 import { workspacesAtom } from '../../store/workspaces'
 import { sidebarViewAtom } from '../../store/sidebarView'
 import { sidebarCollapsedAtom } from '../../store/atoms'
@@ -31,6 +32,7 @@ export function Sidebar() {
       <div
         className="flex h-9 shrink-0 items-center justify-end px-0.5"
         style={{ '--wails-draggable': 'drag' } as CSSProperties}
+        onDoubleClick={WindowToggleMaximise}
       >
         <Tooltip>
           <TooltipTrigger asChild>
