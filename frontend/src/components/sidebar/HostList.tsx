@@ -436,8 +436,8 @@ export function HostList() {
             </Tooltip>
           </ButtonGroup>
         </ButtonGroup>
-        <ScrollArea className="min-h-0 flex-1 select-none">
-          <ItemGroup>
+        <ScrollArea className="min-h-0 flex-1 select-none rounded-md">
+          <ItemGroup className='p-px'>
             {isSearching ? (
               // Flat filtered list with optional group badge
               filteredHosts.length === 0 ? (
