@@ -55,7 +55,10 @@ export function PaneTopBar() {
     >
       {/* Left: sidebar expand (when collapsed) + workspace breadcrumb */}
       <div
-        className={cn('absolute flex items-center gap-1', isMac ? 'left-[5.5rem]' : 'left-1')}
+        className={cn(
+          'absolute flex items-center gap-1',
+          isMac && sidebarCollapsed ? 'left-[5.5rem]' : 'left-2'
+        )}
         style={{ '--wails-draggable': 'no-drag' } as CSSProperties}
       >
         {sidebarCollapsed && (

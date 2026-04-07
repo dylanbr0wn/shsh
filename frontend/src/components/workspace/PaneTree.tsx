@@ -69,7 +69,7 @@ export function PaneTree({
             onToggleLogging={onToggleLogging}
           />
         </ResizablePanel>
-        <ResizableHandle />
+        <ResizableHandle withHandle={false} />
         <ResizablePanel defaultSize={rightPct} minSize={15}>
           <PaneTree
             node={node.right}
@@ -168,7 +168,10 @@ function PaneLeafView({
   return (
     // eslint-disable-next-line jsx-a11y/no-static-element-interactions -- pane focus on pointer down is intentional; terminal handles its own a11y
     <div
-      className={cn('group/pane relative flex h-full w-full flex-col', isDragging && 'opacity-30')}
+      className={cn(
+        'group/pane border-border bg-card relative flex h-full w-full flex-col overflow-hidden rounded-lg border',
+        isDragging && 'opacity-30'
+      )}
       {...dropHandlers}
       onMouseDown={() => setFocused(leaf.paneId)}
     >

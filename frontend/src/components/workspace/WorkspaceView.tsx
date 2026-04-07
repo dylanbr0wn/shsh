@@ -387,7 +387,7 @@ export function WorkspaceView() {
                 : { visibility: 'hidden', pointerEvents: 'none' }
             }
           >
-            <div className="relative h-full min-h-0 min-w-0 flex-1">
+            <div className="relative h-full min-h-0 min-w-0 flex-1 px-1.5 pb-1.5">
               <PaneTree
                 node={workspace.layout}
                 workspace={workspace}
