@@ -71,9 +71,13 @@ export function SessionList() {
       </ScrollArea>
 
       <div className="border-sidebar-border border-t p-2">
-        <DropdownMenu onOpenChange={(open) => { if (open) loadTemplates() }}>
+        <DropdownMenu
+          onOpenChange={(open) => {
+            if (open) loadTemplates()
+          }}
+        >
           <DropdownMenuTrigger asChild>
-            <button className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border p-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted/40">
+            <button className="border-border text-muted-foreground hover:bg-muted/40 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed p-1.5 text-xs transition-colors">
               <Plus className="size-3" />
               New Session
             </button>
@@ -106,7 +110,9 @@ export function SessionList() {
       {saveTemplateWorkspace && (
         <SaveTemplateDialog
           open={!!saveTemplateWorkspaceId}
-          onOpenChange={(open) => { if (!open) setSaveTemplateWorkspaceId(null) }}
+          onOpenChange={(open) => {
+            if (!open) setSaveTemplateWorkspaceId(null)
+          }}
           workspace={saveTemplateWorkspace}
           onSaved={handleTemplateSaved}
         />

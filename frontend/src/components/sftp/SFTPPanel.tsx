@@ -299,7 +299,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       {/* Toolbar */}
       <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
         <PathBreadcrumb path={currentPath} onNavigate={listDir} maxVisible={3} />
-        <div className='grow' />
+        <div className="grow" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
