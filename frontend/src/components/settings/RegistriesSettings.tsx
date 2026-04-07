@@ -226,7 +226,6 @@ export function RegistriesSettings() {
                           setSubBundle('')
                         }
                       }}
-                      autoFocus
                     />
                     <Button size="sm" variant="outline" onClick={() => handleSubscribe(reg.name)}>
                       Pull
@@ -299,8 +298,8 @@ export function RegistriesSettings() {
           <AlertDialogHeader>
             <AlertDialogTitle>Remove Registry</AlertDialogTitle>
             <AlertDialogDescription>
-              This will remove the registry connection and delete all synced hosts from "
-              {deleteTarget}". This cannot be undone.
+              This will remove the registry connection and delete all synced hosts from &quot;
+              {deleteTarget}&quot;. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

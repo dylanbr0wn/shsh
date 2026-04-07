@@ -194,7 +194,6 @@ export default function App() {
                     style={{ height: debugHeight }}
                   >
                     {/* Drag handle — horizontal, matches ResizableHandle style */}
-                    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                     <div
                       aria-hidden
                       onMouseDown={onDragStart}

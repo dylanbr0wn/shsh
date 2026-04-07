@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type KeyboardEvent } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useAtomValue } from 'jotai'
 import { publishBundleAtom, hostsAtom, groupsAtom } from '../../store/atoms'
@@ -96,6 +96,13 @@ export function PublishBundleModal() {
       if (prev.size === hosts.length) return new Set()
       return new Set(hosts.map((h) => h.id))
     })
+  }
+
+  function onToggleKeyDown(e: KeyboardEvent<HTMLDivElement>, action: () => void) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      action()
+    }
   }
 
   function groupCheckState(groupId: string | null): boolean | 'indeterminate' {
@@ -225,7 +232,10 @@ export function PublishBundleModal() {
                           <div key={group.id}>
                             <div
                               className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-3 py-1.5"
+                              role="button"
+                              tabIndex={0}
                               onClick={() => toggleGroup(group.id)}
+                              onKeyDown={(e) => onToggleKeyDown(e, () => toggleGroup(group.id))}
                             >
                               <Checkbox
                                 checked={groupCheckState(group.id)}
@@ -242,7 +252,10 @@ export function PublishBundleModal() {
                               <div
                                 key={host.id}
                                 className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 py-1.5 pr-3 pl-8"
+                                role="button"
+                                tabIndex={0}
                                 onClick={() => toggleHost(host.id)}
+                                onKeyDown={(e) => onToggleKeyDown(e, () => toggleHost(host.id))}
                               >
                                 <Checkbox
                                   checked={selectedHostIds.has(host.id)}
@@ -265,7 +278,10 @@ export function PublishBundleModal() {
                           {localGroups.length > 0 && (
                             <div
                               className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-3 py-1.5"
+                              role="button"
+                              tabIndex={0}
                               onClick={() => toggleGroup(null)}
+                              onKeyDown={(e) => onToggleKeyDown(e, () => toggleGroup(null))}
                             >
                               <Checkbox
                                 checked={groupCheckState(null)}
@@ -283,7 +299,10 @@ export function PublishBundleModal() {
                             <div
                               key={host.id}
                               className={`hover:bg-muted/50 flex cursor-pointer items-center gap-2 py-1.5 pr-3 ${localGroups.length > 0 ? 'pl-8' : 'pl-3'}`}
+                              role="button"
+                              tabIndex={0}
                               onClick={() => toggleHost(host.id)}
+                              onKeyDown={(e) => onToggleKeyDown(e, () => toggleHost(host.id))}
                             >
                               <Checkbox
                                 checked={selectedHostIds.has(host.id)}
