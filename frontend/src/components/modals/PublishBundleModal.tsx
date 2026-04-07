@@ -3,8 +3,7 @@ import { toast } from 'sonner'
 import { useAtom, useAtomValue } from 'jotai'
 import { publishBundleAtom, hostsAtom, groupsAtom } from '../../store/atoms'
 import type { Host, RegistryStatus } from '../../types'
-import { PushBundle } from '@wailsjs/go/main/RegistryFacade'
-import { GetRegistries } from '@wailsjs/go/main/RegistryFacade'
+import { PushBundle, GetRegistries } from '@wailsjs/go/main/RegistryFacade'
 import {
   Dialog,
   DialogBody,
@@ -81,8 +80,8 @@ export function PublishBundleModal() {
 
   function toggleGroup(groupId: string | null) {
     const groupHosts = hostsByGroup.get(groupId) ?? []
-    const allSelected = groupHosts.every((h) => selectedHostIds.has(h.id))
     setSelectedHostIds((prev) => {
+      const allSelected = groupHosts.every((h) => prev.has(h.id))
       const next = new Set(prev)
       for (const h of groupHosts) {
         if (allSelected) next.delete(h.id)
@@ -93,11 +92,10 @@ export function PublishBundleModal() {
   }
 
   function toggleAll() {
-    if (selectedHostIds.size === hosts.length) {
-      setSelectedHostIds(new Set())
-    } else {
-      setSelectedHostIds(new Set(hosts.map((h) => h.id)))
-    }
+    setSelectedHostIds((prev) => {
+      if (prev.size === hosts.length) return new Set()
+      return new Set(hosts.map((h) => h.id))
+    })
   }
 
   function groupCheckState(groupId: string | null): boolean | 'indeterminate' {
@@ -258,21 +256,14 @@ export function PublishBundleModal() {
                       {hostsByGroup.get(null) && hostsByGroup.get(null)!.length > 0 && (
                         <div>
                           {localGroups.length > 0 && (
-                            <div className="flex items-center gap-2 px-3 py-1.5">
+                            <div
+                              className="hover:bg-muted/50 flex cursor-pointer items-center gap-2 px-3 py-1.5"
+                              onClick={() => toggleGroup(null)}
+                            >
                               <Checkbox
                                 checked={groupCheckState(null)}
-                                onCheckedChange={() => {
-                                  const ungrouped = hostsByGroup.get(null) ?? []
-                                  const allSel = ungrouped.every((h) => selectedHostIds.has(h.id))
-                                  setSelectedHostIds((prev) => {
-                                    const next = new Set(prev)
-                                    for (const h of ungrouped) {
-                                      if (allSel) next.delete(h.id)
-                                      else next.add(h.id)
-                                    }
-                                    return next
-                                  })
-                                }}
+                                onCheckedChange={() => toggleGroup(null)}
+                                onClick={(e) => e.stopPropagation()}
                                 aria-label="Select all ungrouped"
                               />
                               <span className="text-xs font-semibold">Ungrouped</span>
