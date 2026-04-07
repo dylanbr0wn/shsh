@@ -4,7 +4,13 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import { groupExpandedAtom, groupsAtom, hostsAtom, UNGROUPED_GROUP_ID } from '../../store/atoms'
+import {
+  groupExpandedAtom,
+  groupsAtom,
+  hostsAtom,
+  UNGROUPED_GROUP_ID,
+  publishBundleAtom,
+} from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
@@ -70,6 +76,7 @@ export function HostGroupSection({
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
 
   const isExpanded = expanded[group.id] !== false // default open
 
@@ -103,7 +110,7 @@ export function HostGroupSection({
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <Item asChild size="xs" className="p-1">
-                <div role="button" className='hover:bg-muted'>
+                <div role="button" className="hover:bg-muted">
                   <ItemMedia>
                     <ChevronRight
                       className={cn(
@@ -140,6 +147,19 @@ export function HostGroupSection({
                           >
                             Edit group…
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPublishBundle({
+                                open: true,
+                                preSelectedHostIds: hosts
+                                  .filter((h) => h.origin === 'local')
+                                  .map((h) => h.id),
+                              })
+                            }}
+                          >
+                            Publish to Registry…
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
@@ -161,6 +181,16 @@ export function HostGroupSection({
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => setEditGroupOpen(true)}>Edit group…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                setPublishBundle({
+                  open: true,
+                  preSelectedHostIds: hosts.filter((h) => h.origin === 'local').map((h) => h.id),
+                })
+              }
+            >
+              Publish to Registry…
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
               Delete
@@ -170,7 +200,7 @@ export function HostGroupSection({
 
         {/* Hosts */}
         <CollapsibleContent>
-          <ItemGroup className="p-1 gap-1!">
+          <ItemGroup className="gap-1! p-1">
             {hosts.map((host, index) => (
               <div
                 key={host.id}
