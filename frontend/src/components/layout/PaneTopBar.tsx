@@ -26,7 +26,7 @@ export function PaneTopBar() {
 
   return (
     <div
-      className="bg-background relative flex h-9 shrink-0 items-center justify-center px-2"
+      className="bg-background relative flex h-9 shrink-0 items-center px-2"
       style={{ '--wails-draggable': 'drag' } as CSSProperties}
       onDoubleClick={WindowToggleMaximise}
     >
