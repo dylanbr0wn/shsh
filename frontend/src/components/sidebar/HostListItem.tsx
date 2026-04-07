@@ -264,9 +264,6 @@ export function HostListItem({
           <ItemContent>
             <ItemTitle style={{ color: host.color }}>
               <span>{host.label}</span>
-              <span className="bg-pane-kind-terminal-bg text-pane-kind-terminal-text shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase">
-                SSH
-              </span>
             </ItemTitle>
             <ItemDescription>
               {host.username + '@' + host.hostname + ':' + host.port}
