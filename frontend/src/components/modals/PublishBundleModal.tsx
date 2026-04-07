@@ -166,6 +166,7 @@ export function PublishBundleModal() {
                   placeholder="e.g. infra"
                   value={namespace}
                   onChange={(e) => setNamespace(e.target.value)}
+                  autoComplete="off"
                 />
               </Field>
               <Field>
@@ -174,11 +175,17 @@ export function PublishBundleModal() {
                   placeholder="e.g. prod-servers"
                   value={bundleName}
                   onChange={(e) => setBundleName(e.target.value)}
+                  autoComplete="off"
                 />
               </Field>
               <Field>
                 <FieldLabel>Tag</FieldLabel>
-                <Input placeholder="e.g. v1" value={tag} onChange={(e) => setTag(e.target.value)} />
+                <Input
+                  placeholder="e.g. v1"
+                  value={tag}
+                  onChange={(e) => setTag(e.target.value)}
+                  autoComplete="off"
+                />
               </Field>
             </div>
           </FieldGroup>
