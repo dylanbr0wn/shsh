@@ -37,6 +37,7 @@ export interface Group {
   sortOrder: number
   createdAt: string
   terminalProfileId?: string
+  origin?: string
 }
 
 export interface CreateGroupInput {
@@ -73,6 +74,7 @@ export interface Host {
   reconnectMaxDelaySeconds?: number
   keepAliveIntervalSeconds?: number
   keepAliveMaxMissed?: number
+  origin?: string
 }
 
 export interface CreateHostInput {

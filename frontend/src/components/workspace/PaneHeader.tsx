@@ -157,9 +157,7 @@ export function PaneHeader({
                 {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
               </span>
             </ItemTitle>
-            {hostConnection && (
-              <ItemDescription>{hostConnection}</ItemDescription>
-            )}
+            {hostConnection && <ItemDescription>{hostConnection}</ItemDescription>}
           </ItemContent>
         </Item>
       </div>

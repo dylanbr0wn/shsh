@@ -1,5 +1,5 @@
 import { groupExpandedAtom, UNGROUPED_GROUP_ID } from '@/store/atoms'
-import { Group, Host } from '@/types'
+import type { Group, Host } from '@/types'
 import { useAtom } from 'jotai'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '../ui/item'

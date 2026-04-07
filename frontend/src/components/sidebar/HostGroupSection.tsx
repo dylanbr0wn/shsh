@@ -4,10 +4,9 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import { groupExpandedAtom, groupsAtom, hostsAtom, UNGROUPED_GROUP_ID } from '../../store/atoms'
+import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -103,7 +102,7 @@ export function HostGroupSection({
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <Item asChild size="xs" className="p-1">
-                <div role="button" className='hover:bg-muted'>
+                <div role="button" className="hover:bg-muted">
                   <ItemMedia>
                     <ChevronRight
                       className={cn(
@@ -170,7 +169,7 @@ export function HostGroupSection({
 
         {/* Hosts */}
         <CollapsibleContent>
-          <ItemGroup className="p-1 gap-1!">
+          <ItemGroup className="gap-1! p-1">
             {hosts.map((host, index) => (
               <div
                 key={host.id}

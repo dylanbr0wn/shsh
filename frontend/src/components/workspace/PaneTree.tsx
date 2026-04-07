@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useCallback, useState } from 'react'
 import { useAtom, useAtomValue } from 'jotai'
 import { workspacesAtom } from '../../store/workspaces'
 import type { PaneNode, PaneLeaf, Workspace } from '../../store/workspaces'
-import { collectLeaves } from '../../lib/paneTree'
 import { useDropZone } from '../../hooks/useDropZone'
 import type { DropEdge, DropMime } from '../../hooks/useDropZone'
 import { DropZoneOverlay } from './DropZoneOverlay'
@@ -142,7 +141,6 @@ function PaneLeafView({
   const isFocused = leaf.paneId === workspace.focusedPaneId
   const isActive = isWorkspaceActive && isFocused
   const host = hosts.find((h) => h.id === leaf.hostId)
-  const totalLeaves = collectLeaves(workspace.layout).length
 
   function setFocused(paneId: string) {
     if (paneId === workspace.focusedPaneId) return

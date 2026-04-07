@@ -1,6 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react'
-import { Folder, File, RefreshCw, Upload, FolderPlus, HelpCircle } from 'lucide-react'
-import { DOCS_BASE_URL } from '../../lib/constants'
+import { Folder, File, RefreshCw, Upload, FolderPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { fsPanelStateAtom } from '../../store/atoms'
 import { useChannelPanelState } from '../../store/useChannelPanelState'
@@ -299,7 +298,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
       {/* Toolbar */}
       <div className="border-border flex shrink-0 items-center gap-1 border-b px-1.5 py-1">
         <PathBreadcrumb path={currentPath} onNavigate={listDir} maxVisible={3} />
-        <div className='grow' />
+        <div className="grow" />
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
