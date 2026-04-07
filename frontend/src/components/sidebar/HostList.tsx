@@ -323,6 +323,8 @@ export function HostList() {
   async function handleMoveToGroup(hostId: string, groupId: string | null) {
     const host = hosts.find((h) => h.id === hostId)
     if (!host) return
+    const currentGroupId = host.groupId ?? null
+    if (currentGroupId === groupId) return
     try {
       const updated = await UpdateHost({
         id: host.id,
@@ -334,6 +336,10 @@ export function HostList() {
         groupId: groupId ?? undefined,
       })
       setHosts((prev) => prev.map((h) => (h.id === hostId ? (updated as unknown as Host) : h)))
+      const destination = groupId
+        ? (groups.find((g) => g.id === groupId)?.name ?? 'group')
+        : 'Ungrouped'
+      toast.success('Host moved', { description: `${host.label} moved to ${destination}.` })
     } catch (err) {
       toast.error('Failed to move host', { description: String(err) })
     }
@@ -451,8 +457,8 @@ export function HostList() {
             </Tooltip>
           </ButtonGroup>
         </ButtonGroup>
-        <ScrollArea className="min-h-0 flex-1 select-none">
-          <ItemGroup>
+        <ScrollArea className="min-h-0 flex-1 select-none rounded-md">
+          <ItemGroup className='p-px'>
             {isSearching ? (
               // Flat filtered list with optional group badge
               filteredHosts.length === 0 ? (

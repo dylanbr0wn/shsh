@@ -1,6 +1,7 @@
 import { groupExpandedAtom, UNGROUPED_GROUP_ID } from '@/store/atoms'
 import type { Group, Host } from '@/types'
 import { useAtom } from 'jotai'
+import { useState } from 'react'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible'
 import { Item, ItemContent, ItemGroup, ItemMedia, ItemTitle } from '../ui/item'
 import { ChevronRight } from 'lucide-react'
@@ -35,12 +36,49 @@ export function UngroupedHostSection({
 }: Omit<Props, 'group'>) {
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const isExpanded = expanded[UNGROUPED_GROUP_ID] !== false // default open
+  const [isDragOver, setIsDragOver] = useState(false)
+
+  function handleHostDragOver(e: React.DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-host')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setIsDragOver(true)
+  }
+
+  function handleHostDragLeave(e: React.DragEvent<HTMLElement>) {
+    const nextTarget = e.relatedTarget as Node | null
+    if (!nextTarget || !e.currentTarget.contains(nextTarget)) {
+      setIsDragOver(false)
+    }
+  }
+
+  function handleHostDrop(e: React.DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-host')) return
+    e.preventDefault()
+    setIsDragOver(false)
+    const raw = e.dataTransfer.getData('application/x-shsh-host')
+    if (!raw) return
+    try {
+      const { hostId } = JSON.parse(raw) as { hostId: string }
+      if (!hostId) return
+      onMoveToGroup(hostId, null)
+    } catch {
+      // ignore malformed drag payloads
+    }
+  }
   return (
     <>
       <Collapsible
         open={isExpanded}
         onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [UNGROUPED_GROUP_ID]: open }))}
-        className="flex flex-col rounded-lg"
+        className={cn(
+          'flex flex-col rounded-lg transition-colors',
+          isDragOver && 'ring-primary/40 bg-primary/10 ring-1'
+        )}
+        onDragOver={handleHostDragOver}
+        onDragEnter={handleHostDragOver}
+        onDragLeave={handleHostDragLeave}
+        onDrop={handleHostDrop}
       >
         {/* Group header */}
 

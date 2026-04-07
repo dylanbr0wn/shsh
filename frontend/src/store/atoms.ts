@@ -97,3 +97,8 @@ export interface ResolvedKeybinding {
   modified: boolean
 }
 export const keybindingsAtom = atom<ResolvedKeybinding[]>([])
+
+export const publishBundleAtom = atom<{ open: boolean; preSelectedHostIds: string[] }>({
+  open: false,
+  preSelectedHostIds: [],
+})

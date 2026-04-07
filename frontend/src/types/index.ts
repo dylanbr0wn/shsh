@@ -37,7 +37,7 @@ export interface Group {
   sortOrder: number
   createdAt: string
   terminalProfileId?: string
-  origin?: string
+  origin: string // "local" or "registry:<registry>/<ns>/<bundle>"
 }
 
 export interface CreateGroupInput {
@@ -74,7 +74,7 @@ export interface Host {
   reconnectMaxDelaySeconds?: number
   keepAliveIntervalSeconds?: number
   keepAliveMaxMissed?: number
-  origin?: string
+  origin: string // "local" or "registry:<registry>/<ns>/<bundle>"
 }
 
 export interface CreateHostInput {
@@ -216,4 +216,36 @@ export interface ImportPreview {
   candidates: ImportCandidate[]
   detectedFormat: string
   skippedCount: number
+}
+
+// --- Registry ---
+
+export interface RegistryStatus {
+  name: string
+  url: string
+  bundles: string[]
+}
+
+export interface AddRegistryInput {
+  name: string
+  url: string
+  apiKey: string
+}
+
+export interface SubscribeBundleInput {
+  registryName: string
+  bundle: string
+}
+
+export interface PushBundleInput {
+  registryName: string
+  namespace: string
+  name: string
+  tag: string
+  hostIds: string[]
+}
+
+export interface BundleInfo {
+  name: string
+  createdAt: string
 }

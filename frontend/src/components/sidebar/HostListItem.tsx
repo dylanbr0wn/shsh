@@ -2,8 +2,8 @@ import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
-import { useAtomValue } from 'jotai'
-import { groupsAtom, hostHealthAtom } from '../../store/atoms'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { groupsAtom, hostHealthAtom, publishBundleAtom } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Tag } from '../ui/tag'
@@ -72,6 +72,7 @@ export function HostListItem({
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
   const { latency, color } = latencyValue(health[host.id])
   const previewRef = useRef<HTMLDivElement>(null)
   return (
@@ -80,8 +81,12 @@ export function HostListItem({
         <Item asChild size="xs" className="hover:bg-muted relative h-14.5">
           <div
             role="button"
-            draggable
+            draggable={!readOnly}
             onDragStart={(e) => {
+              if (readOnly) {
+                e.preventDefault()
+                return
+              }
               e.dataTransfer.effectAllowed = 'copy'
               e.dataTransfer.setData('application/x-shsh-host', JSON.stringify({ hostId: host.id }))
               if (previewRef.current) {
@@ -191,6 +196,13 @@ export function HostListItem({
                         <DropdownMenuItem onClick={onDeployKey}>
                           Deploy Public Key…
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setPublishBundle({ open: true, preSelectedHostIds: [host.id] })
+                          }
+                        >
+                          Publish to Registry…
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={onDelete}>
                           Delete
@@ -242,22 +254,12 @@ export function HostListItem({
         className="pointer-events-none fixed"
         style={{ left: '-9999px', top: '-9999px' }}
       >
-        <Item size="xs" variant="outline" className="bg-popover w-fit shadow-md">
-          <ItemMedia>
-            <span
-              className="h-8 w-1 rounded-full"
-              style={{ backgroundColor: host.color || 'var(--muted-foreground)' }}
-            />
-          </ItemMedia>
-          <ItemContent>
-            <ItemTitle style={{ color: host.color }}>
-              <span>{host.label}</span>
-            </ItemTitle>
-            <ItemDescription>
-              {host.username}@{host.hostname}:{host.port}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
+        <div className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md">
+          {host.color && (
+            <span className="size-2 rounded-full" style={{ backgroundColor: host.color }} />
+          )}
+          {host.label}
+        </div>
       </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
@@ -288,6 +290,11 @@ export function HostListItem({
           <>
             <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
             <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => setPublishBundle({ open: true, preSelectedHostIds: [host.id] })}
+            >
+              Publish to Registry…
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={onDelete}>
               Delete

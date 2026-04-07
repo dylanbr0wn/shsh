@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import { groupExpandedAtom, groupsAtom, hostsAtom } from '../../store/atoms'
+import { groupExpandedAtom, groupsAtom, hostsAtom, publishBundleAtom } from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
 import {
@@ -69,11 +69,48 @@ export function HostGroupSection({
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
 
   const isExpanded = expanded[group.id] !== false // default open
 
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [editGroupOpen, setEditGroupOpen] = useState(false)
+  const [isDragOver, setIsDragOver] = useState(false)
+  const groupOrigin = (group as { origin?: string }).origin
+  const isRegistryGroup = !!groupOrigin && groupOrigin !== 'local'
+
+  function handleHostDragOver(e: React.DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-host')) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = isRegistryGroup ? 'none' : 'move'
+    setIsDragOver(true)
+  }
+
+  function handleHostDragLeave(e: React.DragEvent<HTMLElement>) {
+    const nextTarget = e.relatedTarget as Node | null
+    if (!nextTarget || !e.currentTarget.contains(nextTarget)) {
+      setIsDragOver(false)
+    }
+  }
+
+  function handleHostDrop(e: React.DragEvent<HTMLElement>) {
+    if (!e.dataTransfer.types.includes('application/x-shsh-host')) return
+    e.preventDefault()
+    setIsDragOver(false)
+    const raw = e.dataTransfer.getData('application/x-shsh-host')
+    if (!raw) return
+    if (isRegistryGroup) {
+      toast.error('Cannot move host here', { description: 'Registry groups are read-only.' })
+      return
+    }
+    try {
+      const { hostId } = JSON.parse(raw) as { hostId: string }
+      if (!hostId) return
+      onMoveToGroup(hostId, group.id)
+    } catch {
+      toast.error('Invalid drag payload')
+    }
+  }
 
   async function handleDelete() {
     try {
@@ -94,7 +131,15 @@ export function HostGroupSection({
       <Collapsible
         open={isExpanded}
         onOpenChange={(open) => setExpanded((prev) => ({ ...prev, [group.id]: open }))}
-        className="bg-muted/50 flex flex-col rounded-lg"
+        className={cn(
+          'bg-muted/50 flex flex-col rounded-lg transition-colors',
+          isDragOver && !isRegistryGroup && 'ring-primary/40 bg-primary/10 ring-1',
+          isDragOver && isRegistryGroup && 'ring-destructive/40 ring-1'
+        )}
+        onDragOver={handleHostDragOver}
+        onDragEnter={handleHostDragOver}
+        onDragLeave={handleHostDragLeave}
+        onDrop={handleHostDrop}
       >
         {/* Group header */}
 
@@ -114,6 +159,17 @@ export function HostGroupSection({
                   <ItemContent>
                     <ItemTitle>
                       <span>{group.name}</span>
+                      {group.origin !== 'local' && (
+                        <span
+                          className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
+                          style={{
+                            backgroundColor: 'hsl(270 60% 35% / 0.15)',
+                            color: 'hsl(270 60% 65%)',
+                          }}
+                        >
+                          Registry
+                        </span>
+                      )}
                       <span className="text-muted-foreground/50 text-xs">{hosts.length} hosts</span>
                     </ItemTitle>
                   </ItemContent>
@@ -139,6 +195,19 @@ export function HostGroupSection({
                           >
                             Edit group…
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPublishBundle({
+                                open: true,
+                                preSelectedHostIds: hosts
+                                  .filter((h) => h.origin === 'local')
+                                  .map((h) => h.id),
+                              })
+                            }}
+                          >
+                            Publish to Registry…
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
@@ -160,6 +229,16 @@ export function HostGroupSection({
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => setEditGroupOpen(true)}>Edit group…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                setPublishBundle({
+                  open: true,
+                  preSelectedHostIds: hosts.filter((h) => h.origin === 'local').map((h) => h.id),
+                })
+              }
+            >
+              Publish to Registry…
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
               Delete
@@ -189,6 +268,7 @@ export function HostGroupSection({
                     host={host}
                     isConnected={connectedHostIds.has(host.id)}
                     isConnecting={connectingHostIds.has(host.id)}
+                    readOnly={host.origin !== 'local'}
                     onConnect={() => onConnect(host.id, host.label)}
                     onDelete={() => onDelete(host.id)}
                     onEdit={() => onEdit(host)}
