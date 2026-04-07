@@ -4,16 +4,9 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import {
-  groupExpandedAtom,
-  groupsAtom,
-  hostsAtom,
-  UNGROUPED_GROUP_ID,
-  publishBundleAtom,
-} from '../../store/atoms'
+import { groupExpandedAtom, groupsAtom, hostsAtom, publishBundleAtom } from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
