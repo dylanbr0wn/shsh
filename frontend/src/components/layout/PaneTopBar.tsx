@@ -13,7 +13,6 @@ import { vaultEnabledAtom } from '../../atoms/vault'
 import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
-import { ButtonGroup } from '../ui/button-group'
 import { ShortcutKbd } from '../ui/kbd'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 
@@ -27,7 +26,7 @@ export function PaneTopBar() {
 
   return (
     <div
-      className="border-border bg-background relative flex h-9 shrink-0 items-center justify-center border-b px-2"
+      className="bg-background relative flex h-9 shrink-0 items-center justify-center px-2"
       style={{ '--wails-draggable': 'drag' } as CSSProperties}
       onDoubleClick={WindowToggleMaximise}
     >
@@ -54,41 +53,41 @@ export function PaneTopBar() {
         )}
       </div>
 
-      {/* Center: search pill + quick connect */}
-      <div style={{ '--wails-draggable': 'no-drag' } as CSSProperties}>
-        <ButtonGroup>
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-muted-foreground w-60 gap-2 px-3"
-            onClick={() => setIsCommandPaletteOpen(true)}
-          >
-            <Search className="size-3.5" />
-            <span className="text-xs">Search</span>
-            <ShortcutKbd shortcut="CmdOrCtrl+k" />
-          </Button>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon-sm"
-                className="text-muted-foreground"
-                onClick={() => setIsQuickConnectOpen(true)}
-                aria-label="Quick connect"
-              >
-                <Zap className="size-3.5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom">Quick Connect</TooltipContent>
-          </Tooltip>
-        </ButtonGroup>
-      </div>
-
-      {/* Right: lock + settings + window controls */}
+      {/* Right: search + quick connect + lock + settings + window controls */}
       <div
         className="absolute right-0 flex items-center"
         style={{ '--wails-draggable': 'no-drag' } as CSSProperties}
       >
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setIsCommandPaletteOpen(true)}
+              aria-label="Search"
+            >
+              <Search className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            Search <ShortcutKbd shortcut="CmdOrCtrl+k" />
+          </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground h-9 w-9 rounded-none"
+              onClick={() => setIsQuickConnectOpen(true)}
+              aria-label="Quick connect"
+            >
+              <Zap className="size-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">Quick Connect</TooltipContent>
+        </Tooltip>
         {vaultEnabled && (
           <Tooltip>
             <TooltipTrigger asChild>
