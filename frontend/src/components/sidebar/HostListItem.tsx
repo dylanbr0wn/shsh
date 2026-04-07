@@ -254,12 +254,22 @@ export function HostListItem({
         className="pointer-events-none fixed"
         style={{ left: '-9999px', top: '-9999px' }}
       >
-        <div className="bg-popover text-popover-foreground flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium shadow-md">
-          {host.color && (
-            <span className="size-2 rounded-full" style={{ backgroundColor: host.color }} />
-          )}
-          {host.label}
-        </div>
+        <Item size="xs" variant="outline" className="bg-popover w-fit shadow-md">
+          <ItemMedia>
+            <span
+              className="h-8 w-1 rounded-full"
+              style={{ backgroundColor: host.color || 'var(--muted-foreground)' }}
+            />
+          </ItemMedia>
+          <ItemContent>
+            <ItemTitle style={{ color: host.color }}>
+              <span>{host.label}</span>
+            </ItemTitle>
+            <ItemDescription>
+              {host.username + '@' + host.hostname + ':' + host.port}
+            </ItemDescription>
+          </ItemContent>
+        </Item>
       </div>
       <ContextMenuContent>
         <ContextMenuItem onClick={onConnect} disabled={isConnecting}>
