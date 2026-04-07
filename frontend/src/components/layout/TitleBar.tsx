@@ -1,19 +1,9 @@
 import { useEffect, useState } from 'react'
-import {
-  Minus,
-  Square,
-  X,
-  Settings,
-  PanelLeftOpen,
-  Lock,
-} from 'lucide-react'
+import { Minus, Square, X, Settings, PanelLeftOpen, Lock } from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { Environment, WindowMinimise, WindowToggleMaximise, Quit } from '@wailsjs/runtime/runtime'
 import { cn } from '../../lib/utils'
-import {
-  isSettingsOpenAtom,
-  sidebarCollapsedAtom,
-} from '../../store/atoms'
+import { isSettingsOpenAtom, sidebarCollapsedAtom } from '../../store/atoms'
 import { vaultEnabledAtom } from '../../atoms/vault'
 import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { Button } from '../ui/button'
