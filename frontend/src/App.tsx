@@ -9,6 +9,7 @@ import { useKeybindings } from './hooks/useKeybindings'
 import { Sidebar } from './components/layout/Sidebar'
 import { MainArea } from './components/layout/MainArea'
 import { TitleBar } from './components/layout/TitleBar'
+import { AddGroupModal } from './components/modals/AddGroupModal'
 import { AddHostModal } from './components/modals/AddHostModal'
 import { EditHostModal } from './components/modals/EditHostModal'
 import { SettingsModal } from './components/modals/SettingsModal'
@@ -239,6 +240,7 @@ export default function App() {
           >
             <AddHostModal />
           </ErrorBoundary>
+          <AddGroupModal />
           <ErrorBoundary
             fallback="inline"
             zone="modal-edit-host"
