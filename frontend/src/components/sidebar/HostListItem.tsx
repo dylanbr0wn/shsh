@@ -2,8 +2,8 @@ import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
-import { useAtomValue } from 'jotai'
-import { groupsAtom, hostHealthAtom } from '../../store/atoms'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { groupsAtom, hostHealthAtom, publishBundleAtom } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Tag } from '../ui/tag'
@@ -43,6 +43,7 @@ interface Props {
   onDeployKey: () => void
   onMoveToGroup?: (hostId: string, groupId: string | null) => void
   onOpenFiles?: () => void
+  readOnly?: boolean
 }
 
 function latencyValue(latencyMs: number | undefined): { latency: string; color: string } {
@@ -67,16 +68,17 @@ export function HostListItem({
   onDeployKey,
   onMoveToGroup,
   onOpenFiles,
+  readOnly,
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
   const { latency, color } = latencyValue(health[host.id])
   const previewRef = useRef<HTMLDivElement>(null)
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item asChild size="xs"
-        className="hover:bg-muted relative h-14.5">
+        <Item asChild size="xs" className="hover:bg-muted relative h-14.5">
           <div
             role="button"
             draggable
@@ -159,7 +161,7 @@ export function HostListItem({
                     {onOpenFiles && (
                       <DropdownMenuItem onClick={onOpenFiles}>Open Files</DropdownMenuItem>
                     )}
-                    {onMoveToGroup && groups.length > 0 && (
+                    {!readOnly && onMoveToGroup && groups.length > 0 && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuSub>
@@ -184,16 +186,29 @@ export function HostListItem({
                         </DropdownMenuSub>
                       </>
                     )}
-                    <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
-                    <DropdownMenuItem onClick={onDeployKey}>Deploy Public Key…</DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem variant="destructive" onClick={onDelete}>
-                      Delete
-                    </DropdownMenuItem>
+                    {!readOnly && (
+                      <>
+                        <DropdownMenuItem onClick={onEdit}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={onDeployKey}>
+                          Deploy Public Key…
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setPublishBundle({ open: true, preSelectedHostIds: [host.id] })
+                          }
+                        >
+                          Publish to Registry…
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={onDelete}>
+                          Delete
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </ButtonGroup>
-               <ButtonGroup>
+              <ButtonGroup>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -248,7 +263,7 @@ export function HostListItem({
         </ContextMenuItem>
         {onOpenFiles && <ContextMenuItem onClick={onOpenFiles}>Open Files</ContextMenuItem>}
         <ContextMenuSeparator />
-        {onMoveToGroup && groups.length > 0 && (
+        {!readOnly && onMoveToGroup && groups.length > 0 && (
           <ContextMenuSub>
             <ContextMenuSubTrigger>Move to Group</ContextMenuSubTrigger>
             <ContextMenuSubContent>
@@ -267,12 +282,21 @@ export function HostListItem({
             </ContextMenuSubContent>
           </ContextMenuSub>
         )}
-        <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
-        <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem variant="destructive" onClick={onDelete}>
-          Delete
-        </ContextMenuItem>
+        {!readOnly && (
+          <>
+            <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
+            <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => setPublishBundle({ open: true, preSelectedHostIds: [host.id] })}
+            >
+              Publish to Registry…
+            </ContextMenuItem>
+            <ContextMenuSeparator />
+            <ContextMenuItem variant="destructive" onClick={onDelete}>
+              Delete
+            </ContextMenuItem>
+          </>
+        )}
       </ContextMenuContent>
     </ContextMenu>
   )

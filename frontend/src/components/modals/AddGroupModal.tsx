@@ -52,7 +52,6 @@ export function AddGroupModal() {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Group name"
-                autoFocus
               />
             </Field>
           </FieldGroup>

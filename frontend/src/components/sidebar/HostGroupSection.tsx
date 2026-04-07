@@ -4,10 +4,9 @@ import { toast } from 'sonner'
 import { ChevronRight, MoreHorizontal } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import type { Group, Host } from '../../types'
-import { groupExpandedAtom, groupsAtom, hostsAtom, UNGROUPED_GROUP_ID } from '../../store/atoms'
+import { groupExpandedAtom, groupsAtom, hostsAtom, publishBundleAtom } from '../../store/atoms'
 import { DeleteGroup } from '@wailsjs/go/main/HostFacade'
 import { Button } from '../ui/button'
-import { Badge } from '../ui/badge'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -70,6 +69,7 @@ export function HostGroupSection({
   const [expanded, setExpanded] = useAtom(groupExpandedAtom)
   const setGroups = useSetAtom(groupsAtom)
   const setHosts = useSetAtom(hostsAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
 
   const isExpanded = expanded[group.id] !== false // default open
 
@@ -103,7 +103,7 @@ export function HostGroupSection({
           <ContextMenuTrigger asChild>
             <CollapsibleTrigger asChild>
               <Item asChild size="xs" className="p-1">
-                <div role="button" className='hover:bg-muted'>
+                <div role="button" className="hover:bg-muted">
                   <ItemMedia>
                     <ChevronRight
                       className={cn(
@@ -115,6 +115,17 @@ export function HostGroupSection({
                   <ItemContent>
                     <ItemTitle>
                       <span>{group.name}</span>
+                      {group.origin !== 'local' && (
+                        <span
+                          className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
+                          style={{
+                            backgroundColor: 'hsl(270 60% 35% / 0.15)',
+                            color: 'hsl(270 60% 65%)',
+                          }}
+                        >
+                          Registry
+                        </span>
+                      )}
                       <span className="text-muted-foreground/50 text-xs">{hosts.length} hosts</span>
                     </ItemTitle>
                   </ItemContent>
@@ -140,6 +151,19 @@ export function HostGroupSection({
                           >
                             Edit group…
                           </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setPublishBundle({
+                                open: true,
+                                preSelectedHostIds: hosts
+                                  .filter((h) => h.origin === 'local')
+                                  .map((h) => h.id),
+                              })
+                            }}
+                          >
+                            Publish to Registry…
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
@@ -161,6 +185,16 @@ export function HostGroupSection({
           </ContextMenuTrigger>
           <ContextMenuContent>
             <ContextMenuItem onClick={() => setEditGroupOpen(true)}>Edit group…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() =>
+                setPublishBundle({
+                  open: true,
+                  preSelectedHostIds: hosts.filter((h) => h.origin === 'local').map((h) => h.id),
+                })
+              }
+            >
+              Publish to Registry…
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={() => setConfirmDelete(true)}>
               Delete
@@ -170,7 +204,7 @@ export function HostGroupSection({
 
         {/* Hosts */}
         <CollapsibleContent>
-          <ItemGroup className="p-1 gap-1!">
+          <ItemGroup className="gap-1! p-1">
             {hosts.map((host, index) => (
               <div
                 key={host.id}
@@ -190,6 +224,7 @@ export function HostGroupSection({
                     host={host}
                     isConnected={connectedHostIds.has(host.id)}
                     isConnecting={connectingHostIds.has(host.id)}
+                    readOnly={host.origin !== 'local'}
                     onConnect={() => onConnect(host.id, host.label)}
                     onDelete={() => onDelete(host.id)}
                     onEdit={() => onEdit(host)}

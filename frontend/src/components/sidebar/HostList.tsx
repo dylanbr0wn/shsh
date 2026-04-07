@@ -439,7 +439,6 @@ export function HostList() {
                 />
               ))}
 
-
               {/* Ungrouped hosts */}
               {ungrouped.length > 0 && (
                 <UngroupedHostSection
