@@ -1,4 +1,14 @@
-import { Zap, Search, PanelLeftOpen, Settings, Lock, Minus, Square, X } from 'lucide-react'
+import {
+  Zap,
+  Search,
+  PanelLeftOpen,
+  Settings,
+  Lock,
+  Minus,
+  Square,
+  X,
+  ChevronRight,
+} from 'lucide-react'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import type { CSSProperties } from 'react'
 import { WindowMinimise, WindowToggleMaximise, Quit } from '@wailsjs/runtime/runtime'
@@ -8,8 +18,12 @@ import {
   isSettingsOpenAtom,
   sidebarCollapsedAtom,
   isMacAtom,
+  workspacesAtom,
+  activeWorkspaceIdAtom,
+  hostsAtom,
 } from '../../store/atoms'
 import { vaultEnabledAtom } from '../../atoms/vault'
+import { collectLeaves } from '../../lib/paneTree'
 import { LockVault } from '@wailsjs/go/main/VaultFacade'
 import { cn } from '../../lib/utils'
 import { Button } from '../ui/button'
@@ -23,6 +37,15 @@ export function PaneTopBar() {
   const [sidebarCollapsed, setSidebarCollapsed] = useAtom(sidebarCollapsedAtom)
   const isMac = useAtomValue(isMacAtom)
   const vaultEnabled = useAtomValue(vaultEnabledAtom)
+  const workspaces = useAtomValue(workspacesAtom)
+  const activeWorkspaceId = useAtomValue(activeWorkspaceIdAtom)
+  const hosts = useAtomValue(hostsAtom)
+
+  const activeWorkspace = workspaces.find((w) => w.id === activeWorkspaceId)
+  const focusedLeaf = activeWorkspace?.focusedPaneId
+    ? collectLeaves(activeWorkspace.layout).find((l) => l.paneId === activeWorkspace.focusedPaneId)
+    : null
+  const focusedHost = focusedLeaf ? hosts.find((h) => h.id === focusedLeaf.hostId) : null
 
   return (
     <div
@@ -30,9 +53,9 @@ export function PaneTopBar() {
       style={{ '--wails-draggable': 'drag' } as CSSProperties}
       onDoubleClick={WindowToggleMaximise}
     >
-      {/* Left: sidebar expand (when collapsed) */}
+      {/* Left: sidebar expand (when collapsed) + workspace breadcrumb */}
       <div
-        className={cn('absolute flex items-center', isMac ? 'left-[5.5rem]' : 'left-1')}
+        className={cn('absolute flex items-center gap-1', isMac ? 'left-[5.5rem]' : 'left-1')}
         style={{ '--wails-draggable': 'no-drag' } as CSSProperties}
       >
         {sidebarCollapsed && (
@@ -50,6 +73,25 @@ export function PaneTopBar() {
             </TooltipTrigger>
             <TooltipContent side="bottom">Show sidebar</TooltipContent>
           </Tooltip>
+        )}
+        {activeWorkspace && focusedLeaf && (
+          <div className="pointer-events-none flex items-center gap-1">
+            <span className="text-muted-foreground max-w-32 truncate text-xs font-medium">
+              {activeWorkspace.name ?? activeWorkspace.label}
+            </span>
+            <ChevronRight className="text-muted-foreground/40 size-3 shrink-0" />
+            <span
+              className={cn(
+                'size-1.5 shrink-0 rounded-full',
+                !focusedHost?.color && 'bg-muted-foreground/40'
+              )}
+              style={focusedHost?.color ? { backgroundColor: focusedHost.color } : undefined}
+              aria-hidden
+            />
+            <span className="text-muted-foreground max-w-40 truncate text-xs">
+              {focusedLeaf.hostLabel}
+            </span>
+          </div>
         )}
       </div>
 
