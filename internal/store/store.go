@@ -632,6 +632,8 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 		if err := s.secrets.Put(input.ID, "password", input.Password, dbFallback); err != nil {
 			return Host{}, fmt.Errorf("store password: %w", err)
 		}
+		// Mark keychain migration complete and clear any stale DB password.
+		s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
 	} else if input.AuthMethod == AuthPassword && credSrc != "inline" {
 		// Switching to external PM — clear any inline keychain/vault entry.
 		_ = s.secrets.Delete(input.ID, "password")

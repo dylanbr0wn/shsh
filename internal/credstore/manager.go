@@ -1,10 +1,12 @@
 package credstore
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/dylanbr0wn/shsh/internal/store"
 	"github.com/dylanbr0wn/shsh/internal/vault"
+	"github.com/rs/zerolog/log"
 )
 
 // secretManager implements store.SecretManager, routing Put/Get/Delete to
@@ -72,7 +74,7 @@ func (m *secretManager) Put(hostID, kind, plaintext string, dbFallback func(stri
 
 	// Non-vault path: OS keychain with DB fallback.
 	if err := KeychainSet(keychainKey(hostID, kind), plaintext); err != nil {
-		if err == store.ErrKeychainUnavailable && dbFallback != nil {
+		if errors.Is(err, store.ErrKeychainUnavailable) && dbFallback != nil {
 			return dbFallback(plaintext)
 		}
 		return err
@@ -112,11 +114,16 @@ func (m *secretManager) Get(hostID, kind, dbValue string) (string, error) {
 }
 
 // Delete removes the secret from both keychain and encrypted secrets storage.
-// This handles vault-to-keychain transitions gracefully.
+// This handles vault-to-keychain transitions gracefully. Errors are logged
+// but not returned so that cleanup always completes both backends.
 func (m *secretManager) Delete(hostID, kind string) error {
 	defer m.touchLock()
 
-	_ = KeychainDelete(keychainKey(hostID, kind))
-	_ = m.secrets.DeleteEncryptedSecret(hostID, kind)
+	if err := KeychainDelete(keychainKey(hostID, kind)); err != nil {
+		log.Warn().Err(err).Str("hostID", hostID).Str("kind", kind).Msg("delete secret: keychain cleanup failed")
+	}
+	if err := m.secrets.DeleteEncryptedSecret(hostID, kind); err != nil {
+		log.Warn().Err(err).Str("hostID", hostID).Str("kind", kind).Msg("delete secret: encrypted secret cleanup failed")
+	}
 	return nil
 }
