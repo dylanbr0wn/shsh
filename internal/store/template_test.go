@@ -19,10 +19,17 @@ func (noopResolver) InlineSecret(_, fallback string) (string, error)        { re
 func (noopResolver) StoreSecret(_, _ string) error                          { return nil }
 func (noopResolver) DeleteSecret(_ string) error                            { return nil }
 
+// noopSecretManager is a no-op SecretManager for tests that don't exercise credential paths.
+type noopSecretManager struct{}
+
+func (noopSecretManager) Put(_, _, _ string, _ func(string) error) error { return nil }
+func (noopSecretManager) Get(_, _, dbValue string) (string, error)       { return dbValue, nil }
+func (noopSecretManager) Delete(_, _ string) error                       { return nil }
+
 func setupTestStore(t *testing.T) *Store {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
-	s, err := New(dbPath, noopResolver{})
+	s, err := New(dbPath, noopResolver{}, noopSecretManager{})
 	require.NoError(t, err)
 	return s
 }

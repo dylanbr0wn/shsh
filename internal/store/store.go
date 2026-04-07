@@ -176,18 +176,26 @@ type CreateTemplateInput struct {
 // Store manages persistent host data in SQLite.
 type Store struct {
 	db          *sql.DB
-	credentials CredentialResolver
-	vaultKey    func() ([]byte, error) // nil means vault disabled
+	credentials CredentialResolver // kept for external PM Resolve + vault_facade migration
+	secrets     SecretManager
 }
 
-// SetVaultKeyFunc sets the function used to retrieve the vault key.
-// Pass nil to disable vault-aware storage (fall back to keychain).
+// SetVaultKeyFunc delegates to the underlying SecretManager if it supports
+// VaultKeyConfigurable. This keeps the same API surface for vault_facade.go.
 func (s *Store) SetVaultKeyFunc(fn func() ([]byte, error)) {
-	s.vaultKey = fn
+	if vc, ok := s.secrets.(VaultKeyConfigurable); ok {
+		vc.SetVaultKeyFunc(fn)
+	}
+}
+
+// SetSecretManager sets the SecretManager after construction (needed because
+// Store is both the SecretStore backend and the SecretManager consumer).
+func (s *Store) SetSecretManager(sm SecretManager) {
+	s.secrets = sm
 }
 
 // New opens the SQLite database at dbPath, runs migrations, and enables WAL mode.
-func New(dbPath string, creds CredentialResolver) (*Store, error) {
+func New(dbPath string, creds CredentialResolver, secrets SecretManager) (*Store, error) {
 	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("open database: %w", err)
@@ -298,7 +306,7 @@ func New(dbPath string, creds CredentialResolver) (*Store, error) {
 		return nil, fmt.Errorf("create secrets table: %w", err)
 	}
 
-	return &Store{db: db, credentials: creds}, nil
+	return &Store{db: db, credentials: creds, secrets: secrets}, nil
 }
 
 // Close closes the underlying database connection.
@@ -570,51 +578,19 @@ func (s *Store) AddHost(input CreateHostInput) (Host, error) {
 
 	// Only store inline passwords in keychain/vault; external PM refs are fetched at connect time.
 	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
-		if s.vaultKey != nil {
-			key, err := s.vaultKey()
-			if err != nil {
-				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
-				return Host{}, fmt.Errorf("vault locked: %w", err)
-			}
-			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.Password))
-			if err != nil {
-				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
-				return Host{}, fmt.Errorf("vault encrypt: %w", err)
-			}
-			if err := s.StoreEncryptedSecret(host.ID, "password", nonce, ciphertext); err != nil {
-				s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
-				return Host{}, err
-			}
-		} else {
-			if err := s.credentials.StoreSecret(host.ID, input.Password); err != nil {
-				if errors.Is(err, ErrKeychainUnavailable) {
-					log.Warn().Str("hostID", host.ID).Msg("keychain unavailable, storing password in DB as fallback")
-					s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, host.ID) //nolint:errcheck
-				} else {
-					s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
-					return Host{}, fmt.Errorf("store password in keychain: %w", err)
-				}
-			} else {
-				s.db.Exec(`UPDATE hosts SET keychain_migrated=1 WHERE id=?`, host.ID) //nolint:errcheck
-			}
+		dbFallback := func(pw string) error {
+			_, err := s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, pw, host.ID)
+			return err
+		}
+		if err := s.secrets.Put(host.ID, "password", input.Password, dbFallback); err != nil {
+			s.db.Exec(`DELETE FROM hosts WHERE id=?`, host.ID) //nolint:errcheck
+			return Host{}, fmt.Errorf("store password: %w", err)
 		}
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		if s.vaultKey != nil {
-			key, err := s.vaultKey()
-			if err != nil {
-				return Host{}, fmt.Errorf("vault locked: %w", err)
-			}
-			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.KeyPassphrase))
-			if err != nil {
-				return Host{}, fmt.Errorf("vault encrypt: %w", err)
-			}
-			if err := s.StoreEncryptedSecret(host.ID, "passphrase", nonce, ciphertext); err != nil {
-				return Host{}, err
-			}
-		} else {
-			s.credentials.StoreSecret(host.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		if err := s.secrets.Put(host.ID, "passphrase", input.KeyPassphrase, nil); err != nil {
+			return Host{}, fmt.Errorf("store passphrase: %w", err)
 		}
 	}
 
@@ -649,60 +625,28 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 
 	// Only store inline passwords in keychain/vault; external PM refs are fetched at connect time.
 	if input.AuthMethod == AuthPassword && credSrc == "inline" && input.Password != "" {
-		if s.vaultKey != nil {
-			key, err := s.vaultKey()
-			if err != nil {
-				return Host{}, fmt.Errorf("vault locked: %w", err)
-			}
-			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.Password))
-			if err != nil {
-				return Host{}, fmt.Errorf("vault encrypt: %w", err)
-			}
-			if err := s.StoreEncryptedSecret(input.ID, "password", nonce, ciphertext); err != nil {
-				return Host{}, err
-			}
-		} else {
-			if err := s.credentials.StoreSecret(input.ID, input.Password); err != nil {
-				if errors.Is(err, ErrKeychainUnavailable) {
-					log.Warn().Str("hostID", input.ID).Msg("keychain unavailable, storing password in DB as fallback")
-					s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, input.Password, input.ID) //nolint:errcheck
-				} else {
-					return Host{}, fmt.Errorf("update password in keychain: %w", err)
-				}
-			} else {
-				s.db.Exec(`UPDATE hosts SET keychain_migrated=1, password=NULL WHERE id=?`, input.ID) //nolint:errcheck
-			}
+		dbFallback := func(pw string) error {
+			_, err := s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, pw, input.ID)
+			return err
+		}
+		if err := s.secrets.Put(input.ID, "password", input.Password, dbFallback); err != nil {
+			return Host{}, fmt.Errorf("store password: %w", err)
 		}
 	} else if input.AuthMethod == AuthPassword && credSrc != "inline" {
 		// Switching to external PM — clear any inline keychain/vault entry.
-		s.credentials.DeleteSecret(input.ID)                             //nolint:errcheck
+		_ = s.secrets.Delete(input.ID, "password")
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
-		_ = s.DeleteEncryptedSecret(input.ID, "password")
 	} else if input.AuthMethod != AuthPassword {
-		s.credentials.DeleteSecret(input.ID)                             //nolint:errcheck
+		_ = s.secrets.Delete(input.ID, "password")
 		s.db.Exec(`UPDATE hosts SET password=NULL WHERE id=?`, input.ID) //nolint:errcheck
-		_ = s.DeleteEncryptedSecret(input.ID, "password")
 	}
 
 	if input.AuthMethod == AuthKey && input.KeyPassphrase != "" {
-		if s.vaultKey != nil {
-			key, err := s.vaultKey()
-			if err != nil {
-				return Host{}, fmt.Errorf("vault locked: %w", err)
-			}
-			nonce, ciphertext, err := vault.Encrypt(key, []byte(input.KeyPassphrase))
-			if err != nil {
-				return Host{}, fmt.Errorf("vault encrypt: %w", err)
-			}
-			if err := s.StoreEncryptedSecret(input.ID, "passphrase", nonce, ciphertext); err != nil {
-				return Host{}, err
-			}
-		} else {
-			s.credentials.StoreSecret(input.ID+":passphrase", input.KeyPassphrase) //nolint:errcheck
+		if err := s.secrets.Put(input.ID, "passphrase", input.KeyPassphrase, nil); err != nil {
+			return Host{}, fmt.Errorf("store passphrase: %w", err)
 		}
 	} else if input.AuthMethod != AuthKey {
-		s.credentials.DeleteSecret(input.ID + ":passphrase") //nolint:errcheck
-		_ = s.DeleteEncryptedSecret(input.ID, "passphrase")
+		_ = s.secrets.Delete(input.ID, "passphrase")
 	}
 
 	var h Host
@@ -740,10 +684,10 @@ func (s *Store) UpdateHost(input UpdateHostInput) (Host, error) {
 	return h, nil
 }
 
-// DeleteHost removes a saved host by ID and cleans up its keychain entries.
+// DeleteHost removes a saved host by ID and cleans up its secret entries.
 func (s *Store) DeleteHost(id string) error {
-	s.credentials.DeleteSecret(id)                 //nolint:errcheck
-	s.credentials.DeleteSecret(id + ":passphrase") //nolint:errcheck
+	_ = s.secrets.Delete(id, "password")
+	_ = s.secrets.Delete(id, "passphrase")
 	_, err := s.db.Exec(`DELETE FROM hosts WHERE id = ?`, id)
 	return err
 }
@@ -780,32 +724,9 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 	switch h.AuthMethod {
 	case AuthPassword:
 		if h.CredentialSource == "inline" || h.CredentialSource == "" {
-			if s.vaultKey != nil {
-				key, err := s.vaultKey()
-				if err != nil {
-					return Host{}, "", fmt.Errorf("vault locked: %w", err)
-				}
-				nonce, ciphertext, err := s.GetEncryptedSecret(id, "password")
-				if err != nil {
-					return Host{}, "", err
-				}
-				if nonce != nil {
-					plaintext, err := vault.Decrypt(key, nonce, ciphertext)
-					if err != nil {
-						return Host{}, "", err
-					}
-					return h, string(plaintext), nil
-				}
-				// No encrypted secret found — fall through to keychain/DB fallback.
-				pw, err := s.credentials.InlineSecret(id, dbPassword.String)
-				if err != nil {
-					return h, dbPassword.String, nil
-				}
-				return h, pw, nil
-			}
-			pw, err := s.credentials.InlineSecret(id, dbPassword.String)
+			pw, err := s.secrets.Get(id, "password", dbPassword.String)
 			if err != nil {
-				return h, dbPassword.String, nil
+				return Host{}, "", err
 			}
 			return h, pw, nil
 		}
@@ -813,30 +734,14 @@ func (s *Store) GetHostForConnect(id string) (Host, string, error) {
 		defer cancel()
 		pw, err := s.credentials.Resolve(ctx, h.CredentialSource, h.CredentialRef)
 		if err != nil {
-			log.Warn().Err(err).Str("hostID", id).Msg("external credential fetch failed")
 			return h, "", fmt.Errorf("credential fetch (%s): %w", h.CredentialSource, err)
 		}
 		return h, pw, nil
 	case AuthKey:
-		if s.vaultKey != nil {
-			key, err := s.vaultKey()
-			if err != nil {
-				return Host{}, "", fmt.Errorf("vault locked: %w", err)
-			}
-			nonce, ciphertext, err := s.GetEncryptedSecret(id, "passphrase")
-			if err != nil {
-				return Host{}, "", err
-			}
-			if nonce != nil {
-				plaintext, err := vault.Decrypt(key, nonce, ciphertext)
-				if err != nil {
-					return Host{}, "", err
-				}
-				return h, string(plaintext), nil
-			}
-			// No encrypted passphrase — fall through to keychain.
+		passphrase, err := s.secrets.Get(id, "passphrase", "")
+		if err != nil {
+			return Host{}, "", err
 		}
-		passphrase, _ := s.credentials.InlineSecret(id+":passphrase", "")
 		return h, passphrase, nil
 	default:
 		return h, "", nil

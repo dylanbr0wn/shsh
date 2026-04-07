@@ -26,15 +26,27 @@ type CredentialResolver interface {
 	DeleteSecret(key string) error
 }
 
-// VaultCredentialResolver extends CredentialResolver with vault support.
-type VaultCredentialResolver interface {
-	CredentialResolver
-	// VaultStoreSecret encrypts and stores a secret using the provided key.
-	VaultStoreSecret(store SecretStore, key []byte, hostID, kind, plaintext string) error
-	// VaultGetSecret decrypts and returns a secret using the provided key.
-	VaultGetSecret(store SecretStore, key []byte, hostID, kind string) (string, error)
-	// VaultDeleteSecret removes an encrypted secret.
-	VaultDeleteSecret(store SecretStore, hostID, kind string) error
+// SecretManager abstracts vault-or-keychain secret lifecycle so the Store
+// never needs to branch on vault state directly.
+type SecretManager interface {
+	// Put persists a plaintext secret for the given host and kind ("password" or "passphrase").
+	// dbFallback is called when keychain is unavailable in non-vault mode, allowing
+	// the Store to write plaintext to the DB column as last resort.
+	Put(hostID, kind, plaintext string, dbFallback func(string) error) error
+
+	// Get retrieves the plaintext secret for the given host and kind.
+	// dbValue is the hosts.password column value (already fetched by the caller's SELECT).
+	Get(hostID, kind, dbValue string) (string, error)
+
+	// Delete removes the secret from whichever backend is active (vault + keychain).
+	Delete(hostID, kind string) error
+}
+
+// VaultKeyConfigurable is implemented by SecretManager implementations that
+// support optional vault key injection after construction.
+type VaultKeyConfigurable interface {
+	SetVaultKeyFunc(fn func() ([]byte, error))
+	SetLockTouch(fn func())
 }
 
 // SecretStore is the subset of Store needed for vault secret operations.

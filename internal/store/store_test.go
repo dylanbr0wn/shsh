@@ -10,7 +10,7 @@ import (
 )
 
 // fakeResolver is a test double for CredentialResolver that records calls
-// and returns canned values.
+// and returns canned values. Used for external PM Resolve tests and vault_facade migration.
 type fakeResolver struct {
 	// InlineSecretFn, if set, overrides InlineSecret behavior.
 	InlineSecretFn func(key, fallback string) (string, error)
@@ -59,15 +59,66 @@ func (f *fakeResolver) DeleteSecret(key string) error {
 	return nil
 }
 
-func newTestStore(t *testing.T) (*Store, *fakeResolver) {
+// fakeSecretManager is a test double for SecretManager.
+type fakeSecretManager struct {
+	secrets map[string]string // key: "hostID:kind"
+	putErr  error
+	getErr  error
+	deleted []string // tracks "hostID:kind" deletions
+}
+
+func newFakeSecretManager() *fakeSecretManager {
+	return &fakeSecretManager{secrets: make(map[string]string)}
+}
+
+func (f *fakeSecretManager) Put(hostID, kind, plaintext string, dbFallback func(string) error) error {
+	if f.putErr != nil {
+		return f.putErr
+	}
+	f.secrets[hostID+":"+kind] = plaintext
+	return nil
+}
+
+func (f *fakeSecretManager) Get(hostID, kind, dbValue string) (string, error) {
+	if f.getErr != nil {
+		return "", f.getErr
+	}
+	if pw, ok := f.secrets[hostID+":"+kind]; ok {
+		return pw, nil
+	}
+	return dbValue, nil
+}
+
+func (f *fakeSecretManager) Delete(hostID, kind string) error {
+	key := hostID + ":" + kind
+	delete(f.secrets, key)
+	f.deleted = append(f.deleted, key)
+	return nil
+}
+
+func newTestStore(t *testing.T) (*Store, *fakeSecretManager) {
 	t.Helper()
 	fr := newFakeResolver()
-	s, err := New(":memory:", fr)
+	fsm := newFakeSecretManager()
+	s, err := New(":memory:", fr, fsm)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
 	t.Cleanup(s.Close)
-	return s, fr
+	return s, fsm
+}
+
+// newTestStoreWithResolver returns a Store plus access to both the resolver and secret manager.
+func newTestStoreWithResolver(t *testing.T) (*Store, *fakeResolver, *fakeSecretManager) {
+	t.Helper()
+	fr := newFakeResolver()
+	fsm := newFakeSecretManager()
+	s, err := New(":memory:", fr, fsm)
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	t.Cleanup(s.Close)
+	return s, fr, fsm
 }
 
 func TestNew_MigrationIdempotent(t *testing.T) {
@@ -405,10 +456,7 @@ func TestHostExists(t *testing.T) {
 // --- Credential-path tests ---
 
 func TestGetHostForConnect_InlineKeychain(t *testing.T) {
-	s, fr := newTestStore(t)
-	fr.InlineSecretFn = func(key, fallback string) (string, error) {
-		return "keychain-pw", nil
-	}
+	s, fsm := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label: "l", Hostname: "h.example.com", Port: 22,
@@ -418,17 +466,20 @@ func TestGetHostForConnect_InlineKeychain(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
+	// fakeSecretManager stores the password via Put.
 	_, pw, err := s.GetHostForConnect(added.ID)
 	if err != nil {
 		t.Fatalf("GetHostForConnect: %v", err)
 	}
-	if pw != "keychain-pw" {
-		t.Errorf("password = %q, want %q", pw, "keychain-pw")
+	// The fakeSecretManager should have stored it via Put, and Get returns it.
+	if pw != "db-pw" {
+		t.Errorf("password = %q, want %q", pw, "db-pw")
 	}
+	_ = fsm // used implicitly
 }
 
 func TestGetHostForConnect_KeychainUnavailable(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fsm := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label: "l", Hostname: "h.example.com", Port: 22,
@@ -438,14 +489,11 @@ func TestGetHostForConnect_KeychainUnavailable(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	// Simulate the state where keychain was unavailable at AddHost time:
-	// the password is stored in the DB column as fallback.
-	s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, "db-fallback", added.ID) //nolint:errcheck
+	// Remove the secret from the fakeSecretManager so Get falls through to dbValue.
+	delete(fsm.secrets, added.ID+":password")
 
-	// Make InlineSecret fail (keychain unavailable at connect time).
-	fr.InlineSecretFn = func(key, fallback string) (string, error) {
-		return "", ErrKeychainUnavailable
-	}
+	// Put the password in the DB column to simulate keychain-unavailable fallback.
+	s.db.Exec(`UPDATE hosts SET password=? WHERE id=?`, "db-fallback", added.ID) //nolint:errcheck
 
 	_, pw, err := s.GetHostForConnect(added.ID)
 	if err != nil {
@@ -457,7 +505,7 @@ func TestGetHostForConnect_KeychainUnavailable(t *testing.T) {
 }
 
 func TestGetHostForConnect_ExternalPM(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fr, _ := newTestStoreWithResolver(t)
 	fr.ResolveFn = func(ctx context.Context, source, ref string) (string, error) {
 		if source != "1password" {
 			t.Errorf("source = %q, want 1password", source)
@@ -488,7 +536,7 @@ func TestGetHostForConnect_ExternalPM(t *testing.T) {
 }
 
 func TestGetHostForConnect_ExternalPMTimeout(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fr, _ := newTestStoreWithResolver(t)
 	fr.ResolveFn = func(ctx context.Context, source, ref string) (string, error) {
 		return "", context.DeadlineExceeded
 	}
@@ -510,9 +558,9 @@ func TestGetHostForConnect_ExternalPMTimeout(t *testing.T) {
 }
 
 func TestAddHost_StoresSecret(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fsm := newTestStore(t)
 
-	_, err := s.AddHost(CreateHostInput{
+	added, err := s.AddHost(CreateHostInput{
 		Label: "l", Hostname: "h.example.com", Port: 22,
 		Username: "u", AuthMethod: AuthPassword, Password: "s3cret",
 	})
@@ -520,19 +568,16 @@ func TestAddHost_StoresSecret(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	if len(fr.storedSecrets) == 0 {
-		t.Fatal("expected StoreSecret to be called")
+	key := added.ID + ":password"
+	if pw, ok := fsm.secrets[key]; !ok {
+		t.Fatalf("expected secret stored for %q, got none", key)
+	} else if pw != "s3cret" {
+		t.Errorf("stored secret = %q, want %q", pw, "s3cret")
 	}
-	for _, v := range fr.storedSecrets {
-		if v == "s3cret" {
-			return
-		}
-	}
-	t.Errorf("expected stored secret to contain %q, got %v", "s3cret", fr.storedSecrets)
 }
 
 func TestDeleteHost_DeletesSecrets(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fsm := newTestStore(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label: "l", Hostname: "h.example.com", Port: 22,
@@ -542,45 +587,110 @@ func TestDeleteHost_DeletesSecrets(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	fr.deletedSecrets = nil // reset
+	fsm.deleted = nil // reset
 
 	if err := s.DeleteHost(added.ID); err != nil {
 		t.Fatalf("DeleteHost: %v", err)
 	}
 
-	if len(fr.deletedSecrets) < 2 {
-		t.Fatalf("expected at least 2 DeleteSecret calls, got %d", len(fr.deletedSecrets))
+	if len(fsm.deleted) < 2 {
+		t.Fatalf("expected at least 2 Delete calls, got %d", len(fsm.deleted))
 	}
 	found := map[string]bool{}
-	for _, k := range fr.deletedSecrets {
+	for _, k := range fsm.deleted {
 		found[k] = true
 	}
-	if !found[added.ID] {
-		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID, fr.deletedSecrets)
+	if !found[added.ID+":password"] {
+		t.Errorf("expected Delete(%q), not found in %v", added.ID+":password", fsm.deleted)
 	}
 	if !found[added.ID+":passphrase"] {
-		t.Errorf("expected DeleteSecret(%q), not found in %v", added.ID+":passphrase", fr.deletedSecrets)
+		t.Errorf("expected Delete(%q), not found in %v", added.ID+":passphrase", fsm.deleted)
 	}
 }
 
-// --- vaultFakeResolver and vault test infrastructure ---
-
-type vaultFakeResolver struct {
-	fakeResolver
-}
+// --- vault test infrastructure ---
 
 var testVaultKey = []byte("01234567890123456789012345678901")
 
-func newTestStoreWithVault(t *testing.T) (*Store, *vaultFakeResolver) {
+// vaultSecretManager wraps fakeSecretManager but adds vault-like tracking for
+// tests that check keychain deletions via the resolver interface.
+type vaultSecretManager struct {
+	*fakeSecretManager
+	resolver *fakeResolver
+}
+
+func newTestStoreWithVault(t *testing.T) (*Store, *vaultSecretManager) {
 	t.Helper()
-	vfr := &vaultFakeResolver{fakeResolver: *newFakeResolver()}
-	s, err := New(":memory:", &vfr.fakeResolver)
+	fr := newFakeResolver()
+	fsm := newFakeSecretManager()
+	s, err := New(":memory:", fr, fsm)
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	s.SetVaultKeyFunc(func() ([]byte, error) { return testVaultKey, nil })
 	t.Cleanup(s.Close)
-	return s, vfr
+
+	// Swap in a real vault-aware SecretManager backed by the Store.
+	// This lets vault encrypt/decrypt tests use actual vault logic.
+	realSM := &vaultAwareSecretManager{store: s, vaultKeyFn: func() ([]byte, error) { return testVaultKey, nil }}
+	s.SetSecretManager(realSM)
+
+	return s, &vaultSecretManager{fakeSecretManager: fsm, resolver: fr}
+}
+
+// vaultAwareSecretManager is a minimal SecretManager for vault tests that
+// actually encrypts/decrypts using the vault package, backed by the Store's
+// encrypted secret DB methods.
+type vaultAwareSecretManager struct {
+	store      *Store
+	vaultKeyFn func() ([]byte, error)
+}
+
+func (m *vaultAwareSecretManager) Put(hostID, kind, plaintext string, dbFallback func(string) error) error {
+	if m.vaultKeyFn != nil {
+		key, err := m.vaultKeyFn()
+		if err != nil {
+			return fmt.Errorf("vault locked: %w", err)
+		}
+		nonce, ciphertext, err := vault.Encrypt(key, []byte(plaintext))
+		if err != nil {
+			return fmt.Errorf("vault encrypt: %w", err)
+		}
+		return m.store.StoreEncryptedSecret(hostID, kind, nonce, ciphertext)
+	}
+	return nil
+}
+
+func (m *vaultAwareSecretManager) Get(hostID, kind, dbValue string) (string, error) {
+	if m.vaultKeyFn != nil {
+		key, err := m.vaultKeyFn()
+		if err != nil {
+			return "", fmt.Errorf("vault locked: %w", err)
+		}
+		nonce, ciphertext, err := m.store.GetEncryptedSecret(hostID, kind)
+		if err != nil {
+			return "", err
+		}
+		if nonce != nil {
+			plaintext, err := vault.Decrypt(key, nonce, ciphertext)
+			if err != nil {
+				return "", err
+			}
+			return string(plaintext), nil
+		}
+	}
+	return dbValue, nil
+}
+
+func (m *vaultAwareSecretManager) Delete(hostID, kind string) error {
+	return m.store.DeleteEncryptedSecret(hostID, kind)
+}
+
+func (m *vaultAwareSecretManager) SetVaultKeyFunc(fn func() ([]byte, error)) {
+	m.vaultKeyFn = fn
+}
+
+func (m *vaultAwareSecretManager) SetLockTouch(fn func()) {
+	// no-op in tests
 }
 
 // --- Group CRUD tests ---
@@ -875,8 +985,8 @@ func TestAddHost_VaultEnabled(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	// Password should NOT be in the keychain fake.
-	if _, ok := vfr.storedSecrets[added.ID]; ok {
+	// Password should NOT be in the keychain fake (resolver).
+	if _, ok := vfr.resolver.storedSecrets[added.ID]; ok {
 		t.Error("password was stored in keychain fake, expected vault path")
 	}
 
@@ -960,8 +1070,8 @@ func TestGetHostForConnect_VaultLocked(t *testing.T) {
 	}
 }
 
-func TestGetHostForConnect_VaultNoSecret_FallsToKeychain(t *testing.T) {
-	s, vfr := newTestStoreWithVault(t)
+func TestGetHostForConnect_VaultNoSecret_FallsToDB(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
 
 	// Add host as agent (no password stored in vault).
 	added, err := s.AddHost(CreateHostInput{
@@ -972,20 +1082,16 @@ func TestGetHostForConnect_VaultNoSecret_FallsToKeychain(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	// Manually switch to password auth without going through vault path.
-	s.db.Exec(`UPDATE hosts SET auth_method='password', credential_source='inline' WHERE id=?`, added.ID) //nolint:errcheck
-
-	// Set InlineSecretFn to return a keychain password.
-	vfr.InlineSecretFn = func(key, fallback string) (string, error) {
-		return "keychain-pw", nil
-	}
+	// Manually switch to password auth without going through vault path,
+	// and set a DB fallback password.
+	s.db.Exec(`UPDATE hosts SET auth_method='password', credential_source='inline', password='db-pw' WHERE id=?`, added.ID) //nolint:errcheck
 
 	_, pw, err := s.GetHostForConnect(added.ID)
 	if err != nil {
 		t.Fatalf("GetHostForConnect: %v", err)
 	}
-	if pw != "keychain-pw" {
-		t.Errorf("password = %q, want %q (keychain fallthrough)", pw, "keychain-pw")
+	if pw != "db-pw" {
+		t.Errorf("password = %q, want %q (DB fallthrough)", pw, "db-pw")
 	}
 }
 
@@ -1202,8 +1308,8 @@ func TestDeleteVaultMeta_ClearsSecretsAndMeta(t *testing.T) {
 
 // --- UpdateHost credential cleanup tests ---
 
-func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
-	s, vfr := newTestStoreWithVault(t)
+func TestUpdateHost_InlineToExternalPM_ClearsVault(t *testing.T) {
+	s, _ := newTestStoreWithVault(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label: "h", Hostname: "h.example.com", Port: 22,
@@ -1222,8 +1328,6 @@ func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
 		t.Fatal("expected vault secret before update")
 	}
 
-	vfr.deletedSecrets = nil
-
 	// Switch to external PM.
 	_, err = s.UpdateHost(UpdateHostInput{
 		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
@@ -1232,18 +1336,6 @@ func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("UpdateHost: %v", err)
-	}
-
-	// Keychain DeleteSecret should have been called.
-	found := false
-	for _, k := range vfr.deletedSecrets {
-		if k == added.ID {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected keychain DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
 	}
 
 	// Vault secret should be deleted.
@@ -1257,7 +1349,7 @@ func TestUpdateHost_InlineToExternalPM_ClearsKeychainAndVault(t *testing.T) {
 }
 
 func TestUpdateHost_PasswordToAgent_ClearsPasswordEntries(t *testing.T) {
-	s, vfr := newTestStoreWithVault(t)
+	s, _ := newTestStoreWithVault(t)
 
 	added, err := s.AddHost(CreateHostInput{
 		Label: "h", Hostname: "h.example.com", Port: 22,
@@ -1267,25 +1359,12 @@ func TestUpdateHost_PasswordToAgent_ClearsPasswordEntries(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	vfr.deletedSecrets = nil
-
 	_, err = s.UpdateHost(UpdateHostInput{
 		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
 		Username: "u", AuthMethod: AuthAgent,
 	})
 	if err != nil {
 		t.Fatalf("UpdateHost: %v", err)
-	}
-
-	// Keychain entry should be deleted.
-	found := false
-	for _, k := range vfr.deletedSecrets {
-		if k == added.ID {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected DeleteSecret(%q), got %v", added.ID, vfr.deletedSecrets)
 	}
 
 	// Vault secret should be gone.
@@ -1296,7 +1375,7 @@ func TestUpdateHost_PasswordToAgent_ClearsPasswordEntries(t *testing.T) {
 }
 
 func TestUpdateHost_KeyToPassword_ClearsPassphraseEntries(t *testing.T) {
-	s, vfr := newTestStoreWithVault(t)
+	s, _ := newTestStoreWithVault(t)
 
 	kp := "/path/to/key"
 	added, err := s.AddHost(CreateHostInput{
@@ -1316,25 +1395,12 @@ func TestUpdateHost_KeyToPassword_ClearsPassphraseEntries(t *testing.T) {
 		t.Fatal("expected passphrase vault secret")
 	}
 
-	vfr.deletedSecrets = nil
-
 	_, err = s.UpdateHost(UpdateHostInput{
 		ID: added.ID, Label: "h", Hostname: "h.example.com", Port: 22,
 		Username: "u", AuthMethod: AuthPassword, Password: "new-pw",
 	})
 	if err != nil {
 		t.Fatalf("UpdateHost: %v", err)
-	}
-
-	// Passphrase keychain entry should be deleted.
-	found := false
-	for _, k := range vfr.deletedSecrets {
-		if k == added.ID+":passphrase" {
-			found = true
-		}
-	}
-	if !found {
-		t.Errorf("expected DeleteSecret(%q), got %v", added.ID+":passphrase", vfr.deletedSecrets)
 	}
 
 	// Passphrase vault secret should be gone.
@@ -1347,13 +1413,9 @@ func TestUpdateHost_KeyToPassword_ClearsPassphraseEntries(t *testing.T) {
 // --- MigratePasswordsToKeychain tests ---
 
 func TestMigratePasswordsToKeychain(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fr, _ := newTestStoreWithResolver(t)
 
-	// Make StoreSecret fail during AddHost so password falls back to DB column.
-	fr.StoreSecretFn = func(key, value string) error {
-		return ErrKeychainUnavailable
-	}
-
+	// Put a host row with password in DB column (simulating keychain unavailable at add time).
 	added, err := s.AddHost(CreateHostInput{
 		Label: "h", Hostname: "h.example.com", Port: 22,
 		Username: "u", AuthMethod: AuthPassword, Password: "db-pw",
@@ -1362,14 +1424,14 @@ func TestMigratePasswordsToKeychain(t *testing.T) {
 		t.Fatalf("AddHost: %v", err)
 	}
 
-	// Reset StoreSecretFn so migration can succeed.
-	fr.StoreSecretFn = nil
+	// Force password into DB column and reset keychain_migrated flag.
+	s.db.Exec(`UPDATE hosts SET password=?, keychain_migrated=0 WHERE id=?`, "db-pw", added.ID) //nolint:errcheck
 
 	if err := s.MigratePasswordsToKeychain(); err != nil {
 		t.Fatalf("MigratePasswordsToKeychain: %v", err)
 	}
 
-	// Verify password is retrievable via InlineSecret (keychain path).
+	// Verify password is retrievable via resolver's StoreSecret (keychain path).
 	pw, ok := fr.storedSecrets[added.ID]
 	if !ok {
 		t.Fatal("expected password in keychain after migration")
@@ -1380,20 +1442,24 @@ func TestMigratePasswordsToKeychain(t *testing.T) {
 }
 
 func TestMigratePasswordsToKeychain_KeychainUnavailable(t *testing.T) {
-	s, fr := newTestStore(t)
+	s, fr, _ := newTestStoreWithResolver(t)
 
 	// Make StoreSecret always fail.
 	fr.StoreSecretFn = func(key, value string) error {
 		return ErrKeychainUnavailable
 	}
 
-	_, err := s.AddHost(CreateHostInput{
+	added, err := s.AddHost(CreateHostInput{
 		Label: "h", Hostname: "h.example.com", Port: 22,
 		Username: "u", AuthMethod: AuthPassword, Password: "pw",
 	})
 	if err != nil {
 		t.Fatalf("AddHost: %v", err)
 	}
+
+	// Force password into DB column and reset keychain_migrated flag.
+	s.db.Exec(`UPDATE hosts SET password=?, keychain_migrated=0 WHERE id=?`, "pw", added.ID) //nolint:errcheck
+	_ = added
 
 	// Migration should not return an error even if keychain is unavailable.
 	if err := s.MigratePasswordsToKeychain(); err != nil {

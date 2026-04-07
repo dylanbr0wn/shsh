@@ -79,11 +79,14 @@ func (a *App) startup(ctx context.Context) {
 
 	dbPath := filepath.Join(dbDir, "shsh.db")
 
-	s, err := store.New(dbPath, credstore.NewResolver())
+	resolver := credstore.NewResolver()
+	s, err := store.New(dbPath, resolver, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to open database: %v\n", err)
 		return
 	}
+	sm := credstore.NewSecretManager(s)
+	s.SetSecretManager(sm)
 	a.deps.Store = s
 
 	if err := s.MigratePasswordsToKeychain(); err != nil {
@@ -100,7 +103,8 @@ func (a *App) startup(ctx context.Context) {
 	)
 
 	if a.deps.Cfg.Vault.Enabled {
-		a.deps.Store.SetVaultKeyFunc(a.deps.LockState.GetKey)
+		sm.SetVaultKeyFunc(a.deps.LockState.GetKey)
+		sm.SetLockTouch(a.deps.LockState.Touch)
 	}
 
 	a.deps.DebugSink = debuglog.NewDebugSink(

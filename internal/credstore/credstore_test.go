@@ -117,84 +117,89 @@ func TestInlineSecret_Fallback(t *testing.T) {
 	}
 }
 
-func TestVaultRoundTrip(t *testing.T) {
+func TestSecretManager_VaultRoundTrip(t *testing.T) {
 	ss := newMemSecretStore()
-	r := &Resolver{}
+	sm := NewSecretManager(ss)
 
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
+	sm.SetVaultKeyFunc(func() ([]byte, error) { return key, nil })
 
 	plaintext := "super-secret-password"
 	hostID := "host-1"
 	kind := "password"
 
-	if err := r.VaultStoreSecret(ss, key, hostID, kind, plaintext); err != nil {
-		t.Fatalf("VaultStoreSecret: %v", err)
+	if err := sm.Put(hostID, kind, plaintext, nil); err != nil {
+		t.Fatalf("Put: %v", err)
 	}
 
-	got, err := r.VaultGetSecret(ss, key, hostID, kind)
+	got, err := sm.Get(hostID, kind, "")
 	if err != nil {
-		t.Fatalf("VaultGetSecret: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
 	if got != plaintext {
-		t.Errorf("VaultGetSecret = %q, want %q", got, plaintext)
+		t.Errorf("Get = %q, want %q", got, plaintext)
 	}
 }
 
-func TestVaultGetSecret_NilNonce(t *testing.T) {
+func TestSecretManager_Get_NilNonce(t *testing.T) {
 	ss := newMemSecretStore() // empty store
-	r := &Resolver{}
+	sm := NewSecretManager(ss)
 
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
+	sm.SetVaultKeyFunc(func() ([]byte, error) { return key, nil })
 
-	got, err := r.VaultGetSecret(ss, key, "no-host", "password")
+	got, err := sm.Get("no-host", "password", "")
 	if err != nil {
-		t.Fatalf("VaultGetSecret: %v", err)
+		t.Fatalf("Get: %v", err)
 	}
 	if got != "" {
-		t.Errorf("VaultGetSecret = %q, want empty string", got)
+		t.Errorf("Get = %q, want empty string", got)
 	}
 }
 
-func TestVaultDeleteSecret(t *testing.T) {
+func TestSecretManager_Delete(t *testing.T) {
 	ss := newMemSecretStore()
-	r := &Resolver{}
+	sm := NewSecretManager(ss)
 
 	key := make([]byte, 32)
 	if _, err := rand.Read(key); err != nil {
 		t.Fatal(err)
 	}
+	sm.SetVaultKeyFunc(func() ([]byte, error) { return key, nil })
 
 	hostID := "host-del"
 	kind := "password"
 
-	if err := r.VaultStoreSecret(ss, key, hostID, kind, "secret"); err != nil {
+	if err := sm.Put(hostID, kind, "secret", nil); err != nil {
 		t.Fatal(err)
 	}
-	if err := r.VaultDeleteSecret(ss, hostID, kind); err != nil {
+	if err := sm.Delete(hostID, kind); err != nil {
 		t.Fatal(err)
 	}
 
-	got, err := r.VaultGetSecret(ss, key, hostID, kind)
+	got, err := sm.Get(hostID, kind, "")
 	if err != nil {
-		t.Fatalf("VaultGetSecret after delete: %v", err)
+		t.Fatalf("Get after delete: %v", err)
 	}
 	if got != "" {
-		t.Errorf("VaultGetSecret after delete = %q, want empty", got)
+		t.Errorf("Get after delete = %q, want empty", got)
 	}
 }
 
-func TestVaultStoreSecret_BadKey(t *testing.T) {
+func TestSecretManager_Put_BadKey(t *testing.T) {
 	ss := newMemSecretStore()
-	r := &Resolver{}
+	sm := NewSecretManager(ss)
 
 	shortKey := []byte("too-short")
-	err := r.VaultStoreSecret(ss, shortKey, "h", "password", "secret")
+	sm.SetVaultKeyFunc(func() ([]byte, error) { return shortKey, nil })
+
+	err := sm.Put("h", "password", "secret", nil)
 	if err == nil {
 		t.Fatal("expected error for short key, got nil")
 	}
