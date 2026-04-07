@@ -17,6 +17,7 @@ import {
 import { KeybindingsSettings } from '../settings/KeybindingsSettings'
 import { RegistriesSettings } from '../settings/RegistriesSettings'
 import { SecuritySettings } from '../settings/SecuritySettings'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 
 export function SettingsModal() {
   const [isOpen, setIsOpen] = useAtom(isSettingsOpenAtom)
@@ -27,19 +28,28 @@ export function SettingsModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="max-h-[80vh] sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Settings</DialogTitle>
-          <DialogDescription>Configure your preferences</DialogDescription>
-        </DialogHeader>
-        <Tabs defaultValue="general">
-          <TabsList>
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="security">Security</TabsTrigger>
-            <TabsTrigger value="keybindings">Keyboard Shortcuts</TabsTrigger>
-            <TabsTrigger value="registries">Registries</TabsTrigger>
-          </TabsList>
-          <TabsContent value="general" className="space-y-4 pt-2">
+      <DialogContent className="h-full max-h-[80vh] min-h-0 sm:max-w-2xl">
+        <Tabs
+          defaultValue="general"
+          orientation="vertical"
+          className="flex h-full min-h-0 flex-1 gap-3"
+        >
+          <Card className="w-44">
+            <CardHeader>
+              <CardTitle>Settings</CardTitle>
+              <CardDescription className="text-xs">Configure your shsh</CardDescription>
+            </CardHeader>
+            <CardContent className="!px-1">
+              <TabsList variant="line" className="h-full w-full shrink-0">
+                <TabsTrigger value="general">General</TabsTrigger>
+                <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="keybindings">Shortcuts</TabsTrigger>
+                <TabsTrigger value="registries">Registries</TabsTrigger>
+              </TabsList>
+            </CardContent>
+          </Card>
+          <TabsContent value="general" className="flex flex-col gap-1 overflow-y-auto">
+            <h2 className="text-xl font-bold">General</h2>
             <FieldSet>
               <FieldLegend>Appearance</FieldLegend>
               <FieldGroup>
@@ -72,13 +82,13 @@ export function SettingsModal() {
               </FieldGroup>
             </FieldSet>
           </TabsContent>
-          <TabsContent value="security" className="space-y-4 pt-2">
+          <TabsContent value="security" className="h-full space-y-4 overflow-y-auto">
             <SecuritySettings />
           </TabsContent>
-          <TabsContent value="keybindings" className="pt-2">
+          <TabsContent value="keybindings" className="relative h-full">
             <KeybindingsSettings />
           </TabsContent>
-          <TabsContent value="registries" className="space-y-4 pt-2">
+          <TabsContent value="registries" className="h-full space-y-4 overflow-y-auto">
             <RegistriesSettings />
           </TabsContent>
         </Tabs>
