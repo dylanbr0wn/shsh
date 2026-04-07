@@ -127,7 +127,7 @@ export function SecuritySettings() {
       <>
         <SettingsHeader title="Security" />
         <FieldSet>
-          <FieldLegend>Security</FieldLegend>
+          <FieldLegend>Vault Encryption</FieldLegend>
           <FieldGroup>
             {!showSetup ? (
               <Field>
@@ -194,7 +194,7 @@ export function SecuritySettings() {
     <>
       <SettingsHeader title="Security" />
       <FieldSet>
-        <FieldLegend>Security</FieldLegend>
+        <FieldLegend>Vault</FieldLegend>
         <FieldGroup>
           {biometricAvailable && (
             <Field orientation="horizontal">

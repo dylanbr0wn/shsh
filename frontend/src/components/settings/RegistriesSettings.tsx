@@ -156,7 +156,12 @@ export function RegistriesSettings() {
   }
 
   if (loading) {
-    return <p className="text-muted-foreground text-sm">Loading...</p>
+    return (
+      <>
+        <SettingsHeader title="Registries" />
+        <p className="text-muted-foreground text-sm">Loading...</p>
+      </>
+    )
   }
 
   return (
