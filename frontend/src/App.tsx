@@ -25,7 +25,6 @@ import { AddPortForwardModal } from './components/modals/AddPortForwardModal'
 import { TerminalProfilesModal } from './components/modals/TerminalProfilesModal'
 import { DeployKeyModal } from './components/modals/DeployKeyModal'
 import { VaultLockOverlay } from './components/modals/VaultLockOverlay'
-import { GripHorizontal } from 'lucide-react'
 import { cn } from './lib/utils'
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from './components/ui/resizable'
 import { DebugPanel } from './components/debug/DebugPanel'
@@ -189,26 +188,15 @@ export default function App() {
                       )}
                       style={{ height: debugHeight }}
                     >
-                      {/* Drag handle — horizontal, matches ResizableHandle style */}
+                      {/* Drag handle — horizontal 1px line, matches ResizableHandle style */}
                       <div
                         aria-hidden
                         onMouseDown={onDragStart}
                         className={cn(
-                          'group relative flex h-px w-full shrink-0 cursor-row-resize items-center justify-center transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
+                          'relative h-px w-full shrink-0 cursor-row-resize transition-colors after:absolute after:left-0 after:h-2 after:w-full after:-translate-y-1/2',
                           dragging ? 'bg-primary' : 'bg-border hover:bg-primary'
                         )}
-                      >
-                        <div
-                          className={cn(
-                            'z-10 flex w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
-                            dragging
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-border text-muted-foreground/40 group-hover:bg-primary group-hover:text-primary-foreground'
-                          )}
-                        >
-                          <GripHorizontal className="size-3 shrink-0" />
-                        </div>
-                      </div>
+                      />
                       <ErrorBoundary
                         fallback="inline"
                         zone="debug"

@@ -43,7 +43,7 @@ export function LocalFSPanel({ channelId }: Props) {
 
   return (
     <div
-      className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
+      className="relative flex h-full flex-col overflow-hidden text-sm"
       {...drag.panelDragHandlers}
     >
       {/* Toolbar */}

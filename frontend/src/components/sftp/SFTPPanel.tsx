@@ -233,7 +233,7 @@ export function SFTPPanel({ channelId, connectionId: _connectionId }: Props) {
 
   return (
     <div
-      className="bg-background relative flex h-full flex-col overflow-hidden text-sm"
+      className="relative flex h-full flex-col overflow-hidden text-sm"
       onDragEnter={(e) => {
         if (
           e.dataTransfer.types.includes('Files') ||

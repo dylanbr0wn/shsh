@@ -69,7 +69,7 @@ export function PaneTree({
             onToggleLogging={onToggleLogging}
           />
         </ResizablePanel>
-        <ResizableHandle withHandle={false} />
+        <ResizableHandle className="w-2 bg-transparent hover:bg-transparent data-[separator=active]:bg-transparent before:pointer-events-none before:absolute before:inset-y-0 before:left-1/2 before:w-px before:-translate-x-1/2 before:bg-transparent before:transition-colors hover:before:bg-primary data-[separator=active]:before:bg-primary aria-[orientation=horizontal]:h-2 aria-[orientation=horizontal]:w-full aria-[orientation=horizontal]:before:inset-x-0 aria-[orientation=horizontal]:before:inset-y-auto aria-[orientation=horizontal]:before:left-0 aria-[orientation=horizontal]:before:top-1/2 aria-[orientation=horizontal]:before:h-px aria-[orientation=horizontal]:before:w-full aria-[orientation=horizontal]:before:translate-x-0 aria-[orientation=horizontal]:before:-translate-y-1/2" />
         <ResizablePanel defaultSize={rightPct} minSize={15}>
           <PaneTree
             node={node.right}
