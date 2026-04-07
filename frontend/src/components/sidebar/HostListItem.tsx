@@ -2,8 +2,8 @@ import { useRef } from 'react'
 import { cn } from '../../lib/utils'
 import { MoreHorizontal, SquareTerminal, TagIcon, FolderOpen } from 'lucide-react'
 import type { Group, Host } from '../../types'
-import { useAtomValue } from 'jotai'
-import { groupsAtom, hostHealthAtom } from '../../store/atoms'
+import { useAtomValue, useSetAtom } from 'jotai'
+import { groupsAtom, hostHealthAtom, publishBundleAtom } from '../../store/atoms'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import { Tag } from '../ui/tag'
@@ -72,6 +72,7 @@ export function HostListItem({
 }: Props) {
   const groups = useAtomValue(groupsAtom)
   const health = useAtomValue(hostHealthAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
   const { latency, color } = latencyValue(health[host.id])
   const previewRef = useRef<HTMLDivElement>(null)
   return (
@@ -191,6 +192,13 @@ export function HostListItem({
                         <DropdownMenuItem onClick={onDeployKey}>
                           Deploy Public Key…
                         </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setPublishBundle({ open: true, preSelectedHostIds: [host.id] })
+                          }
+                        >
+                          Publish to Registry…
+                        </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={onDelete}>
                           Delete
@@ -278,6 +286,11 @@ export function HostListItem({
           <>
             <ContextMenuItem onClick={onEdit}>Edit</ContextMenuItem>
             <ContextMenuItem onClick={onDeployKey}>Deploy Public Key…</ContextMenuItem>
+            <ContextMenuItem
+              onClick={() => setPublishBundle({ open: true, preSelectedHostIds: [host.id] })}
+            >
+              Publish to Registry…
+            </ContextMenuItem>
             <ContextMenuSeparator />
             <ContextMenuItem variant="destructive" onClick={onDelete}>
               Delete
