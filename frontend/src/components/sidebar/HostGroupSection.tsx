@@ -231,6 +231,7 @@ export function HostGroupSection({
                     host={host}
                     isConnected={connectedHostIds.has(host.id)}
                     isConnecting={connectingHostIds.has(host.id)}
+                    readOnly={host.origin !== 'local'}
                     onConnect={() => onConnect(host.id, host.label)}
                     onDelete={() => onDelete(host.id)}
                     onEdit={() => onEdit(host)}
