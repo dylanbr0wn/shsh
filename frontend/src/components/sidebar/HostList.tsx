@@ -405,7 +405,7 @@ export function HostList() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col gap-2 p-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
         {/* Search */}
         <ButtonGroup className="w-full">
           <ButtonGroup className="grow">
@@ -457,7 +457,7 @@ export function HostList() {
             </Tooltip>
           </ButtonGroup>
         </ButtonGroup>
-        <ScrollArea className="min-h-0 flex-1 select-none rounded-md">
+        <ScrollArea className="min-h-0 flex-1 select-none rounded-md p-2">
           <ItemGroup className='p-px'>
             {isSearching ? (
               // Flat filtered list with optional group badge
