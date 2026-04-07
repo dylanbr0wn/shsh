@@ -253,3 +253,8 @@ html {
     animation: none !important;
   }
 }
+
+.welcome-drop-zone {
+  position: relative;
+  overflow: hidden;
+}

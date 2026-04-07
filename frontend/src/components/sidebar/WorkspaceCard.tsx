@@ -29,6 +29,10 @@ const kindLabel: Record<string, string> = {
   local: 'LOCAL',
 }
 
+const kindToneClass: Partial<Record<string, string>> = {
+  sftp: 'text-[hsl(35_80%_65%)]',
+}
+
 interface WorkspaceCardProps {
   workspace: Workspace
   isActive: boolean
@@ -205,7 +209,12 @@ export function WorkspaceCard({
                         style={host?.color ? { backgroundColor: host.color } : undefined}
                       />
                       <span className="min-w-0 flex-1 truncate">{leaf.hostLabel}</span>
-                      <span className="shrink-0 text-[9px] tracking-wider uppercase opacity-60">
+                      <span
+                        className={cn(
+                          'shrink-0 text-[9px] tracking-wider uppercase opacity-60',
+                          kindToneClass[leaf.kind]
+                        )}
+                      >
                         {kindLabel[leaf.kind] ?? leaf.kind}
                       </span>
                     </div>
