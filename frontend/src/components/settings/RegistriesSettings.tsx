@@ -37,6 +37,7 @@ import {
 import { Card, CardHeader, CardTitle, CardDescription, CardAction, CardContent } from '../ui/card'
 import { RefreshCw, Trash2, Plus, Package } from 'lucide-react'
 import { ScrollArea } from '../ui/scroll-area'
+import { SettingsHeader } from './SettingsHeader'
 
 export function RegistriesSettings() {
   const [registries, setRegistries] = useState<RegistryStatus[]>([])
@@ -160,17 +161,22 @@ export function RegistriesSettings() {
 
   return (
     <ScrollArea className="flex h-full flex-col gap-1">
+      <SettingsHeader
+        title="Registries"
+        actions={
+          registries.length > 0 ? (
+            <Button variant="outline" size="sm" onClick={handleSyncAll}>
+              <RefreshCw data-icon="inline-start" className="size-3.5" />
+              Sync All
+            </Button>
+          ) : undefined
+        }
+      />
       <FieldGroup className="pr-3">
         {/* Existing registries */}
         {registries.length > 0 && (
           <FieldSet>
-            <div className="flex items-center justify-between">
-              <FieldLegend>Connected Registries</FieldLegend>
-              <Button variant="outline" size="sm" onClick={handleSyncAll}>
-                <RefreshCw data-icon="inline-start" className="size-3.5" />
-                Sync All
-              </Button>
-            </div>
+            <FieldLegend>Connected Registries</FieldLegend>
             <div className="flex flex-col gap-3 pl-1">
               {registries.map((reg) => (
                 <Card key={reg.name} size="sm">

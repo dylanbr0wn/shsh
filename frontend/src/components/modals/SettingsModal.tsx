@@ -17,6 +17,7 @@ import {
 import { KeybindingsSettings } from '../settings/KeybindingsSettings'
 import { RegistriesSettings } from '../settings/RegistriesSettings'
 import { SecuritySettings } from '../settings/SecuritySettings'
+import { SettingsHeader } from '../settings/SettingsHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card'
 
 export function SettingsModal() {
@@ -49,7 +50,7 @@ export function SettingsModal() {
             </CardContent>
           </Card>
           <TabsContent value="general" className="flex flex-col gap-1 overflow-y-auto">
-            <h2 className="text-xl font-bold">General</h2>
+            <SettingsHeader title="General" />
             <FieldSet>
               <FieldLegend>Appearance</FieldLegend>
               <FieldGroup>

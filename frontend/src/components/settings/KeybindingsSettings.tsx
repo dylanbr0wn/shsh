@@ -23,6 +23,7 @@ import {
 } from '../ui/popover'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../ui/tooltip'
 import { ButtonGroup } from '../ui/button-group'
+import { SettingsHeader } from './SettingsHeader'
 import { Dot, RotateCcw, Search } from 'lucide-react'
 import { Card } from '../ui/card'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '../ui/input-group'
@@ -182,6 +183,7 @@ export function KeybindingsSettings() {
 
   return (
     <div className="relative flex h-full flex-col gap-3">
+      <SettingsHeader title="Shortcuts" />
       <ButtonGroup className="w-full">
         <ButtonGroup className="flex-1">
           <InputGroup>
