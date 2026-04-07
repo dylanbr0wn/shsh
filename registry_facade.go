@@ -112,7 +112,9 @@ func (f *RegistryFacade) SubscribeBundle(input SubscribeBundleInput) error {
 		return err
 	}
 
-	return f.pullBundle(reg, input.Bundle)
+	// Best-effort initial pull — the bundle may not have content yet.
+	_ = f.pullBundle(reg, input.Bundle)
+	return nil
 }
 
 // UnsubscribeBundle removes a bundle subscription and cleans up local data.
