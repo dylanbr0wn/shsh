@@ -40,6 +40,15 @@
   --sidebar-accent-foreground: oklch(0.4865 0.2423 291.8661);
   --sidebar-border: oklch(0.9278 0.0058 264.5314);
   --sidebar-ring: oklch(0.4865 0.2423 291.8661);
+  --pane-kind-terminal-bg: hsl(200 80% 30% / 0.12);
+  --pane-kind-terminal-text: hsl(200 80% 65%);
+  --pane-kind-terminal-border: hsl(200 80% 60% / 0.55);
+  --pane-kind-sftp-bg: hsl(35 80% 35% / 0.15);
+  --pane-kind-sftp-text: hsl(35 80% 65%);
+  --pane-kind-sftp-border: hsl(35 80% 62% / 0.6);
+  --pane-kind-local-bg: hsl(140 60% 30% / 0.15);
+  --pane-kind-local-text: hsl(140 60% 60%);
+  --pane-kind-local-border: hsl(140 60% 55% / 0.55);
   --font-sans: Geist Variable, sans-serif, ui-sans-serif, system-ui;
   --font-serif: Geist Variable, serif, ui-serif, Georgia;
   --font-mono: Geist Mono Variable, monospace;
@@ -95,6 +104,15 @@
   --sidebar-accent-foreground: oklch(0.6083 0.2172 297.1153);
   --sidebar-border: oklch(0.2217 0.0242 299.7054);
   --sidebar-ring: oklch(0.6083 0.2172 297.1153);
+  --pane-kind-terminal-bg: hsl(200 80% 30% / 0.12);
+  --pane-kind-terminal-text: hsl(200 80% 65%);
+  --pane-kind-terminal-border: hsl(200 80% 60% / 0.55);
+  --pane-kind-sftp-bg: hsl(35 80% 35% / 0.15);
+  --pane-kind-sftp-text: hsl(35 80% 65%);
+  --pane-kind-sftp-border: hsl(35 80% 62% / 0.6);
+  --pane-kind-local-bg: hsl(140 60% 30% / 0.15);
+  --pane-kind-local-text: hsl(140 60% 60%);
+  --pane-kind-local-border: hsl(140 60% 55% / 0.55);
   --font-sans: Geist Variable, sans-serif, ui-sans-serif, system-ui;
   --font-serif: Geist Variable, serif, ui-serif, Georgia;
   --font-mono: Geist Mono Variable, monospace;
@@ -148,6 +166,15 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+  --color-pane-kind-terminal-bg: var(--pane-kind-terminal-bg);
+  --color-pane-kind-terminal-text: var(--pane-kind-terminal-text);
+  --color-pane-kind-terminal-border: var(--pane-kind-terminal-border);
+  --color-pane-kind-sftp-bg: var(--pane-kind-sftp-bg);
+  --color-pane-kind-sftp-text: var(--pane-kind-sftp-text);
+  --color-pane-kind-sftp-border: var(--pane-kind-sftp-border);
+  --color-pane-kind-local-bg: var(--pane-kind-local-bg);
+  --color-pane-kind-local-text: var(--pane-kind-local-text);
+  --color-pane-kind-local-border: var(--pane-kind-local-border);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);

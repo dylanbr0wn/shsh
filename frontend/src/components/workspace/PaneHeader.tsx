@@ -9,10 +9,10 @@ import { usePaneDrag } from '../../hooks/usePaneDrag'
 import { shortcutParts } from '../../lib/keybind'
 import type { SessionStatus } from '../../types'
 
-const typeColors = {
-  terminal: { bg: 'hsl(200 80% 30% / 0.15)', text: 'hsl(200 80% 65%)' },
-  sftp: { bg: 'hsl(35 80% 35% / 0.15)', text: 'hsl(35 80% 65%)' },
-  local: { bg: 'hsl(140 60% 30% / 0.15)', text: 'hsl(140 60% 60%)' },
+const typeClasses = {
+  terminal: 'bg-pane-kind-terminal-bg text-pane-kind-terminal-text',
+  sftp: 'bg-pane-kind-sftp-bg text-pane-kind-sftp-text',
+  local: 'bg-pane-kind-local-bg text-pane-kind-local-text',
 } as const
 
 interface Props {
@@ -64,7 +64,7 @@ export function PaneHeader({
     onDragStateChange?.(isDragging)
   }, [isDragging, onDragStateChange])
 
-  const typeStyle = typeColors[kind]
+  const typeClass = typeClasses[kind]
 
   return (
     <div className="bg-card flex h-8 items-center gap-1 border-b px-1.5">
@@ -78,11 +78,7 @@ export function PaneHeader({
         {hostLabel}
       </span>
       <span
-        className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
-        style={{
-          backgroundColor: typeStyle.bg,
-          color: typeStyle.text,
-        }}
+        className={`${typeClass} shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase`}
       >
         {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
       </span>
@@ -148,11 +144,7 @@ export function PaneHeader({
             <ItemTitle style={{ color: hostColor }}>
               <span>{hostLabel}</span>
               <span
-                className="shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase"
-                style={{
-                  backgroundColor: typeStyle.bg,
-                  color: typeStyle.text,
-                }}
+                className={`${typeClass} shrink-0 rounded px-1 text-[9px] font-semibold tracking-wide uppercase`}
               >
                 {kind === 'terminal' ? 'SSH' : kind === 'sftp' ? 'SFTP' : 'Local'}
               </span>

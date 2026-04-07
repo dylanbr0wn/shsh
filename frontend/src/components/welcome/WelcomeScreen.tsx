@@ -1,5 +1,4 @@
 import { useMemo, useRef, useState } from 'react'
-import type React from 'react'
 import { toast } from 'sonner'
 import { ArrowRight, FolderOpen, SquareTerminal } from 'lucide-react'
 import { useAtomValue, useSetAtom } from 'jotai'
@@ -29,17 +28,10 @@ import {
 import { ShortcutKbd } from '../ui/kbd'
 import { Spinner } from '../ui/spinner'
 
-const paneTypeTone = {
-  terminal: {
-    bg: 'hsl(200 80% 30% / 0.12)',
-    text: 'hsl(200 80% 65%)',
-    border: 'hsl(200 80% 60% / 0.55)',
-  },
-  sftp: {
-    bg: 'hsl(35 80% 35% / 0.15)',
-    text: 'hsl(35 80% 65%)',
-    border: 'hsl(35 80% 62% / 0.6)',
-  },
+const paneTypeToneClasses = {
+  terminal:
+    'bg-pane-kind-terminal-bg text-pane-kind-terminal-text border-pane-kind-terminal-border',
+  sftp: 'bg-pane-kind-sftp-bg text-pane-kind-sftp-text border-pane-kind-sftp-border',
 } as const
 
 export function WelcomeScreen() {
@@ -254,18 +246,12 @@ export function WelcomeScreen() {
                   !dropConnecting && dropTarget === 'terminal'
                     ? 'welcome-drop-zone-active'
                     : 'hover:bg-muted/20'
-                }`}
-                style={
+                } ${
                   dropConnecting?.kind === 'terminal' ||
                   (!dropConnecting && dropTarget === 'terminal')
-                    ? ({
-                        backgroundColor: paneTypeTone.terminal.bg,
-                        color: paneTypeTone.terminal.text,
-                        borderColor: paneTypeTone.terminal.border,
-                        '--drop-accent': paneTypeTone.terminal.text,
-                      } as React.CSSProperties)
-                    : undefined
-                }
+                    ? paneTypeToneClasses.terminal
+                    : ''
+                }`}
               >
                 <SquareTerminal className="size-7" />
                 <div className="text-center">
@@ -308,17 +294,11 @@ export function WelcomeScreen() {
                   !dropConnecting && dropTarget === 'sftp'
                     ? 'welcome-drop-zone-active'
                     : 'hover:bg-muted/20'
-                }`}
-                style={
+                } ${
                   dropConnecting?.kind === 'sftp' || (!dropConnecting && dropTarget === 'sftp')
-                    ? ({
-                        backgroundColor: paneTypeTone.sftp.bg,
-                        color: paneTypeTone.sftp.text,
-                        borderColor: paneTypeTone.sftp.border,
-                        '--drop-accent': paneTypeTone.sftp.text,
-                      } as React.CSSProperties)
-                    : undefined
-                }
+                    ? paneTypeToneClasses.sftp
+                    : ''
+                }`}
               >
                 <FolderOpen className="size-7" />
                 <div className="text-center">

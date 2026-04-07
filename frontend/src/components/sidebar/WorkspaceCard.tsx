@@ -30,7 +30,7 @@ const kindLabel: Record<string, string> = {
 }
 
 const kindToneClass: Partial<Record<string, string>> = {
-  sftp: 'text-[hsl(35_80%_65%)]',
+  sftp: 'text-pane-kind-sftp-text',
 }
 
 interface WorkspaceCardProps {
