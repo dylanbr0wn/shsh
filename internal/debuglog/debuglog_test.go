@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,11 +19,29 @@ type capturedEvent struct {
 }
 
 type testEmitter struct {
+	mu     sync.Mutex
 	events []capturedEvent
 }
 
 func (t *testEmitter) Emit(topic string, data any) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	t.events = append(t.events, capturedEvent{Topic: topic, Data: data})
+}
+
+func (t *testEmitter) Len() int {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return len(t.events)
+}
+
+func (t *testEmitter) FirstTopic() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.events) == 0 {
+		return ""
+	}
+	return t.events[0].Topic
 }
 
 func TestEmit_RespectsCategoryLevel(t *testing.T) {
@@ -86,11 +105,11 @@ func TestEmit_BatchFlush(t *testing.T) {
 	// Wait briefly for the batch to flush
 	time.Sleep(200 * time.Millisecond)
 
-	if len(emitter.events) == 0 {
+	if emitter.Len() == 0 {
 		t.Fatal("expected at least one batch event after 50 entries")
 	}
-	if emitter.events[0].Topic != "debug:log-batch" {
-		t.Errorf("expected topic debug:log-batch, got %s", emitter.events[0].Topic)
+	if emitter.FirstTopic() != "debug:log-batch" {
+		t.Errorf("expected topic debug:log-batch, got %s", emitter.FirstTopic())
 	}
 
 	sink.Shutdown()
@@ -156,7 +175,7 @@ func TestShutdown_FlushesRemainingBatch(t *testing.T) {
 	// Shutdown should flush
 	sink.Shutdown()
 
-	if len(emitter.events) == 0 {
+	if emitter.Len() == 0 {
 		t.Fatal("expected shutdown to flush remaining batch")
 	}
 }

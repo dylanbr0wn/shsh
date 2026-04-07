@@ -15,6 +15,7 @@ import {
   FieldSet,
 } from '../ui/field'
 import { KeybindingsSettings } from '../settings/KeybindingsSettings'
+import { RegistriesSettings } from '../settings/RegistriesSettings'
 import { SecuritySettings } from '../settings/SecuritySettings'
 
 export function SettingsModal() {
@@ -36,6 +37,7 @@ export function SettingsModal() {
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="keybindings">Keyboard Shortcuts</TabsTrigger>
+            <TabsTrigger value="registries">Registries</TabsTrigger>
           </TabsList>
           <TabsContent value="general" className="space-y-4 pt-2">
             <FieldSet>
@@ -75,6 +77,9 @@ export function SettingsModal() {
           </TabsContent>
           <TabsContent value="keybindings" className="pt-2">
             <KeybindingsSettings />
+          </TabsContent>
+          <TabsContent value="registries" className="space-y-4 pt-2">
+            <RegistriesSettings />
           </TabsContent>
         </Tabs>
       </DialogContent>

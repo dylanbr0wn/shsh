@@ -77,35 +77,34 @@ export function SessionList() {
       <div className="p-1">
         <ButtonGroup className="w-full gap-1!">
           <DropdownMenu
-          onOpenChange={(open) => {
-            if (open) loadTemplates()
-          }}
-        >
-          <DropdownMenuTrigger asChild>
-            <Button size="sm" className="w-full">
-              <Plus className="size-3" />
-              New Session
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-48">
-            <DropdownMenuItem onSelect={() => setIsAddHostOpen(true)}>
-              New connection
-            </DropdownMenuItem>
-            {templates.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs">Templates</DropdownMenuLabel>
-                {templates.map((t) => (
-                  <DropdownMenuItem key={t.id} onSelect={() => setPendingTemplate(t)}>
-                    {t.name}
-                  </DropdownMenuItem>
-                ))}
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            onOpenChange={(open) => {
+              if (open) loadTemplates()
+            }}
+          >
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" className="w-full">
+                <Plus className="size-3" />
+                New Session
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onSelect={() => setIsAddHostOpen(true)}>
+                New connection
+              </DropdownMenuItem>
+              {templates.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel className="text-xs">Templates</DropdownMenuLabel>
+                  {templates.map((t) => (
+                    <DropdownMenuItem key={t.id} onSelect={() => setPendingTemplate(t)}>
+                      {t.name}
+                    </DropdownMenuItem>
+                  ))}
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </ButtonGroup>
-
       </div>
 
       <CloseConfirmDialog

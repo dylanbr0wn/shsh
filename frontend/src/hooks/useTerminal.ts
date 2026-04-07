@@ -107,7 +107,6 @@ export function useTerminal(
     term.unicode.activeVersion = '11'
     fitAddon.fit()
 
-
     termRef.current = term
     fitRef.current = fitAddon
     setSearchAddons((prev) => ({ ...prev, [channelId]: searchAddon }))

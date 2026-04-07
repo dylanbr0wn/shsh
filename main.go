@@ -161,6 +161,7 @@ func main() {
 			app.tools,
 			app.keybinds,
 			app.vault,
+			app.registry,
 		},
 		Mac: &mac.Options{
 			TitleBar: mac.TitleBarHidden(),

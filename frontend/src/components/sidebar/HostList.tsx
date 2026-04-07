@@ -302,6 +302,8 @@ export function HostList() {
   async function handleMoveToGroup(hostId: string, groupId: string | null) {
     const host = hosts.find((h) => h.id === hostId)
     if (!host) return
+    const currentGroupId = host.groupId ?? null
+    if (currentGroupId === groupId) return
     try {
       const updated = await UpdateHost({
         id: host.id,
@@ -313,6 +315,10 @@ export function HostList() {
         groupId: groupId ?? undefined,
       })
       setHosts((prev) => prev.map((h) => (h.id === hostId ? (updated as unknown as Host) : h)))
+      const destination = groupId
+        ? (groups.find((g) => g.id === groupId)?.name ?? 'group')
+        : 'Ungrouped'
+      toast.success('Host moved', { description: `${host.label} moved to ${destination}.` })
     } catch (err) {
       toast.error('Failed to move host', { description: String(err) })
     }

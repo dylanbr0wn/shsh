@@ -16,6 +16,7 @@ import { SettingsModal } from './components/modals/SettingsModal'
 import { HostKeyDialog } from './components/modals/HostKeyDialog'
 import { ImportHostsModal } from './components/modals/ImportHostsModal'
 import { ExportHostsModal } from './components/modals/ExportHostsModal'
+import { PublishBundleModal } from './components/modals/PublishBundleModal'
 import { QuickConnectModal } from './components/modals/QuickConnectModal'
 import { CommandPalette } from './components/CommandPalette'
 import { StatusBar } from './components/layout/StatusBar'
@@ -194,7 +195,6 @@ export default function App() {
                     style={{ height: debugHeight }}
                   >
                     {/* Drag handle — horizontal, matches ResizableHandle style */}
-                    {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
                     <div
                       aria-hidden
                       onMouseDown={onDragStart}
@@ -275,6 +275,13 @@ export default function App() {
             onError={(e, i) => reportUIError(e, i, 'modal-export-hosts')}
           >
             <ExportHostsModal />
+          </ErrorBoundary>
+          <ErrorBoundary
+            fallback="inline"
+            zone="modal-publish-bundle"
+            onError={(e, i) => reportUIError(e, i, 'modal-publish-bundle')}
+          >
+            <PublishBundleModal />
           </ErrorBoundary>
           <ErrorBoundary
             fallback="inline"

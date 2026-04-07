@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { X } from 'lucide-react'
 import type { Host } from '../../types'
-import type { PaneLeaf, Workspace } from '../../store/workspaces'
+import type { Workspace } from '../../store/workspaces'
 import { collectLeaves } from '../../lib/paneTree'
 import { Button } from '../ui/button'
 import {
@@ -124,14 +124,26 @@ export function WorkspaceCard({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <Item asChild size="xs" variant="outline" className={cn(
-          'group',
-          isActive && 'border-accent-foreground bg-accent',
-          !isActive && 'hover:bg-muted/40',
-        )}>
+        <Item
+          asChild
+          size="xs"
+          variant="outline"
+          className={cn(
+            'group',
+            isActive && 'border-accent-foreground bg-accent',
+            !isActive && 'hover:bg-muted/40'
+          )}
+        >
           <div
             role="button"
+            tabIndex={0}
             onClick={onActivate}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onActivate()
+              }
+            }}
             onDragEnter={handleDragEnter}
             onDragLeave={handleDragLeave}
             onDragOver={handleDragOver}

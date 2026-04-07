@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
-import { Settings, Plus, Download, Upload, Zap } from 'lucide-react'
+import { Settings, Plus, Download, Upload, Zap, Globe } from 'lucide-react'
 import {
   CommandDialog,
   Command,
@@ -23,6 +23,7 @@ import {
   isImportHostsOpenAtom,
   isExportHostsOpenAtom,
   connectingHostIdsAtom,
+  publishBundleAtom,
 } from '../store/atoms'
 import {
   workspacesAtom,
@@ -43,6 +44,7 @@ export function CommandPalette() {
   const setIsSettingsOpen = useSetAtom(isSettingsOpenAtom)
   const setIsImportHostsOpen = useSetAtom(isImportHostsOpenAtom)
   const setIsExportHostsOpen = useSetAtom(isExportHostsOpenAtom)
+  const setPublishBundle = useSetAtom(publishBundleAtom)
 
   const close = useCallback(() => setOpen(false), [setOpen])
 
@@ -127,6 +129,14 @@ export function CommandPalette() {
             <CommandItem onSelect={() => runAction(() => setIsExportHostsOpen(true))}>
               <Upload />
               Export Hosts
+            </CommandItem>
+            <CommandItem
+              onSelect={() =>
+                runAction(() => setPublishBundle({ open: true, preSelectedHostIds: [] }))
+              }
+            >
+              <Globe />
+              Publish to Registry
             </CommandItem>
           </CommandGroup>
           {hosts.length > 0 && (
