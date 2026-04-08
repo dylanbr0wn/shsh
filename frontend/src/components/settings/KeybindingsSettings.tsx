@@ -182,192 +182,194 @@ export function KeybindingsSettings() {
   const sortedCategories = Object.keys(grouped).sort()
 
   return (
-    <div className="relative flex h-full flex-col gap-3">
+    <>
       <SettingsHeader title="Shortcuts" />
-      <ButtonGroup className="w-full">
-        <ButtonGroup className="flex-1">
-          <InputGroup>
-            <InputGroupInput
-              placeholder="Search shortcuts..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <InputGroupAddon>
-              <Search size={16} />
-            </InputGroupAddon>
-          </InputGroup>
+      <div className="relative flex min-h-0 flex-1 flex-col gap-3">
+        <ButtonGroup className="w-full">
+          <ButtonGroup className="flex-1">
+            <InputGroup>
+              <InputGroupInput
+                placeholder="Search shortcuts..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+              <InputGroupAddon>
+                <Search size={16} />
+              </InputGroupAddon>
+            </InputGroup>
+          </ButtonGroup>
+          <ButtonGroup>
+            <Button
+              variant="outline"
+              disabled={!keybindings.some((kb) => kb.modified)}
+              onClick={handleResetAll}
+            >
+              Reset All to Defaults
+            </Button>
+          </ButtonGroup>
         </ButtonGroup>
-        <ButtonGroup>
-          <Button
-            variant="outline"
-            disabled={!keybindings.some((kb) => kb.modified)}
-            onClick={handleResetAll}
-          >
-            Reset All to Defaults
-          </Button>
-        </ButtonGroup>
-      </ButtonGroup>
 
-      <ScrollArea className="h-[calc(100%-44px)] rounded">
-        <div className="flex h-full flex-col gap-4 pr-3">
-          {sortedCategories.map((category) => (
-            <FieldSet key={category} className="p-px">
-              <FieldLegend>{category}</FieldLegend>
-              <Card size="sm" className="py-0!">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Action</TableHead>
-                      <TableHead className="w-1/2">Shortcut</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {grouped[category].map((kb, i) => (
-                      <TableRow key={kb.action_id} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
-                        <TableCell className="py-2 font-medium">{kb.label}</TableCell>
-                        <TableCell className="py-2">
-                          <div className="flex items-center gap-2">
-                            <Popover
-                              open={recordingActionId === kb.action_id}
-                              onOpenChange={(open) => {
-                                if (!open) cancelRecording()
-                              }}
-                            >
-                              <PopoverTrigger asChild>
-                                <Button
-                                  className="flex min-w-32 cursor-pointer items-center justify-start gap-1"
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    setRecordingActionId(kb.action_id)
-                                    setRecordedShortcut(null)
-                                    setConflict(null)
-                                  }}
-                                >
-                                  {kb.shortcut ? (
-                                    <KbdGroup className="text-xs">
-                                      {shortcutParts(kb.shortcut).map((part, j) => (
-                                        <Kbd key={j}>{part}</Kbd>
-                                      ))}
-                                    </KbdGroup>
-                                  ) : (
-                                    <Kbd>Unbound</Kbd>
-                                  )}
-                                  <div className="grow" />
-                                  {kb.modified && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <div
-                                          role="button"
-                                          className="focus-visible:ring-primary data-[state=open]:bg-muted justify-self-end rounded p-1 opacity-50 transition-opacity hover:opacity-100 focus:opacity-100 focus-visible:ring"
-                                          onClick={(e) => {
-                                            e.stopPropagation()
-                                            handleReset(kb.action_id)
-                                          }}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                              e.preventDefault()
-                                              handleReset(kb.action_id)
-                                            }
-                                          }}
-                                          tabIndex={0}
-                                        >
-                                          <RotateCcw className="size-3" />
-                                        </div>
-                                      </TooltipTrigger>
-                                      <TooltipContent>Reset to default</TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                </Button>
-                              </PopoverTrigger>
-                              <PopoverContent
-                                align="end"
-                                side="bottom"
-                                className="w-72"
-                                onOpenAutoFocus={(e) => e.preventDefault()}
-                              >
-                                <PopoverHeader>
-                                  <PopoverTitle>
-                                    Recording shortcut for{' '}
-                                    <span className="text-primary">{recordingLabel}</span>
-                                  </PopoverTitle>
-                                  <PopoverDescription>
-                                    Press a key combination to assign it.
-                                  </PopoverDescription>
-                                </PopoverHeader>
-
-                                <div className="bg-muted/50 flex min-h-12 items-center justify-center rounded-md border border-dashed p-3">
-                                  {recordedShortcut ? (
-                                    <KbdGroup className="text-sm">
-                                      {shortcutParts(recordedShortcut).map((part, j) => (
-                                        <Kbd key={j} className="h-7 min-w-7 px-1.5">
-                                          {part}
-                                        </Kbd>
-                                      ))}
-                                    </KbdGroup>
-                                  ) : heldModifiers.length > 0 ? (
-                                    <KbdGroup className="text-sm">
-                                      {heldModifiers.map((mod, j) => (
-                                        <Kbd key={j} className="h-7 min-w-7 px-1.5">
-                                          {mod}
-                                        </Kbd>
-                                      ))}
-                                      <span className="text-muted-foreground animate-pulse text-xs">
-                                        + key
-                                      </span>
-                                    </KbdGroup>
-                                  ) : (
-                                    <span className="text-muted-foreground flex items-center gap-2 text-sm">
-                                      <Dot className="size-4 animate-ping" />
-                                      Waiting for input…
-                                    </span>
-                                  )}
-                                </div>
-
-                                {conflict && (
-                                  <div className="border-destructive/30 bg-destructive/5 flex flex-col gap-2 rounded-md border p-2.5">
-                                    <p className="text-destructive text-xs font-medium">
-                                      Already bound to &ldquo;{conflict.label}&rdquo;
-                                      {conflict.protected && ' (protected)'}
-                                    </p>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        variant="destructive"
-                                        size="sm"
-                                        className="h-7 text-xs"
-                                        disabled={conflict.protected}
-                                        onClick={confirmConflictReassign}
-                                      >
-                                        Reassign
-                                      </Button>
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-xs"
-                                        onClick={cancelRecording}
-                                      >
-                                        Cancel
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <p className="text-muted-foreground text-xs">
-                                  Press <Kbd>Esc</Kbd> to cancel, or click outside to close.
-                                </p>
-                              </PopoverContent>
-                            </Popover>
-                          </div>
-                        </TableCell>
+        <ScrollArea className="h-[calc(100%-44px)] rounded">
+          <div className="flex h-full flex-col gap-4 pr-3">
+            {sortedCategories.map((category) => (
+              <FieldSet key={category} className="p-px">
+                <FieldLegend>{category}</FieldLegend>
+                <Card size="sm" className="py-0!">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Action</TableHead>
+                        <TableHead className="w-1/2">Shortcut</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </FieldSet>
-          ))}
-        </div>
-      </ScrollArea>
-    </div>
+                    </TableHeader>
+                    <TableBody>
+                      {grouped[category].map((kb, i) => (
+                        <TableRow key={kb.action_id} className={i % 2 === 0 ? 'bg-muted/30' : ''}>
+                          <TableCell className="py-2 font-medium">{kb.label}</TableCell>
+                          <TableCell className="py-2">
+                            <div className="flex items-center gap-2">
+                              <Popover
+                                open={recordingActionId === kb.action_id}
+                                onOpenChange={(open) => {
+                                  if (!open) cancelRecording()
+                                }}
+                              >
+                                <PopoverTrigger asChild>
+                                  <Button
+                                    className="flex min-w-32 cursor-pointer items-center justify-start gap-1"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setRecordingActionId(kb.action_id)
+                                      setRecordedShortcut(null)
+                                      setConflict(null)
+                                    }}
+                                  >
+                                    {kb.shortcut ? (
+                                      <KbdGroup className="text-xs">
+                                        {shortcutParts(kb.shortcut).map((part, j) => (
+                                          <Kbd key={j}>{part}</Kbd>
+                                        ))}
+                                      </KbdGroup>
+                                    ) : (
+                                      <Kbd>Unbound</Kbd>
+                                    )}
+                                    <div className="grow" />
+                                    {kb.modified && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div
+                                            role="button"
+                                            className="focus-visible:ring-primary data-[state=open]:bg-muted justify-self-end rounded p-1 opacity-50 transition-opacity hover:opacity-100 focus:opacity-100 focus-visible:ring"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleReset(kb.action_id)
+                                            }}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault()
+                                                handleReset(kb.action_id)
+                                              }
+                                            }}
+                                            tabIndex={0}
+                                          >
+                                            <RotateCcw className="size-3" />
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Reset to default</TooltipContent>
+                                      </Tooltip>
+                                    )}
+                                  </Button>
+                                </PopoverTrigger>
+                                <PopoverContent
+                                  align="end"
+                                  side="bottom"
+                                  className="w-72"
+                                  onOpenAutoFocus={(e) => e.preventDefault()}
+                                >
+                                  <PopoverHeader>
+                                    <PopoverTitle>
+                                      Recording shortcut for{' '}
+                                      <span className="text-primary">{recordingLabel}</span>
+                                    </PopoverTitle>
+                                    <PopoverDescription>
+                                      Press a key combination to assign it.
+                                    </PopoverDescription>
+                                  </PopoverHeader>
+
+                                  <div className="bg-muted/50 flex min-h-12 items-center justify-center rounded-md border border-dashed p-3">
+                                    {recordedShortcut ? (
+                                      <KbdGroup className="text-sm">
+                                        {shortcutParts(recordedShortcut).map((part, j) => (
+                                          <Kbd key={j} className="h-7 min-w-7 px-1.5">
+                                            {part}
+                                          </Kbd>
+                                        ))}
+                                      </KbdGroup>
+                                    ) : heldModifiers.length > 0 ? (
+                                      <KbdGroup className="text-sm">
+                                        {heldModifiers.map((mod, j) => (
+                                          <Kbd key={j} className="h-7 min-w-7 px-1.5">
+                                            {mod}
+                                          </Kbd>
+                                        ))}
+                                        <span className="text-muted-foreground animate-pulse text-xs">
+                                          + key
+                                        </span>
+                                      </KbdGroup>
+                                    ) : (
+                                      <span className="text-muted-foreground flex items-center gap-2 text-sm">
+                                        <Dot className="size-4 animate-ping" />
+                                        Waiting for input…
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {conflict && (
+                                    <div className="border-destructive/30 bg-destructive/5 flex flex-col gap-2 rounded-md border p-2.5">
+                                      <p className="text-destructive text-xs font-medium">
+                                        Already bound to &ldquo;{conflict.label}&rdquo;
+                                        {conflict.protected && ' (protected)'}
+                                      </p>
+                                      <div className="flex gap-2">
+                                        <Button
+                                          variant="destructive"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          disabled={conflict.protected}
+                                          onClick={confirmConflictReassign}
+                                        >
+                                          Reassign
+                                        </Button>
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs"
+                                          onClick={cancelRecording}
+                                        >
+                                          Cancel
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+
+                                  <p className="text-muted-foreground text-xs">
+                                    Press <Kbd>Esc</Kbd> to cancel, or click outside to close.
+                                  </p>
+                                </PopoverContent>
+                              </Popover>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </FieldSet>
+            ))}
+          </div>
+        </ScrollArea>
+      </div>
+    </>
   )
 }

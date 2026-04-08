@@ -29,7 +29,7 @@ export function SettingsModal() {
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="h-full max-h-[80vh] min-h-0 sm:max-w-2xl">
+      <DialogContent showCloseButton={false} className="h-full max-h-[80vh] min-h-0 sm:max-w-2xl">
         <Tabs
           defaultValue="general"
           orientation="vertical"
@@ -49,47 +49,53 @@ export function SettingsModal() {
               </TabsList>
             </CardContent>
           </Card>
-          <TabsContent value="general" className="flex flex-col gap-1 overflow-y-auto">
+          <TabsContent value="general" className="flex h-full min-h-0 flex-col">
             <SettingsHeader title="General" />
-            <FieldSet>
-              <FieldLegend>Appearance</FieldLegend>
-              <FieldGroup>
-                <Field>
-                  <FieldLabel>Theme</FieldLabel>
-                  <FieldDescription>
-                    Choose light, dark, or follow your system setting.
-                  </FieldDescription>
-                  <ToggleGroup type="single" value={theme} onValueChange={(v) => v && setTheme(v)}>
-                    <ToggleGroupItem value="light">Light</ToggleGroupItem>
-                    <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
-                    <ToggleGroupItem value="system">System</ToggleGroupItem>
-                  </ToggleGroup>
-                </Field>
-              </FieldGroup>
-            </FieldSet>
-            <FieldSeparator />
-            <FieldSet>
-              <FieldLegend>Sessions</FieldLegend>
-              <FieldGroup>
-                <Field orientation="horizontal">
-                  <FieldLabel>
-                    Show a confirmation dialog before disconnecting a session.
-                  </FieldLabel>
-                  <Switch
-                    checked={checked}
-                    onCheckedChange={(val) => setCloseConfirmPref(val ? null : false)}
-                  />
-                </Field>
-              </FieldGroup>
-            </FieldSet>
+            <div className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+              <FieldSet>
+                <FieldLegend>Appearance</FieldLegend>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel>Theme</FieldLabel>
+                    <FieldDescription>
+                      Choose light, dark, or follow your system setting.
+                    </FieldDescription>
+                    <ToggleGroup
+                      type="single"
+                      value={theme}
+                      onValueChange={(v) => v && setTheme(v)}
+                    >
+                      <ToggleGroupItem value="light">Light</ToggleGroupItem>
+                      <ToggleGroupItem value="dark">Dark</ToggleGroupItem>
+                      <ToggleGroupItem value="system">System</ToggleGroupItem>
+                    </ToggleGroup>
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
+              <FieldSeparator />
+              <FieldSet>
+                <FieldLegend>Sessions</FieldLegend>
+                <FieldGroup>
+                  <Field orientation="horizontal">
+                    <FieldLabel>
+                      Show a confirmation dialog before disconnecting a session.
+                    </FieldLabel>
+                    <Switch
+                      checked={checked}
+                      onCheckedChange={(val) => setCloseConfirmPref(val ? null : false)}
+                    />
+                  </Field>
+                </FieldGroup>
+              </FieldSet>
+            </div>
           </TabsContent>
-          <TabsContent value="security" className="h-full space-y-4 overflow-y-auto">
+          <TabsContent value="security" className="flex h-full min-h-0 flex-col">
             <SecuritySettings />
           </TabsContent>
-          <TabsContent value="keybindings" className="relative h-full">
+          <TabsContent value="keybindings" className="flex h-full min-h-0 flex-col">
             <KeybindingsSettings />
           </TabsContent>
-          <TabsContent value="registries" className="h-full space-y-4 overflow-y-auto">
+          <TabsContent value="registries" className="flex h-full min-h-0 flex-col">
             <RegistriesSettings />
           </TabsContent>
         </Tabs>

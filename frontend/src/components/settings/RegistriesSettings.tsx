@@ -165,7 +165,7 @@ export function RegistriesSettings() {
   }
 
   return (
-    <ScrollArea className="flex h-full flex-col gap-1">
+    <>
       <SettingsHeader
         title="Registries"
         actions={
@@ -177,159 +177,161 @@ export function RegistriesSettings() {
           ) : undefined
         }
       />
-      <FieldGroup className="pr-3">
-        {/* Existing registries */}
-        {registries.length > 0 && (
-          <FieldSet>
-            <FieldLegend>Connected Registries</FieldLegend>
-            <div className="flex flex-col gap-3 pl-1">
-              {registries.map((reg) => (
-                <Card key={reg.name} size="sm">
-                  <CardHeader>
-                    <div>
-                      <CardTitle>{reg.name}</CardTitle>
-                      <CardDescription>{reg.url}</CardDescription>
-                    </div>
-                    <CardAction>
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        onClick={() => setDeleteTarget(reg.name)}
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </CardAction>
-                  </CardHeader>
-                  <CardContent className="flex flex-col gap-2">
-                    {reg.bundles.map((bundle) => (
-                      <div key={bundle} className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
-                          <Package className="text-muted-foreground size-3" />
-                          <span className="font-mono text-xs">{bundle}</span>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => handleSync(reg.name, bundle)}
-                          >
-                            <RefreshCw className="size-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon-xs"
-                            onClick={() => handleUnsubscribe(reg.name, bundle)}
-                          >
-                            <Trash2 className="size-3" />
-                          </Button>
-                        </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <FieldGroup className="pr-3">
+          {/* Existing registries */}
+          {registries.length > 0 && (
+            <FieldSet>
+              <FieldLegend>Connected Registries</FieldLegend>
+              <div className="flex flex-col gap-3 pl-1">
+                {registries.map((reg) => (
+                  <Card key={reg.name} size="sm">
+                    <CardHeader>
+                      <div>
+                        <CardTitle>{reg.name}</CardTitle>
+                        <CardDescription>{reg.url}</CardDescription>
                       </div>
-                    ))}
-                    {subRegistry === reg.name ? (
-                      <div className="flex gap-1">
-                        <Input
-                          className="h-7 font-mono text-xs"
-                          placeholder="namespace/bundle-name"
-                          value={subBundle}
-                          onChange={(e) => setSubBundle(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleSubscribe(reg.name)
-                            if (e.key === 'Escape') {
-                              setSubRegistry('')
-                              setSubBundle('')
-                            }
-                          }}
-                          autoFocus
-                        />
+                      <CardAction>
                         <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSubscribe(reg.name)}
+                          variant="ghost"
+                          size="icon-xs"
+                          onClick={() => setDeleteTarget(reg.name)}
                         >
-                          Pull
+                          <Trash2 className="size-3.5" />
                         </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="-ml-1"
-                        onClick={() => setSubRegistry(reg.name)}
-                      >
-                        <Plus data-icon="inline-start" className="size-3" />
-                        Subscribe to bundle
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+                      </CardAction>
+                    </CardHeader>
+                    <CardContent className="flex flex-col gap-2">
+                      {reg.bundles.map((bundle) => (
+                        <div key={bundle} className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5">
+                            <Package className="text-muted-foreground size-3" />
+                            <span className="font-mono text-xs">{bundle}</span>
+                          </div>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleSync(reg.name, bundle)}
+                            >
+                              <RefreshCw className="size-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon-xs"
+                              onClick={() => handleUnsubscribe(reg.name, bundle)}
+                            >
+                              <Trash2 className="size-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      {subRegistry === reg.name ? (
+                        <div className="flex gap-1">
+                          <Input
+                            className="h-7 font-mono text-xs"
+                            placeholder="namespace/bundle-name"
+                            value={subBundle}
+                            onChange={(e) => setSubBundle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') handleSubscribe(reg.name)
+                              if (e.key === 'Escape') {
+                                setSubRegistry('')
+                                setSubBundle('')
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleSubscribe(reg.name)}
+                          >
+                            Pull
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="-ml-1"
+                          onClick={() => setSubRegistry(reg.name)}
+                        >
+                          <Plus data-icon="inline-start" className="size-3" />
+                          Subscribe to bundle
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </FieldSet>
+          )}
+
+          {registries.length > 0 && <FieldSeparator />}
+
+          {/* Add new registry */}
+          <FieldSet>
+            <FieldLegend>Add Registry</FieldLegend>
+            <FieldGroup>
+              <Field>
+                <FieldLabel>Name</FieldLabel>
+                <FieldDescription>A display name for this registry connection.</FieldDescription>
+                <Input
+                  placeholder="e.g. Company"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </Field>
+              <Field>
+                <FieldLabel>URL</FieldLabel>
+                <FieldDescription>The registry server address.</FieldDescription>
+                <Input
+                  placeholder="https://registry.internal:8080"
+                  value={newURL}
+                  onChange={(e) => setNewURL(e.target.value)}
+                />
+              </Field>
+              <Field>
+                <FieldLabel>API Key</FieldLabel>
+                <FieldDescription>The namespace API key from the registry server.</FieldDescription>
+                <Input
+                  type="password"
+                  placeholder="shsh_..."
+                  value={newAPIKey}
+                  onChange={(e) => setNewAPIKey(e.target.value)}
+                />
+              </Field>
+              <Button
+                onClick={handleAdd}
+                disabled={adding || !newName.trim() || !newURL.trim() || !newAPIKey.trim()}
+              >
+                <Plus data-icon="inline-start" />
+                {adding ? 'Adding...' : 'Add Registry'}
+              </Button>
+            </FieldGroup>
           </FieldSet>
-        )}
+        </FieldGroup>
 
-        {registries.length > 0 && <FieldSeparator />}
-
-        {/* Add new registry */}
-        <FieldSet>
-          <FieldLegend>Add Registry</FieldLegend>
-          <FieldGroup>
-            <Field>
-              <FieldLabel>Name</FieldLabel>
-              <FieldDescription>A display name for this registry connection.</FieldDescription>
-              <Input
-                placeholder="e.g. Company"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel>URL</FieldLabel>
-              <FieldDescription>The registry server address.</FieldDescription>
-              <Input
-                placeholder="https://registry.internal:8080"
-                value={newURL}
-                onChange={(e) => setNewURL(e.target.value)}
-              />
-            </Field>
-            <Field>
-              <FieldLabel>API Key</FieldLabel>
-              <FieldDescription>The namespace API key from the registry server.</FieldDescription>
-              <Input
-                type="password"
-                placeholder="shsh_..."
-                value={newAPIKey}
-                onChange={(e) => setNewAPIKey(e.target.value)}
-              />
-            </Field>
-            <Button
-              onClick={handleAdd}
-              disabled={adding || !newName.trim() || !newURL.trim() || !newAPIKey.trim()}
-            >
-              <Plus data-icon="inline-start" />
-              {adding ? 'Adding...' : 'Add Registry'}
-            </Button>
-          </FieldGroup>
-        </FieldSet>
-      </FieldGroup>
-
-      {/* Delete confirmation */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Registry</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the registry connection and delete all synced hosts from &quot;
-              {deleteTarget}&quot;. This cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => deleteTarget && handleRemove(deleteTarget)}>
-              Remove
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </ScrollArea>
+        {/* Delete confirmation */}
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove Registry</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will remove the registry connection and delete all synced hosts from &quot;
+                {deleteTarget}&quot;. This cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => deleteTarget && handleRemove(deleteTarget)}>
+                Remove
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </ScrollArea>
+    </>
   )
 }
